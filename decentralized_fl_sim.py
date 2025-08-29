@@ -244,22 +244,17 @@ def run_sim(args):
     num_workers = 4  # M3 Pro has good multiprocessing capabilities
     pin_memory = dev.type != "cpu"  # Only use pin_memory for GPU
     
-    # Create data loaders with optional sampling
+    # Create data loaders with optional sampling (will recreate samplers each round if needed)
     if args.max_samples:
-        # Sample a subset of data per epoch
-        loaders = []
-        for p in parts:
-            num_samples = min(args.max_samples, len(p))
-            sampler = RandomSampler(p, replacement=False, num_samples=num_samples)
-            loader = DataLoader(p, batch_size=args.batch_size, sampler=sampler,
-                              num_workers=num_workers, pin_memory=pin_memory, 
-                              persistent_workers=True, prefetch_factor=2)
-            loaders.append(loader)
-        print(f"Sampling {args.max_samples} samples per client per epoch")
+        print(f"Will sample {args.max_samples} samples per client per epoch (resampled each round)")
+        # Store parts for later sampling - don't create loaders yet
+        use_sampling = True
+        loaders = None  # Will be created each round
     else:
         loaders = [DataLoader(p, batch_size=args.batch_size, shuffle=True, 
                              num_workers=num_workers, pin_memory=pin_memory, 
                              persistent_workers=True, prefetch_factor=2) for p in parts]
+        use_sampling = False
     
     # Create client-specific test loaders (following LEAF methodology)
     test_loaders = [DataLoader(tp, batch_size=512, shuffle=False, 
@@ -298,6 +293,18 @@ def run_sim(args):
 
     # Training rounds
     for r in range(1, args.rounds + 1):
+        # Create fresh samplers each round if using sampling
+        if use_sampling:
+            loaders = []
+            for p in parts:
+                num_samples = min(args.max_samples, len(p))
+                # Create new sampler with round-specific seed to ensure different samples
+                sampler = RandomSampler(p, replacement=False, num_samples=num_samples, 
+                                      generator=torch.Generator().manual_seed(args.seed + r))
+                loader = DataLoader(p, batch_size=args.batch_size, sampler=sampler,
+                                  num_workers=num_workers, pin_memory=pin_memory)
+                loaders.append(loader)
+        
         # Local training at each node
         # Track if models are actually changing
         pre_train_params = [get_state(m) for m in models]
