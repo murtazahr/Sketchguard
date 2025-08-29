@@ -341,19 +341,22 @@ def run_sim(args):
             corrects.append(correct)
             totals.append(total)
         
-        # Debug: Check if we're getting identical results due to model state issues
+        # Debug: Check if all models are identical after parameter averaging
         if r > 1:
-            # Compare first model's first few parameters with previous round
-            current_params = list(models[0].parameters())[0].data.flatten()[:5]
-            print(f"         : Model 0 first 5 params = {current_params.tolist()}")
+            # Compare parameters between models
+            model0_params = list(models[0].parameters())[0].data.flatten()[:5]
+            model1_params = list(models[1].parameters())[0].data.flatten()[:5]
+            print(f"         : Model 0 params = {model0_params.tolist()}")
+            print(f"         : Model 1 params = {model1_params.tolist()}")
             
-            # Quick sanity check - evaluate same model on same test data twice
-            acc1, _, c1, t1 = evaluate(models[0], test_loaders[0], dev)
-            acc2, _, c2, t2 = evaluate(models[0], test_loaders[0], dev)
-            if c1 != c2 or t1 != t2:
-                print(f"         : WARNING - Non-deterministic evaluation: ({c1},{t1}) vs ({c2},{t2})")
+            # Check if models are identical
+            params_diff = torch.sum(torch.abs(model0_params - model1_params)).item()
+            print(f"         : Parameter difference = {params_diff}")
+            
+            if params_diff < 1e-10:
+                print(f"         : *** MODELS ARE IDENTICAL - This explains identical accuracies! ***")
             else:
-                print(f"         : Evaluation is deterministic: ({c1},{t1})")
+                print(f"         : Models are different but predictions might be identical")
         
         print(f"Round {r:03d}: test acc mean={np.mean(accs):.4f} ± {np.std(accs):.4f} | min={np.min(accs):.4f} max={np.max(accs):.4f}")
         print(f"         : test loss mean={np.mean(losses):.4f} ± {np.std(losses):.4f}")

@@ -291,14 +291,23 @@ def create_leaf_client_partitions(train_dataset, test_dataset, num_nodes: int, s
     print(f"User sample counts range: {user_sample_counts[0][1]} (max) to {user_sample_counts[-1][1]} (min)")
     
     if len(sorted_users) >= num_nodes:
-        # For Sent140, group multiple users per client to ensure class diversity
-        # Check if this is likely Sent140 (many users with few samples each)
+        # Group multiple users per client for both datasets if we have many users
         avg_samples = np.mean([count for _, count in user_sample_counts])
         
-        if avg_samples < 10 and len(sorted_users) >= num_nodes * 20:
-            # Sent140 case: group users per client for class diversity
-            # Use enough users to get good class mix, but not too many
-            users_per_node = min(100, max(20, len(sorted_users) // (num_nodes * 10)))
+        # For both FEMNIST and Sent140, group users if we have many small users
+        # or if we need more samples per client for good learning
+        should_group = (avg_samples < 10 and len(sorted_users) >= num_nodes * 20) or \
+                      (len(sorted_users) >= num_nodes * 5 and avg_samples < 1000)
+        
+        if should_group:
+            # Group users per client for better training data volume and class diversity
+            if avg_samples < 10:
+                # Sent140 case: many tiny users
+                users_per_node = min(100, max(20, len(sorted_users) // (num_nodes * 10)))
+            else:
+                # FEMNIST case: moderate-sized users, group for more training data
+                users_per_node = min(50, max(5, len(sorted_users) // (num_nodes * 2)))
+            
             total_users_to_use = min(len(sorted_users), num_nodes * users_per_node)
             
             # Analyze class distribution of users we're about to use
