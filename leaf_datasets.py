@@ -291,15 +291,39 @@ def create_leaf_client_partitions(train_dataset, test_dataset, num_nodes: int, s
     print(f"User sample counts range: {user_sample_counts[0][1]} (max) to {user_sample_counts[-1][1]} (min)")
     
     if len(sorted_users) >= num_nodes:
-        # Select top users with most samples
-        selected_users = sorted_users[:num_nodes]
-        train_partitions = [train_dataset.user_indices[user] for user in selected_users]
-        test_partitions = [test_dataset.user_indices[user] for user in selected_users]
+        # For Sent140, group multiple users per client to ensure class diversity
+        # Check if this is likely Sent140 (many users with few samples each)
+        avg_samples = np.mean([count for _, count in user_sample_counts])
         
-        # Show sample counts for selected users
-        sample_counts = [len(train_dataset.user_indices[user]) for user in selected_users]
-        print(f"Using {len(selected_users)} users directly as clients")
-        print(f"Selected users sample counts: {sample_counts}")
+        if avg_samples < 10 and len(sorted_users) >= num_nodes * 20:
+            # Sent140 case: group users per client for class diversity
+            # Use enough users to get good class mix, but not too many
+            users_per_node = min(100, max(20, len(sorted_users) // (num_nodes * 10)))
+            total_users_to_use = min(len(sorted_users), num_nodes * users_per_node)
+            
+            train_partitions = [[] for _ in range(num_nodes)]
+            test_partitions = [[] for _ in range(num_nodes)]
+            
+            # Distribute users round-robin starting with largest
+            for i, user in enumerate(sorted_users[:total_users_to_use]):
+                node_id = i % num_nodes
+                train_partitions[node_id].extend(train_dataset.user_indices[user])
+                test_partitions[node_id].extend(test_dataset.user_indices[user])
+            
+            # Show partition info
+            partition_sizes = [len(partition) for partition in train_partitions]
+            print(f"Grouped {total_users_to_use} users into {num_nodes} clients (~{users_per_node} users per client)")
+            print(f"Final partition sizes: {partition_sizes}")
+        else:
+            # FEMNIST case: use top users with most samples
+            selected_users = sorted_users[:num_nodes]
+            train_partitions = [train_dataset.user_indices[user] for user in selected_users]
+            test_partitions = [test_dataset.user_indices[user] for user in selected_users]
+            
+            # Show sample counts for selected users
+            sample_counts = [len(train_dataset.user_indices[user]) for user in selected_users]
+            print(f"Using {len(selected_users)} users directly as clients")
+            print(f"Selected users sample counts: {sample_counts}")
     else:
         # Group multiple users per node (largest users get distributed first)
         train_partitions = [[] for _ in range(num_nodes)]
