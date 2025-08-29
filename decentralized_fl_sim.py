@@ -121,7 +121,7 @@ def make_graph(n: int, kind: str, p: float = 0.3) -> Graph:
 # All partitioning is now handled by create_leaf_client_partitions in leaf_datasets.py
 
 
-def evaluate(model: nn.Module, loader: DataLoader, device_: torch.device) -> Tuple[float, float]:
+def evaluate(model: nn.Module, loader: DataLoader, device_: torch.device) -> Tuple[float, float, int, int]:
     model.eval()
     total = 0
     correct = 0
@@ -136,7 +136,7 @@ def evaluate(model: nn.Module, loader: DataLoader, device_: torch.device) -> Tup
             pred = logits.argmax(dim=1)
             correct += (pred == yb).sum().item()
             total += xb.size(0)
-    return correct / max(1, total), loss_sum / max(1, total)
+    return correct / max(1, total), loss_sum / max(1, total), correct, total
 
 
 def local_train(model: nn.Module, loader: DataLoader, epochs: int, lr: float, device_: torch.device):
@@ -292,7 +292,7 @@ def run_sim(args):
     with torch.no_grad():
         base_accs = []
         for i, m in enumerate(models):
-            acc, _ = evaluate(m, test_loaders[i], dev)
+            acc, _, _, _ = evaluate(m, test_loaders[i], dev)
             base_accs.append(acc)
         print(f"Initial test acc across nodes: mean={np.mean(base_accs):.4f} ± {np.std(base_accs):.4f}")
 
@@ -325,19 +325,24 @@ def run_sim(args):
         # Evaluation: each client tests on their own user's test data
         accs = []
         losses = []
+        corrects = []
+        totals = []
         for i, m in enumerate(models):
-            acc, loss = evaluate(m, test_loaders[i], dev)
+            acc, loss, correct, total = evaluate(m, test_loaders[i], dev)
             accs.append(acc)
             losses.append(loss)
+            corrects.append(correct)
+            totals.append(total)
         
         print(f"Round {r:03d}: test acc mean={np.mean(accs):.4f} ± {np.std(accs):.4f} | min={np.min(accs):.4f} max={np.max(accs):.4f}")
         print(f"         : test loss mean={np.mean(losses):.4f} ± {np.std(losses):.4f}")
-        print(f"         : individual accs = {[f'{acc:.4f}' for acc in accs]}")
+        print(f"         : individual accs = {[f'{acc:.6f}' for acc in accs]}")
+        print(f"         : correct/total = {[(c, t) for c, t in zip(corrects[:3], totals[:3])]}...")
 
     # Final summary - each client evaluates on their own test data
     accs = []
     for i, m in enumerate(models):
-        acc, _ = evaluate(m, test_loaders[i], dev)
+        acc, _, _, _ = evaluate(m, test_loaders[i], dev)
         accs.append(acc)
     print("\n=== FINAL ===")
     print(f"Nodes: {args.num_nodes}, Graph: {args.graph}, Agg: {args.agg}")
