@@ -257,9 +257,9 @@ def run_sim(args):
         use_sampling = False
     
     # Create client-specific test loaders (following LEAF methodology)
+    # Remove persistent workers and prefetch that might cause caching issues
     test_loaders = [DataLoader(tp, batch_size=512, shuffle=False, 
-                             num_workers=num_workers, pin_memory=pin_memory,
-                             persistent_workers=True, prefetch_factor=2) for tp in test_parts]
+                             num_workers=0, pin_memory=False) for tp in test_parts]
 
     # Graph
     graph = make_graph(args.num_nodes, args.graph, p=args.p)
@@ -340,6 +340,20 @@ def run_sim(args):
             losses.append(loss)
             corrects.append(correct)
             totals.append(total)
+        
+        # Debug: Check if we're getting identical results due to model state issues
+        if r > 1:
+            # Compare first model's first few parameters with previous round
+            current_params = list(models[0].parameters())[0].data.flatten()[:5]
+            print(f"         : Model 0 first 5 params = {current_params.tolist()}")
+            
+            # Quick sanity check - evaluate same model on same test data twice
+            acc1, _, c1, t1 = evaluate(models[0], test_loaders[0], dev)
+            acc2, _, c2, t2 = evaluate(models[0], test_loaders[0], dev)
+            if c1 != c2 or t1 != t2:
+                print(f"         : WARNING - Non-deterministic evaluation: ({c1},{t1}) vs ({c2},{t2})")
+            else:
+                print(f"         : Evaluation is deterministic: ({c1},{t1})")
         
         print(f"Round {r:03d}: test acc mean={np.mean(accs):.4f} ± {np.std(accs):.4f} | min={np.min(accs):.4f} max={np.max(accs):.4f}")
         print(f"         : test loss mean={np.mean(losses):.4f} ± {np.std(losses):.4f}")
