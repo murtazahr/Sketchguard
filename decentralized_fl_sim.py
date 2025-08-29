@@ -653,6 +653,7 @@ def run_sim(args):
         
         print(f"Round {r:03d}: test acc mean={np.mean(accs):.4f} ± {np.std(accs):.4f} | min={np.min(accs):.4f} max={np.max(accs):.4f}")
         print(f"         : test loss mean={np.mean(losses):.4f} ± {np.std(losses):.4f}")
+        print(f"         : individual accs = {[f'{acc:.4f}' for acc in accs]}")
 
     # Final summary - each client evaluates on their own test data
     accs = []
