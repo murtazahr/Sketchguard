@@ -290,92 +290,41 @@ def create_leaf_client_partitions(train_dataset, test_dataset, num_nodes: int, s
     print(f"Found {len(train_users)} train users, {len(test_users)} test users, {len(common_users)} common users")
     print(f"User sample counts range: {user_sample_counts[0][1]} (max) to {user_sample_counts[-1][1]} (min)")
     
-    if len(sorted_users) >= num_nodes:
-        # Group multiple users per client for both datasets if we have many users
-        avg_samples = np.mean([count for _, count in user_sample_counts])
+    # Always distribute ALL users equally across nodes (no min/max limits)
+    train_partitions = [[] for _ in range(num_nodes)]
+    test_partitions = [[] for _ in range(num_nodes)]
+    client_class_counts = [{} for _ in range(num_nodes)]
+    
+    # Distribute users round-robin starting with largest (for balanced data distribution)
+    for i, user in enumerate(sorted_users):
+        node_id = i % num_nodes
+        user_train_indices = train_dataset.user_indices[user]
+        train_partitions[node_id].extend(user_train_indices)
+        test_partitions[node_id].extend(test_dataset.user_indices[user])
         
-        # For both FEMNIST and Sent140, group users if we have many small users
-        # or if we need more samples per client for good learning
-        should_group = (avg_samples < 10 and len(sorted_users) >= num_nodes * 20) or \
-                      (len(sorted_users) >= num_nodes * 5 and avg_samples < 1000)
-        
-        if should_group:
-            # Group users per client for better training data volume and class diversity
-            if avg_samples < 10:
-                # Sent140 case: many tiny users
-                users_per_node = min(100, max(20, len(sorted_users) // (num_nodes * 10)))
-            else:
-                # FEMNIST case: moderate-sized users, group for more training data
-                users_per_node = min(50, max(5, len(sorted_users) // (num_nodes * 2)))
-            
-            total_users_to_use = min(len(sorted_users), num_nodes * users_per_node)
-            
-            # Analyze class distribution of users we're about to use
-            user_classes = {}
-            for user in sorted_users[:total_users_to_use]:
-                user_labels = set()
-                for idx in train_dataset.user_indices[user]:
-                    user_labels.add(train_dataset.all_targets[idx])
-                user_classes[user] = user_labels
-            
-            # Count users by their class composition
-            single_class_users = sum(1 for labels in user_classes.values() if len(labels) == 1)
-            multi_class_users = sum(1 for labels in user_classes.values() if len(labels) > 1)
-            print(f"Among top {total_users_to_use} users: {single_class_users} have single class, {multi_class_users} have multiple classes")
-            
-            train_partitions = [[] for _ in range(num_nodes)]
-            test_partitions = [[] for _ in range(num_nodes)]
-            
-            # Distribute users round-robin starting with largest
-            # Also track class distribution per client
-            client_class_counts = [{} for _ in range(num_nodes)]
-            
-            for i, user in enumerate(sorted_users[:total_users_to_use]):
-                node_id = i % num_nodes
-                user_train_indices = train_dataset.user_indices[user]
-                train_partitions[node_id].extend(user_train_indices)
-                test_partitions[node_id].extend(test_dataset.user_indices[user])
-                
-                # Track classes for this user
-                for idx in user_train_indices:
-                    label = train_dataset.all_targets[idx]
-                    if label not in client_class_counts[node_id]:
-                        client_class_counts[node_id][label] = 0
-                    client_class_counts[node_id][label] += 1
-            
-            # Show partition info
-            partition_sizes = [len(partition) for partition in train_partitions]
-            print(f"Grouped {total_users_to_use} users into {num_nodes} clients (~{users_per_node} users per client)")
-            print(f"Final partition sizes: {partition_sizes}")
-            
-            # Show class distribution
-            for i in range(num_nodes):
-                class_info = ", ".join([f"class {k}: {v}" for k, v in sorted(client_class_counts[i].items())])
-                print(f"  Client {i} class distribution: [{class_info}]")
-        else:
-            # FEMNIST case: use top users with most samples
-            selected_users = sorted_users[:num_nodes]
-            train_partitions = [train_dataset.user_indices[user] for user in selected_users]
-            test_partitions = [test_dataset.user_indices[user] for user in selected_users]
-            
-            # Show sample counts for selected users
-            sample_counts = [len(train_dataset.user_indices[user]) for user in selected_users]
-            print(f"Using {len(selected_users)} users directly as clients")
-            print(f"Selected users sample counts: {sample_counts}")
-    else:
-        # Group multiple users per node (largest users get distributed first)
-        train_partitions = [[] for _ in range(num_nodes)]
-        test_partitions = [[] for _ in range(num_nodes)]
-        
-        for i, user in enumerate(sorted_users):
-            node_id = i % num_nodes
-            train_partitions[node_id].extend(train_dataset.user_indices[user])
-            test_partitions[node_id].extend(test_dataset.user_indices[user])
-        
-        # Show final partition sizes
-        partition_sizes = [len(partition) for partition in train_partitions]
-        print(f"Grouped {len(sorted_users)} users into {num_nodes} clients")
-        print(f"Final partition sizes: {partition_sizes}")
+        # Track classes for this user
+        for idx in user_train_indices:
+            label = train_dataset.all_targets[idx]
+            if label not in client_class_counts[node_id]:
+                client_class_counts[node_id][label] = 0
+            client_class_counts[node_id][label] += 1
+    
+    # Show partition info
+    users_per_node = len(sorted_users) // num_nodes
+    remainder_users = len(sorted_users) % num_nodes
+    partition_sizes = [len(partition) for partition in train_partitions]
+    test_partition_sizes = [len(partition) for partition in test_partitions]
+    
+    print(f"Distributed ALL {len(sorted_users)} users across {num_nodes} clients")
+    print(f"Users per client: {users_per_node} (with {remainder_users} clients getting +1 user)")
+    print(f"Train partition sizes: {partition_sizes}")
+    print(f"Test partition sizes: {test_partition_sizes}")
+    
+    # Show class distribution for each client
+    for i in range(num_nodes):
+        unique_classes = len(client_class_counts[i])
+        total_samples = sum(client_class_counts[i].values())
+        print(f"  Client {i}: {total_samples} train samples, {unique_classes} unique classes")
     
     return train_partitions, test_partitions
 
