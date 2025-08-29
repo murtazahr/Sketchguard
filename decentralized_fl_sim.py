@@ -563,7 +563,7 @@ def run_sim(args):
     # Print partition info and quality  
     print("Using non-IID partitions (writer-based for FEMNIST, user-based for Sent140)")
     # Show partition sizes and class diversity
-    for i in range(min(3, args.num_nodes)):
+    for i in range(args.num_nodes):
         class_counts = {}
         for idx in parts[i].indices[:200]:  # Sample first 200
             _, label = train_ds[idx]
