@@ -38,7 +38,7 @@ from typing import Dict, List, Tuple
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import DataLoader, Subset, RandomSampler
 
 from leaf_datasets import (
     load_leaf_dataset, 
@@ -565,19 +565,34 @@ def run_sim(args):
     # Show partition sizes and class diversity
     for i in range(args.num_nodes):
         class_counts = {}
-        for idx in parts[i].indices[:200]:  # Sample first 200
+        # Check ALL samples to get accurate class distribution
+        for idx in parts[i].indices:
             _, label = train_ds[idx]
             class_counts[label] = class_counts.get(label, 0) + 1
         unique_classes = len(class_counts)
-        print(f"  Client {i}: {len(parts[i])} samples, {unique_classes} unique classes")
+        class_dist = ", ".join([f"class {k}: {v}" for k, v in sorted(class_counts.items())])
+        print(f"  Client {i}: {len(parts[i])} samples, {unique_classes} unique classes [{class_dist}]")
 
     # Dataloaders per node - optimized for M3 Pro
     num_workers = 4  # M3 Pro has good multiprocessing capabilities
     pin_memory = dev.type != "cpu"  # Only use pin_memory for GPU
     
-    loaders = [DataLoader(p, batch_size=args.batch_size, shuffle=True, 
-                         num_workers=num_workers, pin_memory=pin_memory, 
-                         persistent_workers=True, prefetch_factor=2) for p in parts]
+    # Create data loaders with optional sampling
+    if args.max_samples:
+        # Sample a subset of data per epoch
+        loaders = []
+        for p in parts:
+            num_samples = min(args.max_samples, len(p))
+            sampler = RandomSampler(p, replacement=False, num_samples=num_samples)
+            loader = DataLoader(p, batch_size=args.batch_size, sampler=sampler,
+                              num_workers=num_workers, pin_memory=pin_memory, 
+                              persistent_workers=True, prefetch_factor=2)
+            loaders.append(loader)
+        print(f"Sampling {args.max_samples} samples per client per epoch")
+    else:
+        loaders = [DataLoader(p, batch_size=args.batch_size, shuffle=True, 
+                             num_workers=num_workers, pin_memory=pin_memory, 
+                             persistent_workers=True, prefetch_factor=2) for p in parts]
     
     # Create client-specific test loaders (following LEAF methodology)
     test_loaders = [DataLoader(tp, batch_size=512, shuffle=False, 
@@ -655,6 +670,8 @@ def parse_args():
     p.add_argument("--local-epochs", type=int, default=1)
     p.add_argument("--batch-size", type=int, default=128)
     p.add_argument("--lr", type=float, default=0.01)
+    p.add_argument("--max-samples", type=int, default=None, 
+                   help="Max samples per client per epoch (for large datasets like Sent140)")
     p.add_argument("--agg", type=str, choices=["d-fedadj", "gossip"], default="d-fedadj",
                    help="d-fedadj = average with neighbors synchronously; gossip = random edge averaging")
     p.add_argument("--gossip-steps", type=int, default=10, help="number of random edge gossips per round")

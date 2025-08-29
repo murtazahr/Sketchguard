@@ -340,7 +340,7 @@ def create_leaf_client_partitions(train_dataset, test_dataset, num_nodes: int, s
             print(f"Final partition sizes: {partition_sizes}")
             
             # Show class distribution
-            for i in range(min(3, num_nodes)):
+            for i in range(num_nodes):
                 class_info = ", ".join([f"class {k}: {v}" for k, v in sorted(client_class_counts[i].items())])
                 print(f"  Client {i} class distribution: [{class_info}]")
         else:
