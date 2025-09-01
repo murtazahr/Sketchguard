@@ -100,7 +100,9 @@ class LEAFCelebADataset(Dataset):
         self.split = split
         self.image_size = image_size
         self.transform = transform
+        # Construct path to images directory
         self.images_dir = os.path.join(data_path, '..', 'raw', 'img_align_celeba')
+        print(f"Looking for images in: {os.path.abspath(self.images_dir)}")
         
         # Load LEAF JSON data from multiple files (similar to FEMNIST)
         split_dir = os.path.join(data_path, split)
@@ -158,10 +160,25 @@ class LEAFCelebADataset(Dataset):
         img_name = self.all_data[idx]
         img_path = os.path.join(self.images_dir, img_name)
         
-        # Check if image exists, if not try without directory
+        # Check if image exists and provide better error handling
         if not os.path.exists(img_path):
-            # Sometimes the data just has the filename
-            img_path = os.path.join(os.path.dirname(self.images_dir), img_name)
+            # Try alternative paths
+            alt_paths = [
+                os.path.join(os.path.dirname(self.images_dir), img_name),  # raw/img_name
+                os.path.join(os.path.dirname(os.path.dirname(self.images_dir)), 'raw', img_name),  # ../raw/img_name
+            ]
+            
+            found = False
+            for alt_path in alt_paths:
+                if os.path.exists(alt_path):
+                    img_path = alt_path
+                    found = True
+                    break
+            
+            if not found:
+                raise FileNotFoundError(f"Could not find image {img_name}. Tried paths:\n" +
+                                      f"  {img_path}\n" + 
+                                      "\n".join(f"  {p}" for p in alt_paths))
         
         img = Image.open(img_path)
         img = img.resize((self.image_size, self.image_size)).convert('RGB')

@@ -2,9 +2,10 @@
 """
 Decentralized Learning Simulator for LEAF Datasets (PyTorch)
 
-Supports two aggregation strategies over a peer graph:
+Supports three aggregation strategies over a peer graph:
   1) Decentralized FedAvg (synchronous neighbor averaging per round)
   2) Gossip averaging (asynchronous-style, simulated with K random edge gossips per round)
+  3) Decentralized Krum (Byzantine-robust aggregation, selects most similar model in neighborhood)
 
 LEAF Datasets:
   - FEMNIST: Handwritten characters by writer (non-IID, natural federated dataset)
@@ -23,6 +24,10 @@ Example usage:
   python decentralized_fl_sim.py \
       --dataset celeba --num-nodes 10 --rounds 30 --local-epochs 1 \
       --agg gossip --gossip-steps 50 --graph erdos --p 0.3
+
+  python decentralized_fl_sim.py \
+      --dataset femnist --num-nodes 8 --rounds 20 --local-epochs 1 \
+      --agg krum --num-compromised 1 --graph ring
 
 Notes:
   - Requires LEAF dataset preprocessing (see leaf/data/*/preprocess.sh)
@@ -218,6 +223,95 @@ def gossip_round(models: List[nn.Module], graph: Graph, steps: int = 1, round_nu
         set_state(models[j], avg)
 
 
+def compute_model_distance(state1: Dict[str, torch.Tensor], state2: Dict[str, torch.Tensor]) -> float:
+    """Compute Euclidean distance between two model states."""
+    total_distance = 0.0
+    for key in state1.keys():
+        diff = state1[key] - state2[key]
+        total_distance += torch.sum(diff * diff).item()
+    return total_distance
+
+
+def krum_select(model_states: List[Dict[str, torch.Tensor]], num_compromised: int = 0) -> int:
+    """
+    Select model using Krum algorithm.
+    
+    Args:
+        model_states: List of model state dictionaries
+        num_compromised: Maximum number of compromised models (c)
+    
+    Returns:
+        Index of selected model
+    """
+    m = len(model_states)
+    c = num_compromised
+    
+    if c >= (m - 2) / 2:
+        raise ValueError(f"Krum requires c < (m-2)/2, got c={c}, m={m}")
+    
+    # For each model, compute distances to all other models
+    distances = []
+    for i in range(m):
+        model_distances = []
+        for j in range(m):
+            if i != j:
+                dist = compute_model_distance(model_states[i], model_states[j])
+                model_distances.append(dist)
+        distances.append(model_distances)
+    
+    # For each model, find the m-c-2 closest models and sum their distances
+    scores = []
+    for i in range(m):
+        # Sort distances for model i and take the smallest m-c-2
+        sorted_distances = sorted(distances[i])
+        num_closest = m - c - 2
+        if num_closest <= 0:
+            num_closest = 1  # At least consider 1 model
+        closest_distances = sorted_distances[:num_closest]
+        score = sum(closest_distances)
+        scores.append(score)
+    
+    # Select model with smallest score (sum of distances to closest models)
+    selected_idx = scores.index(min(scores))
+    return selected_idx
+
+
+def decentralized_krum_step(models: List[nn.Module], graph: Graph, num_compromised: int = 0):
+    """
+    Decentralized Krum: Each node applies Krum selection to its neighborhood.
+    
+    Args:
+        models: List of all models
+        graph: Graph structure defining neighborhoods
+        num_compromised: Maximum number of compromised models per neighborhood
+    """
+    states = [get_state(m) for m in models]
+    new_states = []
+    
+    for i in range(graph.n):
+        # Get neighborhood (including self)
+        neigh = [i] + graph.neighbors[i]
+        neigh_states = [states[j] for j in neigh]
+        
+        # Apply Krum selection within neighborhood
+        if len(neigh_states) > 1:
+            try:
+                selected_idx = krum_select(neigh_states, num_compromised)
+                selected_state = neigh_states[selected_idx]
+                new_states.append(selected_state)
+            except ValueError:
+                # Fallback to averaging if Krum conditions not met
+                w = [1.0 / len(neigh_states)] * len(neigh_states)
+                new_states.append(average_states(neigh_states, w))
+        else:
+            # Single model in neighborhood, just use it
+            new_states.append(neigh_states[0])
+    
+    # Update all models with selected states
+    for model, st in zip(models, new_states):
+        set_state(model, st)
+
+
 # ---------------------------- Simulator ---------------------------- #
 
 def run_sim(args):
@@ -253,8 +347,7 @@ def run_sim(args):
             _, label = train_ds[idx]
             class_counts[label] = class_counts.get(label, 0) + 1
         unique_classes = len(class_counts)
-        class_dist = ", ".join([f"class {k}: {v}" for k, v in sorted(class_counts.items())])
-        print(f"  Client {i}: {len(parts[i])} samples, {unique_classes} unique classes [{class_dist}]")
+        print(f"  Client {i}: {len(parts[i])} samples, {unique_classes} unique classes")
 
     # Dataloaders per node - optimized for M3 Pro
     num_workers = 4  # M3 Pro has good multiprocessing capabilities
@@ -340,28 +433,18 @@ def run_sim(args):
                 loaders.append(loader)
         
         # Local training at each node
-        # Track if models are actually changing
-        pre_train_params = [get_state(m) for m in models]
-        
         for i, (m, ld) in enumerate(zip(models, loaders)):
             local_train(m, ld, epochs=args.local_epochs, lr=args.lr, device_=dev)
-        
-        # Check if any models changed
-        param_changes = []
-        for i, m in enumerate(models):
-            post_params = get_state(m)
-            change = sum((post_params[k] - pre_train_params[i][k]).abs().sum().item() 
-                        for k in post_params.keys())
-            param_changes.append(change)
-        print(f"Round {r}: parameter changes = {[f'{change:.6f}' for change in param_changes[:3]]}...")
 
         # Communication / aggregation
         if args.agg == "d-fedadj":
             decentralized_fedavg_step(models, graph)
         elif args.agg == "gossip":
             gossip_round(models, graph, steps=args.gossip_steps, round_num=r, seed=args.seed)
+        elif args.agg == "krum":
+            decentralized_krum_step(models, graph, args.num_compromised)
         else:
-            raise ValueError("agg must be 'd-fedadj' or 'gossip'")
+            raise ValueError("agg must be 'd-fedadj', 'gossip', or 'krum'")
 
         # Evaluation: each client tests on their own user's test data
         accs = []
@@ -419,9 +502,10 @@ def parse_args():
     p.add_argument("--lr", type=float, default=0.01)
     p.add_argument("--max-samples", type=int, default=None, 
                    help="Max samples per client per epoch (for large datasets like CelebA)")
-    p.add_argument("--agg", type=str, choices=["d-fedadj", "gossip"], default="d-fedadj",
-                   help="d-fedadj = average with neighbors synchronously; gossip = random edge averaging")
+    p.add_argument("--agg", type=str, choices=["d-fedadj", "gossip", "krum"], default="d-fedadj",
+                   help="d-fedadj = average with neighbors synchronously; gossip = random edge averaging; krum = Byzantine-robust aggregation")
     p.add_argument("--gossip-steps", type=int, default=10, help="number of random edge gossips per round")
+    p.add_argument("--num-compromised", type=int, default=0, help="max number of compromised models per neighborhood for Krum (c parameter)")
     p.add_argument("--graph", type=str, choices=["ring", "fully", "erdos"], default="ring")
     p.add_argument("--p", type=float, default=0.3, help="edge prob for erdos graph")
     p.add_argument("--seed", type=int, default=42)
