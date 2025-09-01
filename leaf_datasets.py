@@ -101,7 +101,7 @@ class LEAFCelebADataset(Dataset):
         self.image_size = image_size
         self.transform = transform
         # Construct path to images directory
-        self.images_dir = os.path.join(data_path, '..', 'raw', 'img_align_celeba')
+        self.images_dir = os.path.join(data_path, 'raw', 'img_align_celeba')
         print(f"Looking for images in: {os.path.abspath(self.images_dir)}")
         
         # Load LEAF JSON data from multiple files (similar to FEMNIST)
