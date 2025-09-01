@@ -8,12 +8,12 @@ Supports two aggregation strategies over a peer graph:
 
 LEAF Datasets:
   - FEMNIST: Handwritten characters by writer (non-IID, natural federated dataset)
-  - Sent140: Twitter sentiment analysis by user (non-IID, natural federated dataset)
+  - CelebA: Celebrity face attributes classification (non-IID, natural federated dataset)
 
 Features:
   - Uses LEAF's natural client partitioning (writer-based for FEMNIST)
   - Client-specific train/test splits following LEAF methodology  
-  - LEAF's standard model architectures (CNN for FEMNIST, LSTM for Sent140)
+  - LEAF's standard model architectures (CNN for FEMNIST, CNN for CelebA)
 
 Example usage:
   python decentralized_fl_sim.py \
@@ -21,7 +21,7 @@ Example usage:
       --agg d-fedadj --graph ring --lr 0.01
 
   python decentralized_fl_sim.py \
-      --dataset sent140 --num-nodes 10 --rounds 30 --local-epochs 1 \
+      --dataset celeba --num-nodes 10 --rounds 30 --local-epochs 1 \
       --agg gossip --gossip-steps 50 --graph erdos --p 0.3
 
 Notes:
@@ -44,17 +44,22 @@ from leaf_datasets import (
     load_leaf_dataset, 
     create_leaf_client_partitions,
     LEAFFEMNISTModel,
-    LEAFSent140Model
+    LEAFCelebAModel
 )
 
 
 # ---------------------------- Utilities ---------------------------- #
 
 def set_seed(seed: int):
+    """Set seeds for reproducibility across all libraries."""
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
+    # Ensure deterministic behavior for CUDA operations
+    if torch.cuda.is_available():
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
 
 def device() -> torch.device:
@@ -191,12 +196,22 @@ def decentralized_fedavg_step(models: List[nn.Module], graph: Graph):
         set_state(model, st)
 
 
-def gossip_round(models: List[nn.Module], graph: Graph, steps: int = 1):
-    # Randomly select edges; endpoints average their parameters
+def gossip_round(models: List[nn.Module], graph: Graph, steps: int = 1, round_num: int = 0, seed: int = 42):
+    """Randomly select edges and average their parameters.
+    
+    Args:
+        models: List of models
+        graph: Graph structure
+        steps: Number of gossip steps
+        round_num: Current round number for seed variation
+        seed: Base seed for reproducibility
+    """
     if not graph.edges:
         return
+    # Create round-specific RNG for reproducible but varying gossip patterns
+    rng = random.Random(seed + round_num * 100)
     for _ in range(steps):
-        i, j = random.choice(graph.edges)
+        i, j = rng.choice(graph.edges)
         si, sj = get_state(models[i]), get_state(models[j])
         avg = average_states([si, sj], [0.5, 0.5])
         set_state(models[i], avg)
@@ -209,18 +224,19 @@ def run_sim(args):
     set_seed(args.seed)
     dev = device()
     print(f"Device: {dev}")
+    print(f"Seed: {args.seed}")
 
     # Load LEAF dataset with appropriate model architecture
     if args.dataset.lower() == "femnist":
         data_path = "./leaf/data/femnist/data"
         train_ds, test_ds, model_template, num_classes, input_size = load_leaf_dataset("femnist", data_path)
         image_size = input_size
-    elif args.dataset.lower() == "sent140": 
-        data_path = "./leaf/data/sent140/data"
-        train_ds, test_ds, model_template, num_classes, input_size = load_leaf_dataset("sent140", data_path)
+    elif args.dataset.lower() == "celeba": 
+        data_path = "./leaf/data/celeba/data"
+        train_ds, test_ds, model_template, num_classes, input_size = load_leaf_dataset("celeba", data_path)
         image_size = input_size
     else:
-        raise ValueError(f"Dataset {args.dataset} not supported. Use 'femnist' or 'sent140'")
+        raise ValueError(f"Dataset {args.dataset} not supported. Use 'femnist' or 'celeba'")
 
     # Create client partitions using LEAF's natural user groupings
     train_partitions, test_partitions = create_leaf_client_partitions(train_ds, test_ds, args.num_nodes, seed=args.seed)
@@ -228,7 +244,7 @@ def run_sim(args):
     test_parts = [Subset(test_ds, indices) for indices in test_partitions]
     
     # Print partition info and quality  
-    print("Using non-IID partitions (writer-based for FEMNIST, user-based for Sent140)")
+    print("Using non-IID partitions (writer-based for FEMNIST, celebrity-based for CelebA)")
     # Show partition sizes and class diversity
     for i in range(args.num_nodes):
         class_counts = {}
@@ -251,10 +267,9 @@ def run_sim(args):
         use_sampling = True
         loaders = None  # Will be created each round
     else:
-        loaders = [DataLoader(p, batch_size=args.batch_size, shuffle=True, 
-                             num_workers=num_workers, pin_memory=pin_memory, 
-                             persistent_workers=True, prefetch_factor=2) for p in parts]
+        # Don't create loaders here - they'll be created each round with round-specific seeds
         use_sampling = False
+        loaders = None  # Will be created each round
     
     # Create client-specific test loaders (following LEAF methodology)
     # Remove persistent workers and prefetch that might cause caching issues
@@ -265,13 +280,18 @@ def run_sim(args):
     graph = make_graph(args.num_nodes, args.graph, p=args.p)
     print(f"Graph kind={args.graph}, edges={len(graph.edges)}")
 
-    # Initialize node models using LEAF architectures
+    # Initialize node models using LEAF architectures with consistent initialization
     models = []
-    for _ in range(args.num_nodes):
+    for i in range(args.num_nodes):
+        # Set seed for each model to ensure reproducible initialization
+        torch.manual_seed(args.seed + i)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(args.seed + i)
+        
         if args.dataset.lower() == "femnist":
             model = LEAFFEMNISTModel(num_classes=num_classes).to(dev)
-        elif args.dataset.lower() == "sent140":
-            model = LEAFSent140Model(vocab_size=train_ds.vocab_size).to(dev)
+        elif args.dataset.lower() == "celeba":
+            model = LEAFCelebAModel(num_classes=num_classes, image_size=image_size).to(dev)
         else:
             raise ValueError(f"Unsupported dataset: {args.dataset}")
         
@@ -293,16 +313,30 @@ def run_sim(args):
 
     # Training rounds
     for r in range(1, args.rounds + 1):
-        # Create fresh samplers each round if using sampling
+        # Create data loaders with round-specific seeds for reproducible but varying shuffling
         if use_sampling:
             loaders = []
-            for p in parts:
+            for i, p in enumerate(parts):
                 num_samples = min(args.max_samples, len(p))
-                # Create new sampler with round-specific seed to ensure different samples
+                # Combine seed, round, and client ID for unique but reproducible sampling
+                round_seed = args.seed + r * 1000 + i
                 sampler = RandomSampler(p, replacement=False, num_samples=num_samples, 
-                                      generator=torch.Generator().manual_seed(args.seed + r))
+                                      generator=torch.Generator().manual_seed(round_seed))
                 loader = DataLoader(p, batch_size=args.batch_size, sampler=sampler,
                                   num_workers=num_workers, pin_memory=pin_memory)
+                loaders.append(loader)
+        else:
+            # Create loaders with round-specific seeds for shuffling (non-sampling case)
+            loaders = []
+            for i, p in enumerate(parts):
+                # Combine seed, round, and client ID for unique but reproducible shuffling
+                round_seed = args.seed + r * 1000 + i
+                generator = torch.Generator().manual_seed(round_seed)
+                loader = DataLoader(p, batch_size=args.batch_size, shuffle=True,
+                                  num_workers=num_workers, pin_memory=pin_memory,
+                                  persistent_workers=(num_workers > 0 and r == 1), 
+                                  prefetch_factor=2 if num_workers > 0 else None,
+                                  generator=generator)
                 loaders.append(loader)
         
         # Local training at each node
@@ -325,7 +359,7 @@ def run_sim(args):
         if args.agg == "d-fedadj":
             decentralized_fedavg_step(models, graph)
         elif args.agg == "gossip":
-            gossip_round(models, graph, steps=args.gossip_steps)
+            gossip_round(models, graph, steps=args.gossip_steps, round_num=r, seed=args.seed)
         else:
             raise ValueError("agg must be 'd-fedadj' or 'gossip'")
 
@@ -377,14 +411,14 @@ def run_sim(args):
 
 def parse_args():
     p = argparse.ArgumentParser(description="Decentralized Learning Simulator (FedAvg-style & Gossip)")
-    p.add_argument("--dataset", type=str, choices=["femnist", "sent140"], required=True)
+    p.add_argument("--dataset", type=str, choices=["femnist", "celeba"], required=True)
     p.add_argument("--num-nodes", type=int, default=8)
     p.add_argument("--rounds", type=int, default=20)
     p.add_argument("--local-epochs", type=int, default=1)
     p.add_argument("--batch-size", type=int, default=128)
     p.add_argument("--lr", type=float, default=0.01)
     p.add_argument("--max-samples", type=int, default=None, 
-                   help="Max samples per client per epoch (for large datasets like Sent140)")
+                   help="Max samples per client per epoch (for large datasets like CelebA)")
     p.add_argument("--agg", type=str, choices=["d-fedadj", "gossip"], default="d-fedadj",
                    help="d-fedadj = average with neighbors synchronously; gossip = random edge averaging")
     p.add_argument("--gossip-steps", type=int, default=10, help="number of random edge gossips per round")

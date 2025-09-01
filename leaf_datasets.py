@@ -93,23 +93,25 @@ class LEAFFEMNISTDataset(Dataset):
         return self.user_indices.get(user, [])
 
 
-class LEAFSent140Dataset(Dataset):
-    """LEAF Sent140 Dataset - Sentiment classification from Twitter."""
+class LEAFCelebADataset(Dataset):
+    """LEAF CelebA Dataset - Celebrity face attributes classification."""
     
-    def __init__(self, data_path: str, split: str = "train", max_seq_len: int = 25):
+    def __init__(self, data_path: str, split: str = "train", image_size: int = 84, transform=None):
         self.split = split
-        self.max_seq_len = max_seq_len
+        self.image_size = image_size
+        self.transform = transform
+        self.images_dir = os.path.join(data_path, '..', 'raw', 'img_align_celeba')
         
         # Load LEAF JSON data from multiple files (similar to FEMNIST)
         split_dir = os.path.join(data_path, split)
         if not os.path.exists(split_dir):
-            raise FileNotFoundError(f"LEAF Sent140 {split} directory not found at {split_dir}")
+            raise FileNotFoundError(f"LEAF CelebA {split} directory not found at {split_dir}")
             
         json_files = [f for f in os.listdir(split_dir) if f.endswith('.json')]
         if not json_files:
             raise FileNotFoundError(f"No JSON files found in {split_dir}")
         
-        print(f"Loading {len(json_files)} LEAF Sent140 {split} files...")
+        print(f"Loading {len(json_files)} LEAF CelebA {split} files...")
         
         # Combine data from all JSON files
         self.users = []
@@ -126,27 +128,16 @@ class LEAFSent140Dataset(Dataset):
             self.user_data.update(data['user_data'])
             self.num_samples.extend(data['num_samples'])
         
-        # Load vocabulary
-        vocab_file = os.path.join(data_path, "embs.json")
-        if os.path.exists(vocab_file):
-            with open(vocab_file, 'r') as f:
-                vocab_data = json.load(f)
-                self.word_to_idx = vocab_data.get('vocab', {})
-        else:
-            # Build vocabulary if not available
-            self.word_to_idx = self._build_vocab()
-        
-        self.vocab_size = len(self.word_to_idx)
         
         # Flatten all data
-        self.all_data = []
-        self.all_targets = []
+        self.all_data = []  # Image filenames
+        self.all_targets = []  # Binary labels (0 or 1)
         self.user_indices = {}
         
         current_idx = 0
         for user in self.users:
-            user_x = self.user_data[user]['x'] 
-            user_y = self.user_data[user]['y']
+            user_x = self.user_data[user]['x']  # Image filenames
+            user_y = self.user_data[user]['y']  # Binary labels
             
             start_idx = current_idx
             self.all_data.extend(user_x)
@@ -156,41 +147,35 @@ class LEAFSent140Dataset(Dataset):
             self.user_indices[user] = list(range(start_idx, end_idx))
             current_idx = end_idx
             
-        print(f"LEAF Sent140 {split}: {len(self.users)} users, {len(self.all_data)} samples")
+        print(f"LEAF CelebA {split}: {len(self.users)} users (celebrities), {len(self.all_data)} samples")
     
-    def _build_vocab(self) -> Dict[str, int]:
-        """Build vocabulary from all text data."""
-        vocab = {"<PAD>": 0, "<UNK>": 1}
-        for user in self.users:
-            for tweet in self.user_data[user]['x']:
-                # tweet[4] contains the text
-                words = tweet[4].lower().split()
-                for word in words:
-                    if word not in vocab:
-                        vocab[word] = len(vocab)
-        return vocab
-    
-    def _text_to_indices(self, text: str) -> List[int]:
-        """Convert text to sequence of word indices."""
-        words = text.lower().split()[:self.max_seq_len]
-        indices = [self.word_to_idx.get(word, self.word_to_idx["<UNK>"]) for word in words]
-        # Pad to max_seq_len
-        while len(indices) < self.max_seq_len:
-            indices.append(self.word_to_idx["<PAD>"])
-        return indices
     
     def __len__(self):
         return len(self.all_data)
     
     def __getitem__(self, idx):
-        tweet_data = self.all_data[idx]
-        text = tweet_data[4]  # Text is in position 4
-        target = int(self.all_targets[idx])
+        # Load image from filename
+        img_name = self.all_data[idx]
+        img_path = os.path.join(self.images_dir, img_name)
         
-        # Convert text to indices
-        text_indices = torch.tensor(self._text_to_indices(text), dtype=torch.long)
+        # Check if image exists, if not try without directory
+        if not os.path.exists(img_path):
+            # Sometimes the data just has the filename
+            img_path = os.path.join(os.path.dirname(self.images_dir), img_name)
         
-        return text_indices, target
+        img = Image.open(img_path)
+        img = img.resize((self.image_size, self.image_size)).convert('RGB')
+        
+        target = int(self.all_targets[idx])  # Binary classification (0 or 1)
+        
+        if self.transform:
+            img = self.transform(img)
+        else:
+            # Default transform to tensor
+            img = np.array(img, dtype=np.float32) / 255.0
+            img = torch.tensor(img).permute(2, 0, 1)  # HWC -> CHW
+        
+        return img, target
     
     def get_user_data(self, user: str) -> List[int]:
         """Get indices for a specific user's data."""
@@ -230,39 +215,56 @@ class LEAFFEMNISTModel(nn.Module):
         return x
 
 
-class LEAFSent140Model(nn.Module):
-    """LEAF Sent140 Stacked LSTM Model - PyTorch version."""
+class LEAFCelebAModel(nn.Module):
+    """LEAF CelebA CNN Model - PyTorch version of LEAF's TensorFlow model."""
     
-    def __init__(self, vocab_size: int, embed_dim: int = 300, hidden_dim: int = 256, 
-                 num_classes: int = 2, num_layers: int = 2):
+    def __init__(self, num_classes: int = 2, image_size: int = 84):
         super().__init__()
-        self.hidden_dim = hidden_dim
-        self.num_layers = num_layers
+        self.num_classes = num_classes
+        self.image_size = image_size
         
-        self.embedding = nn.Embedding(vocab_size + 1, hidden_dim)
-        self.lstm = nn.LSTM(hidden_dim, hidden_dim, num_layers, batch_first=True)
-        self.fc1 = nn.Linear(hidden_dim, 128)
-        self.fc2 = nn.Linear(128, num_classes)
+        # 4 conv blocks as in LEAF's TensorFlow implementation
+        self.conv_blocks = nn.ModuleList()
+        in_channels = 3
+        for _ in range(4):
+            block = nn.Sequential(
+                nn.Conv2d(in_channels, 32, kernel_size=3, padding=1),
+                nn.BatchNorm2d(32),
+                nn.MaxPool2d(2, 2),
+                nn.ReLU()
+            )
+            self.conv_blocks.append(block)
+            in_channels = 32
+        
+        # Calculate the size after 4 max pooling layers
+        # 84 -> 42 -> 21 -> 10 -> 5
+        final_size = image_size // (2**4)
+        
+        # Fully connected layer
+        self.fc = nn.Linear(32 * final_size * final_size, num_classes)
         
     def forward(self, x):
-        # x: (batch, seq_len)
-        embedded = self.embedding(x)  # (batch, seq_len, hidden_dim)
+        # Input: (batch, 3, image_size, image_size)
+        for block in self.conv_blocks:
+            x = block(x)
         
-        # LSTM
-        lstm_out, _ = self.lstm(embedded)  # (batch, seq_len, hidden_dim)
+        # Flatten
+        x = x.view(x.size(0), -1)
         
-        # Take last output
-        last_output = lstm_out[:, -1, :]  # (batch, hidden_dim)
-        
-        # FC layers
-        x = F.relu(self.fc1(last_output))
-        x = self.fc2(x)
+        # Final classification layer
+        x = self.fc(x)
         
         return x
 
 
 def create_leaf_client_partitions(train_dataset, test_dataset, num_nodes: int, seed: int = 42) -> Tuple[List[List[int]], List[List[int]]]:
     """Create client partitions using LEAF's natural user groupings.
+    
+    Args:
+        train_dataset: Training dataset with user_indices
+        test_dataset: Test dataset with user_indices
+        num_nodes: Number of clients/nodes to partition data across
+        seed: Random seed for reproducible partitioning
     
     Returns:
         train_partitions, test_partitions - matching user assignments
@@ -277,15 +279,21 @@ def create_leaf_client_partitions(train_dataset, test_dataset, num_nodes: int, s
     test_users = set(test_dataset.user_indices.keys())
     common_users = list(train_users.intersection(test_users))
     
+    # Sort users deterministically for reproducibility
+    common_users.sort()  # Sort alphabetically first for consistency
+    
     # Sort users by training sample count (largest first)
     user_sample_counts = []
     for user in common_users:
         train_samples = len(train_dataset.user_indices[user])
         user_sample_counts.append((user, train_samples))
     
-    # Sort by sample count in descending order
-    user_sample_counts.sort(key=lambda x: x[1], reverse=True)
+    # Sort by sample count in descending order, with secondary sort by user ID for determinism
+    user_sample_counts.sort(key=lambda x: (-x[1], x[0]))  # Negative for descending, then by user ID
     sorted_users = [user for user, _ in user_sample_counts]
+    
+    # Shuffle users with the provided seed for different random assignments
+    rng.shuffle(sorted_users)
     
     print(f"Found {len(train_users)} train users, {len(test_users)} test users, {len(common_users)} common users")
     print(f"User sample counts range: {user_sample_counts[0][1]} (max) to {user_sample_counts[-1][1]} (min)")
@@ -295,9 +303,9 @@ def create_leaf_client_partitions(train_dataset, test_dataset, num_nodes: int, s
     test_partitions = [[] for _ in range(num_nodes)]
     client_class_counts = [{} for _ in range(num_nodes)]
     
-    # Distribute users round-robin starting with largest (for balanced data distribution)
+    # Distribute users round-robin (deterministic based on seed)
     for i, user in enumerate(sorted_users):
-        node_id = i % num_nodes
+        node_id = i % num_nodes  # Round-robin assignment
         user_train_indices = train_dataset.user_indices[user]
         train_partitions[node_id].extend(user_train_indices)
         test_partitions[node_id].extend(test_dataset.user_indices[user])
@@ -351,11 +359,17 @@ def load_leaf_dataset(dataset_name: str, data_path: str) -> Tuple[Dataset, Datas
         model = LEAFFEMNISTModel(num_classes=62)
         return train_ds, test_ds, model, 62, 28
         
-    elif dataset_name == "sent140":
-        train_ds = LEAFSent140Dataset(data_path, "train")
-        test_ds = LEAFSent140Dataset(data_path, "test") 
-        model = LEAFSent140Model(vocab_size=train_ds.vocab_size)
-        return train_ds, test_ds, model, 2, 25  # Binary classification, seq_len=25
+    elif dataset_name == "celeba":
+        # Create transforms for CelebA
+        transform = T.Compose([
+            T.ToTensor(),  # Convert PIL Image to tensor and scale to [0,1]
+            T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # ImageNet normalization
+        ])
+        
+        train_ds = LEAFCelebADataset(data_path, "train", image_size=84, transform=transform)
+        test_ds = LEAFCelebADataset(data_path, "test", image_size=84, transform=transform)
+        model = LEAFCelebAModel(num_classes=2, image_size=84)  # Binary classification (smiling or not)
+        return train_ds, test_ds, model, 2, 84
         
     else:
-        raise ValueError(f"Dataset {dataset_name} not supported. Use 'femnist' or 'sent140'")
+        raise ValueError(f"Dataset {dataset_name} not supported. Use 'femnist' or 'celeba'")
