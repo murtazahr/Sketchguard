@@ -879,15 +879,24 @@ def run_sim(args):
         # Evaluation phase: each client tests on their own user's test data
         accs = []
         losses = []
+        correct_totals = []
         for i, m in enumerate(models):
-            acc, loss, _, _ = evaluate(m, test_loaders[i], dev)
+            acc, loss, correct, total = evaluate(m, test_loaders[i], dev)
             accs.append(acc)
             losses.append(loss)
+            correct_totals.append((correct, total))
 
-        # Print progress with attack information if applicable
-        attack_info = f" [ATTACK: {args.attack_type}, {args.attack_percentage*100:.0f}% nodes]" if attacker else ""
+        # Print detailed round statistics
         print(f"Round {r:03d}: test acc mean={np.mean(accs):.4f} ± {np.std(accs):.4f} | "
-              f"min={np.min(accs):.4f} max={np.max(accs):.4f}{attack_info}")
+              f"min={np.min(accs):.4f} max={np.max(accs):.4f}")
+        print(f"         : test loss mean={np.mean(losses):.4f} ± {np.std(losses):.4f}")
+        
+        # Individual accuracies
+        acc_strs = [f"{acc:.6f}" for acc in accs]
+        print(f"         : individual accs = {acc_strs}")
+        
+        # Correct/total counts
+        print(f"         : correct/total = {correct_totals}")
 
     # Final evaluation and summary
     accs = []
