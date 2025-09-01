@@ -337,17 +337,6 @@ def run_sim(args):
     parts = [Subset(train_ds, indices) for indices in train_partitions]
     test_parts = [Subset(test_ds, indices) for indices in test_partitions]
     
-    # Print partition info and quality  
-    print("Using non-IID partitions (writer-based for FEMNIST, celebrity-based for CelebA)")
-    # Show partition sizes and class diversity
-    for i in range(args.num_nodes):
-        class_counts = {}
-        # Check ALL samples to get accurate class distribution
-        for idx in parts[i].indices:
-            _, label = train_ds[idx]
-            class_counts[label] = class_counts.get(label, 0) + 1
-        unique_classes = len(class_counts)
-        print(f"  Client {i}: {len(parts[i])} samples, {unique_classes} unique classes")
 
     # Dataloaders per node - optimized for M3 Pro
     num_workers = 4  # M3 Pro has good multiprocessing capabilities
