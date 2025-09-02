@@ -1,63 +1,42 @@
 #!/usr/bin/env python3
 """
-Decentralized Learning Simulator with Local Model Poisoning Attacks
+Decentralized Learning Simulator with Trust-Weighted Aggregation
 
-Supports three aggregation strategies over a peer graph:
+Supports four aggregation strategies over a peer graph:
   1) Decentralized FedAvg (synchronous neighbor averaging per round)
   2) Gossip averaging (asynchronous-style, simulated with K random edge gossips per round)
-  3) Decentralized Krum (Byzantine-robust aggregation, selects most similar model in neighborhood)
+  3) Decentralized Krum (Byzantine-robust aggregation, selects most similar model)
+  4) Trust-weighted variants (FedAvg and Gossip with gradient-based trust monitoring)
 
-Attack Implementation:
-  - Local model poisoning attacks based on "Local Model Poisoning Attacks to Byzantine-Robust Federated Learning"
-  - Partial knowledge assumption (attacker only knows compromised nodes' data)
-  - Global coordination among compromised nodes
-  - Neighborhood-based direction estimation for decentralized setting
-
-LEAF Datasets:
-  - FEMNIST: Handwritten characters by writer (non-IID, natural federated dataset)
-  - CelebA: Celebrity face attributes classification (non-IID, natural federated dataset)
-
-Features:
-  - Uses LEAF's natural client partitioning (writer-based for FEMNIST)
-  - Client-specific train/test splits following LEAF methodology
-  - LEAF's standard model architectures (CNN for FEMNIST, CNN for CelebA)
+Trust-weighted aggregation uses lightweight gradient fingerprinting to detect
+anomalous behavior and weights neighbor contributions based on trust scores.
 
 Example usage:
-  # Clean run without attacks
+  # Clean run with trust-weighted FedAvg
   python decentralized_fl_sim.py \
       --dataset femnist --num-nodes 8 --rounds 20 --local-epochs 1 \
-      --agg krum --graph ring --lr 0.01
+      --agg trust-fedavg --graph ring --lr 0.01
 
-  # Attack 25% of nodes with directed deviation attack
-  python decentralized_fl_sim.py \
-      --dataset femnist --num-nodes 8 --rounds 20 --local-epochs 1 \
-      --agg krum --graph ring --attack-percentage 0.25 \
-      --attack-type directed_deviation --attack-lambda 2.0
-
-  # Gossip with attack
+  # Trust-weighted gossip under attack
   python decentralized_fl_sim.py \
       --dataset celeba --num-nodes 10 --rounds 30 --local-epochs 1 \
-      --agg gossip --gossip-steps 50 --graph erdos --p 0.3 \
+      --agg trust-gossip --gossip-steps 50 --graph erdos --p 0.3 \
       --attack-percentage 0.3 --attack-type directed_deviation
-
-IMPORTANT: Use responsibly for research purposes only (security evaluation, robustness testing, etc.)
-
-Notes:
-  - Requires LEAF dataset preprocessing (see leaf/data/*/preprocess.sh)
-  - Uses writer-based non-IID partitioning for realistic federated learning simulation
-  - Attack implementation adapted from centralized to decentralized setting
 """
 from __future__ import annotations
 
 import argparse
 import random
+import logging
 from dataclasses import dataclass
 from typing import Dict, List, Tuple, Optional, Set
+from collections import deque, defaultdict
 
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Subset, RandomSampler
+from scipy import stats as scipy_stats
 
 from leaf_datasets import (
     load_leaf_dataset,
@@ -75,7 +54,6 @@ def set_seed(seed: int):
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-    # Ensure deterministic behavior for CUDA operations
     if torch.cuda.is_available():
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
@@ -100,37 +78,24 @@ class Graph:
 
 
 def make_graph(n: int, kind: str, p: float = 0.3) -> Graph:
-    """
-    Create different graph topologies for decentralized learning.
-
-    Args:
-        n: Number of nodes
-        kind: Graph type ('ring', 'fully', 'erdos')
-        p: Edge probability for Erdős–Rényi random graph
-
-    Returns:
-        Graph object with adjacency list and edge list
-    """
+    """Create different graph topologies for decentralized learning."""
     kind = kind.lower()
     neighbors = [[] for _ in range(n)]
     edges: List[Tuple[int, int]] = []
 
     if kind == "ring":
-        # Ring topology: each node connects to next node
         for i in range(n):
             j = (i + 1) % n
             neighbors[i].append(j)
             neighbors[j].append(i)
             edges.append((min(i, j), max(i, j)))
     elif kind == "fully":
-        # Fully connected: each node connects to all others
         for i in range(n):
             for j in range(i + 1, n):
                 neighbors[i].append(j)
                 neighbors[j].append(i)
                 edges.append((i, j))
     elif kind in ("erdos", "er"):
-        # Erdős–Rényi random graph G(n, p)
         rng = random.Random(12345)
         for i in range(n):
             for j in range(i + 1, n):
@@ -138,7 +103,7 @@ def make_graph(n: int, kind: str, p: float = 0.3) -> Graph:
                     neighbors[i].append(j)
                     neighbors[j].append(i)
                     edges.append((i, j))
-        # Ensure connectivity: connect isolated nodes to their next neighbor
+        # Ensure connectivity
         for i in range(n):
             if not neighbors[i]:
                 j = (i + 1) % n
@@ -148,21 +113,342 @@ def make_graph(n: int, kind: str, p: float = 0.3) -> Graph:
     else:
         raise ValueError(f"Unknown graph kind: {kind}")
 
-    # Clean up: deduplicate neighbor lists and edges
     neighbors = [sorted(set(ns)) for ns in neighbors]
     edges = sorted(set(tuple(sorted(e)) for e in edges))
     return Graph(n=n, neighbors=neighbors, edges=edges)
 
 
+# ---------------------------- Trust Monitor Implementation ---------------------------- #
+
+@dataclass
+class TrustConfig:
+    """
+    Configuration for trust monitoring in decentralized learning.
+
+    Args:
+        initial_trust: Starting trust score for new neighbors (0.0-1.0)
+        history_window: Number of past fingerprints to store for consistency analysis
+        trust_decay_rate: Rate at which trust decreases when anomalies detected (0.0-1.0)
+        min_influence_weight: Minimum aggregation weight to preserve connectivity (0.0-1.0)
+        enable_trust_monitoring: Whether to enable trust monitoring (if False, uses uniform weights)
+    """
+    initial_trust: float = 0.8
+    history_window: int = 5
+    trust_decay_rate: float = 0.1
+    min_influence_weight: float = 0.1
+    enable_trust_monitoring: bool = True
+
+
+@dataclass
+class GradientFingerprint:
+    """
+    Lightweight gradient fingerprint for anomaly detection.
+
+    Captures key statistical properties of model parameter updates that can
+    indicate potential attacks or anomalous behavior:
+
+    Args:
+        gradient_norm: Overall L2 norm of all parameters (detects magnitude attacks)
+        cross_layer_correlation: Correlation between consecutive layers (detects structural manipulation)
+        gradient_entropy: Shannon entropy of parameter distribution (detects distribution attacks)
+        layer_variance: Variance across layer norms (detects layer-specific attacks)
+    """
+    gradient_norm: float
+    cross_layer_correlation: float
+    gradient_entropy: float
+    layer_variance: float
+
+    def distance_to(self, other: 'GradientFingerprint') -> float:
+        """
+        Compute normalized distance between two gradient fingerprints.
+
+        Uses relative differences to handle varying magnitudes across training rounds.
+
+        Args:
+            other: Another gradient fingerprint to compare against
+
+        Returns:
+            Distance score in [0, ∞), where 0 = identical, higher = more different
+        """
+        norm_diff = abs(self.gradient_norm - other.gradient_norm) / (self.gradient_norm + other.gradient_norm + 1e-8)
+        corr_diff = abs(self.cross_layer_correlation - other.cross_layer_correlation)
+        entropy_diff = abs(self.gradient_entropy - other.gradient_entropy) / (self.gradient_entropy + other.gradient_entropy + 1e-8)
+        var_diff = abs(self.layer_variance - other.layer_variance) / (self.layer_variance + other.layer_variance + 1e-8)
+
+        return (norm_diff + corr_diff + entropy_diff + var_diff) / 4.0
+
+
+class SimpleTrustMonitor:
+    """
+    Simplified trust monitor for decentralized learning.
+
+    Implements gradient fingerprint-based trust scoring without the complexity
+    of the full research implementation. Focuses on practical anomaly detection
+    while maintaining computational efficiency.
+
+    Key features:
+    - Lightweight gradient analysis using statistical fingerprints
+    - Self-reference comparison against own honest behavior
+    - Historical consistency tracking across rounds
+    - Neighborhood consensus for distributed anomaly detection
+    - Continuous trust scores without binary detection thresholds
+    """
+
+    def __init__(self, node_id: str, config: TrustConfig):
+        """
+        Initialize trust monitor for a specific node.
+
+        Args:
+            node_id: Unique identifier for this node
+            config: Trust monitoring configuration parameters
+        """
+        self.node_id = node_id
+        self.config = config
+
+        # Trust state tracking
+        self.trust_scores: Dict[str, float] = {}       # Current trust score for each neighbor
+        self.influence_weights: Dict[str, float] = {}  # Aggregation weights derived from trust
+
+        # Historical fingerprint storage for consistency analysis
+        self.fingerprint_history: Dict[str, deque] = defaultdict(
+            lambda: deque(maxlen=config.history_window)
+        )
+        self.own_fingerprint_history: deque = deque(maxlen=config.history_window)
+
+    @staticmethod
+    def compute_gradient_fingerprint(model_state: Dict[str, torch.Tensor]) -> GradientFingerprint:
+        """
+        Compute lightweight gradient fingerprint from model parameters.
+
+        Extracts key statistical properties that can indicate anomalous behavior
+        while remaining computationally efficient for real-time use.
+
+        Args:
+            model_state: Dictionary mapping parameter names to tensors
+
+        Returns:
+            GradientFingerprint containing computed statistics
+        """
+        all_params = []
+        layer_norms = []
+
+        # Extract and flatten parameters from all layers
+        for name, param in model_state.items():
+            if hasattr(param, 'cpu'):
+                param_array = param.cpu().numpy().flatten()
+            else:
+                param_array = np.array(param).flatten()
+
+            # Remove NaN/Inf values that could skew statistics
+            param_array = param_array[np.isfinite(param_array)]
+
+            if len(param_array) > 0:
+                all_params.extend(param_array.tolist())
+                layer_norms.append(np.linalg.norm(param_array))
+
+        # Need minimum parameters for meaningful statistics
+        if len(all_params) < 10:
+            return GradientFingerprint(0.0, 0.0, 0.0, 0.0)
+
+        all_params = np.array(all_params)
+
+        # 1. Overall gradient norm - detects magnitude-based attacks
+        gradient_norm = float(np.linalg.norm(all_params))
+
+        # 2. Cross-layer correlation - detects structural manipulation
+        if len(layer_norms) >= 2:
+            try:
+                # Correlation between consecutive layer norms
+                corr_matrix = np.corrcoef(layer_norms[:-1], layer_norms[1:])
+                cross_layer_correlation = float(corr_matrix[0, 1]) if not np.isnan(corr_matrix[0, 1]) else 0.0
+            except:
+                cross_layer_correlation = 0.0
+        else:
+            cross_layer_correlation = 0.0
+
+        # 3. Gradient entropy - detects distribution manipulation
+        if len(all_params) > 30:  # Need sufficient data points for histogram
+            hist, _ = np.histogram(all_params, bins=20)
+            hist = hist / (hist.sum() + 1e-10)  # Normalize to probabilities
+            gradient_entropy = float(-np.sum(hist * np.log(hist + 1e-10)))  # Shannon entropy
+        else:
+            gradient_entropy = 0.0
+
+        # 4. Layer variance - detects layer-specific attacks
+        layer_variance = float(np.var(layer_norms)) if len(layer_norms) > 1 else 0.0
+
+        return GradientFingerprint(
+            gradient_norm=gradient_norm,
+            cross_layer_correlation=cross_layer_correlation,
+            gradient_entropy=gradient_entropy,
+            layer_variance=layer_variance
+        )
+
+    def compute_trust_signals(self, neighbor_id: str, neighbor_fp: GradientFingerprint,
+                              all_neighbor_fps: Dict[str, GradientFingerprint],
+                              own_fp: Optional[GradientFingerprint] = None) -> float:
+        """
+        Compute trust signals (anomaly score) for a neighbor.
+
+        Combines multiple anomaly detection methods to provide robust assessment:
+        1. Self-reference: Compare against own honest behavior
+        2. Historical consistency: Compare against neighbor's past behavior
+        3. Neighborhood consensus: Compare against other neighbors
+        4. Extreme value detection: Flag obviously anomalous values
+
+        Args:
+            neighbor_id: ID of the neighbor being evaluated
+            neighbor_fp: Neighbor's current gradient fingerprint
+            all_neighbor_fps: All neighbors' fingerprints for consensus
+            own_fp: Own fingerprint for self-reference comparison
+
+        Returns:
+            Anomaly score in [0, 1] where 0=trustworthy, 1=highly anomalous
+        """
+        anomaly_signals = []
+
+        # 1. Self-reference comparison (most reliable if available)
+        if own_fp is not None:
+            self_distance = neighbor_fp.distance_to(own_fp)
+            # Scale distance to anomaly score - higher distance = more anomalous
+            anomaly_signals.append(min(1.0, self_distance * 2.0))
+
+        # 2. Historical consistency check
+        if neighbor_id in self.fingerprint_history and len(self.fingerprint_history[neighbor_id]) >= 2:
+            historical_fps = list(self.fingerprint_history[neighbor_id])
+            # Compare against recent history (last 3 fingerprints)
+            historical_distances = [neighbor_fp.distance_to(fp) for fp in historical_fps[-3:]]
+            avg_historical_distance = np.mean(historical_distances)
+            # Sudden changes in behavior are suspicious
+            anomaly_signals.append(min(1.0, avg_historical_distance * 3.0))
+
+        # 3. Neighborhood consensus check
+        if len(all_neighbor_fps) >= 3:  # Need multiple neighbors for meaningful consensus
+            other_fps = [fp for nid, fp in all_neighbor_fps.items() if nid != neighbor_id]
+            if other_fps:
+                consensus_distances = [neighbor_fp.distance_to(fp) for fp in other_fps]
+                avg_consensus_distance = np.mean(consensus_distances)
+                # Outliers from neighborhood consensus are suspicious
+                anomaly_signals.append(min(1.0, avg_consensus_distance * 1.5))
+
+        # 4. Extreme value detection for obvious attacks
+        extreme_signals = []
+
+        # Very high gradient norm could indicate gradient explosion attack
+        if neighbor_fp.gradient_norm > 10.0:  # Threshold based on typical ranges
+            extreme_signals.append(0.8)
+
+        # Very low entropy indicates structured manipulation
+        if neighbor_fp.gradient_entropy < 1.0:
+            extreme_signals.append(0.6)
+
+        if extreme_signals:
+            anomaly_signals.append(max(extreme_signals))
+
+        # Combine all signals with equal weighting
+        if anomaly_signals:
+            return min(1.0, np.mean(anomaly_signals))
+        else:
+            # Small baseline anomaly even when no signals detected
+            # This accounts for natural variation in honest behavior
+            return 0.1
+
+    def update_trust_scores(self, neighbor_updates: Dict[str, Dict[str, torch.Tensor]],
+                            own_parameters: Optional[Dict[str, torch.Tensor]] = None) -> Dict[str, float]:
+        """
+        Update trust scores for all neighbors based on their parameter updates.
+
+        This is the main entry point for trust monitoring. It:
+        1. Computes gradient fingerprints for all neighbors
+        2. Evaluates anomaly scores using multiple detection methods
+        3. Updates trust scores with momentum-based smoothing
+        4. Converts trust scores to influence weights for aggregation
+
+        Args:
+            neighbor_updates: Map of neighbor_id to their model parameters
+            own_parameters: Own model parameters for self-reference baseline
+
+        Returns:
+            Dictionary mapping neighbor_id to influence weight for aggregation
+        """
+        if not self.config.enable_trust_monitoring:
+            # Return uniform weights if trust monitoring disabled
+            return {nid: 1.0 for nid in neighbor_updates.keys()}
+
+        # Compute fingerprints for all neighbors
+        neighbor_fps = {}
+        for neighbor_id, params in neighbor_updates.items():
+            fp = self.compute_gradient_fingerprint(params)
+            neighbor_fps[neighbor_id] = fp
+            # Store in history for consistency analysis
+            self.fingerprint_history[neighbor_id].append(fp)
+
+        # Compute own fingerprint for self-reference
+        own_fp = None
+        if own_parameters is not None:
+            own_fp = self.compute_gradient_fingerprint(own_parameters)
+            self.own_fingerprint_history.append(own_fp)
+
+        # Update trust scores for each neighbor
+        for neighbor_id, neighbor_fp in neighbor_fps.items():
+            # Compute current anomaly score
+            anomaly_score = self.compute_trust_signals(neighbor_id, neighbor_fp, neighbor_fps, own_fp)
+
+            # Initialize trust score for new neighbors
+            if neighbor_id not in self.trust_scores:
+                self.trust_scores[neighbor_id] = self.config.initial_trust
+
+            current_trust = self.trust_scores[neighbor_id]
+
+            # Update trust based on anomaly level
+            if anomaly_score > 0.5:  # High anomaly detected
+                # Decrease trust proportional to anomaly severity
+                trust_change = -self.config.trust_decay_rate * anomaly_score
+            else:  # Low anomaly - allow slow recovery
+                # Gradual recovery towards perfect trust
+                trust_change = 0.02 * (1.0 - current_trust)
+
+            # Apply trust change with clipping to valid range
+            new_trust = np.clip(current_trust + trust_change, 0.01, 1.0)
+            self.trust_scores[neighbor_id] = new_trust
+
+            # Convert trust score to influence weight for aggregation
+            # High trust = high influence, but maintain minimum weight for connectivity
+            if new_trust > 0.7:
+                influence = 1.0  # Full influence for highly trusted neighbors
+            elif new_trust > 0.4:
+                # Linear interpolation in medium trust range
+                influence = 0.5 + (new_trust - 0.4) / 0.3 * 0.5
+            else:
+                # Low trust gets minimal influence but non-zero for connectivity
+                influence = self.config.min_influence_weight + (new_trust / 0.4) * (0.5 - self.config.min_influence_weight)
+
+            self.influence_weights[neighbor_id] = influence
+
+        return self.influence_weights.copy()
+
+    def get_trust_summary(self) -> Dict:
+        """
+        Get summary of current trust state for logging and analysis.
+
+        Returns:
+            Dictionary containing trust statistics and current state
+        """
+        trust_values = list(self.trust_scores.values())
+        return {
+            "node_id": self.node_id,
+            "num_neighbors": len(self.trust_scores),
+            "mean_trust": np.mean(trust_values) if trust_values else 1.0,
+            "min_trust": np.min(trust_values) if trust_values else 1.0,
+            "trust_scores": self.trust_scores.copy(),
+            "influence_weights": self.influence_weights.copy()
+        }
+
+
 # ---------------------------- Training helpers ---------------------------- #
 
 def evaluate(model: nn.Module, loader: DataLoader, device_: torch.device) -> Tuple[float, float, int, int]:
-    """
-    Evaluate model performance on a dataset.
-
-    Returns:
-        (accuracy, average_loss, correct_count, total_count)
-    """
+    """Evaluate model performance on a dataset."""
     model.eval()
     total = 0
     correct = 0
@@ -206,16 +492,7 @@ def set_state(model: nn.Module, state: Dict[str, torch.Tensor]):
 
 
 def average_states(states: List[Dict[str, torch.Tensor]], weights: List[float] | None = None) -> Dict[str, torch.Tensor]:
-    """
-    Compute weighted average of model states.
-
-    Args:
-        states: List of model state dictionaries
-        weights: Optional weights for averaging (default: uniform)
-
-    Returns:
-        Averaged model state
-    """
+    """Compute weighted average of model states."""
     if weights is None:
         weights = [1.0 / len(states)] * len(states)
     out: Dict[str, torch.Tensor] = {}
@@ -238,26 +515,13 @@ def compute_model_distance(state1: Dict[str, torch.Tensor], state2: Dict[str, to
 
 
 def krum_select(model_states: List[Dict[str, torch.Tensor]], num_compromised: int = 0) -> int:
-    """
-    Select model using Krum algorithm.
-
-    Krum selects the model that has the smallest sum of distances to its closest models,
-    making it robust to Byzantine failures.
-
-    Args:
-        model_states: List of model state dictionaries
-        num_compromised: Maximum number of compromised models (c parameter)
-
-    Returns:
-        Index of selected model
-    """
+    """Select model using Krum algorithm."""
     m = len(model_states)
     c = num_compromised
 
     if c >= (m - 2) / 2:
         raise ValueError(f"Krum requires c < (m-2)/2, got c={c}, m={m}")
 
-    # Compute pairwise distances between all models
     distances = []
     for i in range(m):
         model_distances = []
@@ -267,16 +531,14 @@ def krum_select(model_states: List[Dict[str, torch.Tensor]], num_compromised: in
                 model_distances.append(dist)
         distances.append(model_distances)
 
-    # For each model, compute score as sum of distances to m-c-2 closest models
     scores = []
     for i in range(m):
         sorted_distances = sorted(distances[i])
-        num_closest = max(1, m - c - 2)  # Number of closest models to consider
+        num_closest = max(1, m - c - 2)
         closest_distances = sorted_distances[:num_closest]
         score = sum(closest_distances)
         scores.append(score)
 
-    # Select model with smallest score (most similar to others)
     selected_idx = scores.index(min(scores))
     return selected_idx
 
@@ -289,21 +551,33 @@ class LocalModelPoisoningAttacker:
 
     Based on "Local Model Poisoning Attacks to Byzantine-Robust Federated Learning"
     but adapted for decentralized setting with the following assumptions:
+
+    Key Assumptions:
     - Partial knowledge: attacker only knows compromised nodes' data
     - Global coordination: compromised nodes can coordinate (attacker's privilege)
     - Neighborhood communication: each node only sees its immediate neighbors
+    - Decentralized aggregation: no central server, only peer-to-peer communication
+
+    Attack Types:
+    - directed_deviation: Craft models that push parameters opposite to natural learning direction
+    - random: Baseline attack that adds random noise to parameters
+
+    The attack works by:
+    1. Estimating the natural parameter change directions (s vector from paper)
+    2. Crafting malicious models that push in opposite direction: w' = w_ref - λ * s
+    3. For Krum: creating multiple similar malicious models to game selection
     """
 
     def __init__(self, num_nodes: int, attack_percentage: float, attack_type: str,
                  lambda_param: float = 1.0, seed: int = 42):
         """
-        Initialize attacker.
+        Initialize the attacker.
 
         Args:
             num_nodes: Total number of nodes in the network
             attack_percentage: Fraction of nodes to compromise (0.0-1.0)
             attack_type: Type of attack ('directed_deviation' or 'random')
-            lambda_param: Attack strength parameter (λ from paper)
+            lambda_param: Attack strength parameter (λ from paper) - higher = stronger attack
             seed: Random seed for reproducible node selection
         """
         self.num_nodes = num_nodes
@@ -330,6 +604,10 @@ class LocalModelPoisoningAttacker:
 
         This implements the attacker's privilege of coordinating across compromised nodes
         while maintaining the decentralized property for honest nodes.
+
+        Args:
+            round_num: Current training round
+            node_states: List of model states for all nodes
         """
         self.compromised_node_states[round_num] = {}
         for node_id in self.compromised_nodes:
@@ -342,6 +620,14 @@ class LocalModelPoisoningAttacker:
         This implements the partial knowledge assumption - the attacker can only
         observe compromised nodes' parameters to estimate the direction the global
         model would naturally move.
+
+        The attack estimates the "s" vector from the paper by comparing the average
+        of compromised nodes between consecutive rounds:
+        - If parameter value increased: direction = +1
+        - If parameter value decreased: direction = -1
+
+        Args:
+            round_num: Current training round
 
         Returns:
             Dictionary mapping parameter names to direction tensors (+1 or -1)
@@ -382,6 +668,13 @@ class LocalModelPoisoningAttacker:
 
         This is the fallback when global direction estimation fails.
         Uses the change in neighborhood average to estimate parameter directions.
+
+        Args:
+            node_id: ID of the node whose neighborhood to analyze
+            current_neigh_states: Current model states of honest neighbors
+
+        Returns:
+            Dictionary mapping parameter names to estimated directions
         """
         if not current_neigh_states:
             # Fallback: generate random directions
@@ -439,7 +732,6 @@ class LocalModelPoisoningAttacker:
         Returns:
             List of crafted malicious model states for compromised nodes in neighborhood
         """
-
         num_compromised_in_neigh = len([i for i in neighborhood_indices if i in self.compromised_nodes])
         if num_compromised_in_neigh == 0:
             return []
@@ -510,40 +802,29 @@ class LocalModelPoisoningAttacker:
         return malicious_states[:num_compromised_in_neigh]
 
 
-# ---------------------------- Enhanced Aggregation Functions ---------------------------- #
+# ---------------------------- Aggregation Functions ---------------------------- #
 
 def decentralized_fedavg_step_with_attack(models: List[nn.Module], graph: Graph, round_num: int = 0,
                                           attacker: Optional[LocalModelPoisoningAttacker] = None):
-    """
-    Decentralized FedAvg with local model poisoning attack capability.
-
-    Each node averages with its neighbors. If attacker is present, compromised nodes
-    send crafted malicious models instead of their honest local models.
-    """
+    """Decentralized FedAvg with attack capability."""
     states = [get_state(m) for m in models]
 
-    # Update attacker with compromised states for global coordination
     if attacker:
         attacker.update_compromised_states(round_num, states)
 
     new_states = []
     for i in range(graph.n):
-        neigh = [i] + graph.neighbors[i]  # Include self in neighborhood
+        neigh = [i] + graph.neighbors[i]
 
-        # Apply attack if there are compromised nodes in this neighborhood
         if attacker and any(j in attacker.compromised_nodes for j in neigh):
             compromised_in_neigh = [j for j in neigh if j in attacker.compromised_nodes]
             honest_in_neigh = [j for j in neigh if j not in attacker.compromised_nodes]
-
-            # Get honest neighbor states (partial knowledge assumption)
             honest_neigh_states = [states[j] for j in honest_in_neigh]
 
-            # Craft malicious models using attack algorithm
             malicious_states = attacker.craft_malicious_models_decentralized(
                 i, neigh, honest_neigh_states, round_num
             )
 
-            # Replace compromised nodes' states with malicious ones
             modified_neigh_states = []
             malicious_idx = 0
             for j in neigh:
@@ -555,14 +836,11 @@ def decentralized_fedavg_step_with_attack(models: List[nn.Module], graph: Graph,
 
             neigh_states = modified_neigh_states
         else:
-            # No attack: use honest states
             neigh_states = [states[j] for j in neigh]
 
-        # Compute average normally (FedAvg aggregation)
         w = [1.0 / len(neigh_states)] * len(neigh_states)
         new_states.append(average_states(neigh_states, w))
 
-    # Update all models with new averaged states
     for model, st in zip(models, new_states):
         set_state(model, st)
 
@@ -570,29 +848,20 @@ def decentralized_fedavg_step_with_attack(models: List[nn.Module], graph: Graph,
 def gossip_round_with_attack(models: List[nn.Module], graph: Graph, steps: int = 1,
                              round_num: int = 0, seed: int = 42,
                              attacker: Optional[LocalModelPoisoningAttacker] = None):
-    """
-    Gossip averaging with local model poisoning attack capability.
-
-    In gossip, pairs of nodes randomly exchange and average their models.
-    Attack is applied by modifying compromised nodes' states before gossip begins.
-    """
+    """Gossip averaging with attack capability."""
     if not graph.edges:
         return
 
     states = [get_state(m) for m in models]
 
-    # Apply attacks before gossip process begins
     if attacker and attacker.compromised_nodes:
         attacker.update_compromised_states(round_num, states)
 
-        # For each compromised node, craft malicious state
         for comp_idx in attacker.compromised_nodes:
-            # Get compromised node's neighborhood (for partial knowledge)
             neighbors_of_comp = graph.neighbors[comp_idx] + [comp_idx]
             honest_neighbors = [j for j in neighbors_of_comp if j not in attacker.compromised_nodes]
             honest_neigh_states = [states[j] for j in honest_neighbors]
 
-            # Create malicious state for this compromised node
             malicious_states = attacker.craft_malicious_models_decentralized(
                 comp_idx, neighbors_of_comp, honest_neigh_states, round_num
             )
@@ -600,7 +869,6 @@ def gossip_round_with_attack(models: List[nn.Module], graph: Graph, steps: int =
             if malicious_states:
                 set_state(models[comp_idx], malicious_states[0])
 
-    # Regular gossip process: randomly select edges and average their endpoints
     rng = random.Random(seed + round_num * 100)
     for _ in range(steps):
         i, j = rng.choice(graph.edges)
@@ -613,40 +881,27 @@ def gossip_round_with_attack(models: List[nn.Module], graph: Graph, steps: int =
 def decentralized_krum_step_with_attack(models: List[nn.Module], graph: Graph,
                                         pct_compromised: float, round_num: int = 0,
                                         attacker: Optional[LocalModelPoisoningAttacker] = None):
-    """
-    Decentralized Krum with local model poisoning attack capability.
-
-    Each node applies Krum selection within its neighborhood. The attack crafts
-    multiple similar malicious models to increase the probability that Krum
-    selects the malicious model as most "representative" of the neighborhood.
-    """
+    """Decentralized Krum with attack capability."""
     states = [get_state(m) for m in models]
 
-    # Update attacker with current compromised node states for global coordination
     if attacker:
         attacker.update_compromised_states(round_num, states)
 
     new_states = []
 
     for i in range(graph.n):
-        neigh = [i] + graph.neighbors[i]  # Include self in neighborhood
+        neigh = [i] + graph.neighbors[i]
         original_neigh_states = [states[j] for j in neigh]
 
-        # Apply attack if there are compromised nodes in this neighborhood
         if attacker and any(j in attacker.compromised_nodes for j in neigh):
             compromised_in_neigh = [j for j in neigh if j in attacker.compromised_nodes]
             honest_in_neigh = [j for j in neigh if j not in attacker.compromised_nodes]
-
-            # Get honest neighbor states (partial knowledge assumption)
             honest_neigh_states = [states[j] for j in honest_in_neigh]
 
-            # Craft malicious models using attack algorithm
-            # For Krum, this creates multiple similar malicious models to game the selection
             malicious_states = attacker.craft_malicious_models_decentralized(
                 i, neigh, honest_neigh_states, round_num
             )
 
-            # Replace compromised nodes' states with crafted malicious ones
             modified_neigh_states = []
             malicious_idx = 0
             for j in neigh:
@@ -658,34 +913,154 @@ def decentralized_krum_step_with_attack(models: List[nn.Module], graph: Graph,
 
             neigh_states = modified_neigh_states
         else:
-            # No attack: use honest states
             neigh_states = original_neigh_states
 
-        # Apply Krum selection within (possibly modified) neighborhood
         if len(neigh_states) > 1:
             try:
-                # Calculate neighborhood-specific c parameter
                 neighborhood_size = len(neigh_states)
                 c = int(neighborhood_size * pct_compromised)
                 selected_idx = krum_select(neigh_states, c)
                 selected_state = neigh_states[selected_idx]
                 new_states.append(selected_state)
             except ValueError:
-                # Fallback to averaging if Krum conditions not met
                 print(f"Warning: Krum failed for node {i}, falling back to averaging")
                 w = [1.0 / len(neigh_states)] * len(neigh_states)
                 new_states.append(average_states(neigh_states, w))
         else:
-            # Single model in neighborhood
             new_states.append(neigh_states[0])
 
-    # Update all models with Krum-selected states
     for model, st in zip(models, new_states):
         set_state(model, st)
 
 
-# ---------------------------- Original Aggregation Functions (No Attack) ---------------------------- #
+def trust_weighted_fedavg_step(models: List[nn.Module], graph: Graph, trust_monitors: Dict[str, SimpleTrustMonitor],
+                               round_num: int = 0, attacker: Optional[LocalModelPoisoningAttacker] = None):
+    """Trust-weighted FedAvg aggregation step."""
+    states = [get_state(m) for m in models]
 
+    if attacker:
+        attacker.update_compromised_states(round_num, states)
+
+    new_states = []
+    for i in range(graph.n):
+        node_id = str(i)
+        neighbors = [i] + graph.neighbors[i]
+
+        if attacker and any(j in attacker.compromised_nodes for j in neighbors):
+            compromised_in_neigh = [j for j in neighbors if j in attacker.compromised_nodes]
+            honest_in_neigh = [j for j in neighbors if j not in attacker.compromised_nodes]
+            honest_neigh_states = [states[j] for j in honest_in_neigh]
+
+            malicious_states = attacker.craft_malicious_models_decentralized(
+                i, neighbors, honest_neigh_states, round_num
+            )
+
+            modified_states = []
+            malicious_idx = 0
+            for j in neighbors:
+                if j in attacker.compromised_nodes and malicious_idx < len(malicious_states):
+                    modified_states.append(malicious_states[malicious_idx])
+                    malicious_idx += 1
+                else:
+                    modified_states.append(states[j])
+
+            neighbor_states_dict = {str(neighbors[k]): modified_states[k] for k in range(len(neighbors)) if neighbors[k] != i}
+            own_state = states[i]
+        else:
+            neighbor_states_dict = {str(j): states[j] for j in neighbors if j != i}
+            own_state = states[i]
+
+        if neighbor_states_dict:
+            trust_monitor = trust_monitors.get(node_id)
+            if trust_monitor:
+                influence_weights = trust_monitor.update_trust_scores(neighbor_states_dict, own_state)
+            else:
+                influence_weights = {nid: 1.0 for nid in neighbor_states_dict.keys()}
+
+            all_states = [own_state]
+            all_weights = [1.0]
+
+            for nid, state in neighbor_states_dict.items():
+                all_states.append(state)
+                all_weights.append(influence_weights.get(nid, 0.1))
+
+            total_weight = sum(all_weights)
+            normalized_weights = [w / total_weight for w in all_weights]
+
+            new_states.append(average_states(all_states, normalized_weights))
+        else:
+            new_states.append(own_state)
+
+    for model, state in zip(models, new_states):
+        set_state(model, state)
+
+
+def trust_weighted_gossip_round(models: List[nn.Module], graph: Graph, trust_monitors: Dict[str, SimpleTrustMonitor],
+                                steps: int = 1, round_num: int = 0, seed: int = 42,
+                                attacker: Optional[LocalModelPoisoningAttacker] = None):
+    """Trust-weighted gossip averaging."""
+    if not graph.edges:
+        return
+
+    states = [get_state(m) for m in models]
+
+    if attacker and attacker.compromised_nodes:
+        attacker.update_compromised_states(round_num, states)
+
+        for comp_idx in attacker.compromised_nodes:
+            neighbors_of_comp = graph.neighbors[comp_idx] + [comp_idx]
+            honest_neighbors = [j for j in neighbors_of_comp if j not in attacker.compromised_nodes]
+            honest_neigh_states = [states[j] for j in honest_neighbors]
+
+            malicious_states = attacker.craft_malicious_models_decentralized(
+                comp_idx, neighbors_of_comp, honest_neigh_states, round_num
+            )
+
+            if malicious_states:
+                set_state(models[comp_idx], malicious_states[0])
+
+    rng = random.Random(seed + round_num * 100)
+
+    for _ in range(steps):
+        i, j = rng.choice(graph.edges)
+
+        state_i = get_state(models[i])
+        state_j = get_state(models[j])
+
+        trust_monitor_i = trust_monitors.get(str(i))
+        trust_monitor_j = trust_monitors.get(str(j))
+
+        if trust_monitor_i:
+            neighbor_updates = {str(j): state_j}
+            influence_weights = trust_monitor_i.update_trust_scores(neighbor_updates, state_i)
+            weight_j_from_i = influence_weights.get(str(j), 0.5)
+        else:
+            weight_j_from_i = 0.5
+
+        if trust_monitor_j:
+            neighbor_updates = {str(i): state_i}
+            influence_weights = trust_monitor_j.update_trust_scores(neighbor_updates, state_j)
+            weight_i_from_j = influence_weights.get(str(i), 0.5)
+        else:
+            weight_i_from_j = 0.5
+
+        avg_trust_i = weight_i_from_j
+        avg_trust_j = weight_j_from_i
+
+        total_trust = avg_trust_i + avg_trust_j
+        if total_trust > 0:
+            norm_weight_i = avg_trust_i / total_trust
+            norm_weight_j = avg_trust_j / total_trust
+        else:
+            norm_weight_i = norm_weight_j = 0.5
+
+        avg_state = average_states([state_i, state_j], [norm_weight_i, norm_weight_j])
+
+        set_state(models[i], avg_state)
+        set_state(models[j], avg_state)
+
+
+# Original aggregation functions (no attack)
 def decentralized_fedavg_step(models: List[nn.Module], graph: Graph):
     """Original decentralized FedAvg without attack capability."""
     states = [get_state(m) for m in models]
@@ -723,14 +1098,12 @@ def decentralized_krum_step(models: List[nn.Module], graph: Graph, pct_compromis
 
         if len(neigh_states) > 1:
             try:
-                # Calculate neighborhood-specific c parameter
                 neighborhood_size = len(neigh_states)
                 c = int(neighborhood_size * pct_compromised)
                 selected_idx = krum_select(neigh_states, c)
                 selected_state = neigh_states[selected_idx]
                 new_states.append(selected_state)
             except ValueError:
-                # Fallback to averaging
                 w = [1.0 / len(neigh_states)] * len(neigh_states)
                 new_states.append(average_states(neigh_states, w))
         else:
@@ -749,7 +1122,7 @@ def run_sim(args):
     print(f"Device: {dev}")
     print(f"Seed: {args.seed}")
 
-    # Load LEAF dataset with appropriate model architecture
+    # Load dataset
     if args.dataset.lower() == "femnist":
         data_path = "./leaf/data/femnist/data"
         train_ds, test_ds, model_template, num_classes, input_size = load_leaf_dataset("femnist", data_path)
@@ -761,24 +1134,22 @@ def run_sim(args):
     else:
         raise ValueError(f"Dataset {args.dataset} not supported. Use 'femnist' or 'celeba'")
 
-    # Create client partitions using LEAF's natural user groupings
+    # Create client partitions
     train_partitions, test_partitions = create_leaf_client_partitions(train_ds, test_ds, args.num_nodes, seed=args.seed)
     parts = [Subset(train_ds, indices) for indices in train_partitions]
     test_parts = [Subset(test_ds, indices) for indices in test_partitions]
 
-    # Dataloaders configuration - optimized for different hardware
-    num_workers = 4  # Good for M3 Pro and similar multicore systems
-    pin_memory = dev.type != "cpu"  # Use pin_memory for GPU/MPS
+    num_workers = 4
+    pin_memory = dev.type != "cpu"
 
     use_sampling = args.max_samples is not None
     if use_sampling:
-        print(f"Will sample {args.max_samples} samples per client per epoch (resampled each round)")
+        print(f"Will sample {args.max_samples} samples per client per epoch")
 
-    # Create client-specific test loaders (following LEAF methodology)
     test_loaders = [DataLoader(tp, batch_size=512, shuffle=False,
                                num_workers=0, pin_memory=False) for tp in test_parts]
 
-    # Create graph topology for decentralized communication
+    # Create graph topology
     graph = make_graph(args.num_nodes, args.graph, p=args.p)
     print(f"Graph: {args.graph}, nodes: {args.num_nodes}, edges: {len(graph.edges)}")
 
@@ -793,12 +1164,24 @@ def run_sim(args):
             args.seed
         )
         print(f"Attack type: {args.attack_type}, lambda: {args.attack_lambda}")
-        print(f"Attack verification: {len(attacker.compromised_nodes)} compromised nodes out of {args.num_nodes}")
 
-    # Initialize node models using LEAF architectures
+    # Initialize trust monitors for trust-weighted aggregation
+    trust_monitors = {}
+    if args.agg in ["trust-fedavg", "trust-gossip"]:
+        trust_config = TrustConfig(
+            initial_trust=0.8,
+            history_window=5,
+            trust_decay_rate=args.trust_decay_rate,
+            min_influence_weight=0.1,
+            enable_trust_monitoring=True
+        )
+        for i in range(args.num_nodes):
+            trust_monitors[str(i)] = SimpleTrustMonitor(str(i), trust_config)
+        print(f"Trust monitoring enabled with decay rate {args.trust_decay_rate}")
+
+    # Initialize models
     models = []
     for i in range(args.num_nodes):
-        # Set deterministic seed for each model initialization
         torch.manual_seed(args.seed + i)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(args.seed + i)
@@ -810,15 +1193,14 @@ def run_sim(args):
         else:
             raise ValueError(f"Unsupported dataset: {args.dataset}")
 
-        # Compile model for faster execution (PyTorch 2.0+) if available
         if dev.type == "cuda":
             try:
                 model = torch.compile(model, mode="reduce-overhead")
             except Exception:
-                pass  # Fallback if torch.compile not available
+                pass
         models.append(model)
 
-    # Evaluate initial performance on client-specific test sets
+    # Evaluate initial performance
     with torch.no_grad():
         base_accs = []
         for i, m in enumerate(models):
@@ -828,20 +1210,18 @@ def run_sim(args):
 
     # Main training loop
     for r in range(1, args.rounds + 1):
-        # Create data loaders with round-specific seeds for reproducible but varying data
+        # Create data loaders
         if use_sampling:
-            # Sample subset of data each round
             loaders = []
             for i, p in enumerate(parts):
                 num_samples = min(args.max_samples, len(p))
-                round_seed = args.seed + r * 1000 + i  # Unique seed per round and client
+                round_seed = args.seed + r * 1000 + i
                 sampler = RandomSampler(p, replacement=False, num_samples=num_samples,
                                         generator=torch.Generator().manual_seed(round_seed))
                 loader = DataLoader(p, batch_size=args.batch_size, sampler=sampler,
                                     num_workers=num_workers, pin_memory=pin_memory)
                 loaders.append(loader)
         else:
-            # Use full data with shuffling
             loaders = []
             for i, p in enumerate(parts):
                 round_seed = args.seed + r * 1000 + i
@@ -853,12 +1233,12 @@ def run_sim(args):
                                     generator=generator)
                 loaders.append(loader)
 
-        # Local training phase: each node trains on its local data
+        # Local training phase
         for i, (m, ld) in enumerate(zip(models, loaders)):
             local_train(m, ld, epochs=args.local_epochs, lr=args.lr, device_=dev)
 
-        # Communication/aggregation phase: choose algorithm based on args
-        if args.agg == "d-fedadj":
+        # Communication/aggregation phase
+        if args.agg == "d-fedavg":
             if attacker:
                 decentralized_fedavg_step_with_attack(models, graph, r, attacker)
             else:
@@ -874,10 +1254,15 @@ def run_sim(args):
                 decentralized_krum_step_with_attack(models, graph, args.pct_compromised, r, attacker)
             else:
                 decentralized_krum_step(models, graph, args.pct_compromised)
+        elif args.agg == "trust-fedavg":
+            trust_weighted_fedavg_step(models, graph, trust_monitors, r, attacker)
+        elif args.agg == "trust-gossip":
+            trust_weighted_gossip_round(models, graph, trust_monitors, steps=args.gossip_steps,
+                                        round_num=r, seed=args.seed, attacker=attacker)
         else:
-            raise ValueError("agg must be 'd-fedadj', 'gossip', or 'krum'")
+            raise ValueError("agg must be 'd-fedavg', 'gossip', 'krum', 'trust-fedavg', or 'trust-gossip'")
 
-        # Evaluation phase: each client tests on their own user's test data
+        # Evaluation phase
         accs = []
         losses = []
         correct_totals = []
@@ -887,24 +1272,33 @@ def run_sim(args):
             losses.append(loss)
             correct_totals.append((correct, total))
 
-        # Print detailed round statistics
+        # Print round statistics
         print(f"Round {r:03d}: test acc mean={np.mean(accs):.4f} ± {np.std(accs):.4f} | "
               f"min={np.min(accs):.4f} max={np.max(accs):.4f}")
         print(f"         : test loss mean={np.mean(losses):.4f} ± {np.std(losses):.4f}")
-        
-        # Individual accuracies
-        acc_strs = [f"{acc:.6f}" for acc in accs]
-        print(f"         : individual accs = {acc_strs}")
-        
-        # Correct/total counts
-        print(f"         : correct/total = {correct_totals}")
-        
-        # Show compromised vs honest node performance if under attack
-        if attacker and args.verbose:
-            compromised_accs = [accs[i] for i in attacker.compromised_nodes]
-            honest_accs = [accs[i] for i in range(args.num_nodes) if i not in attacker.compromised_nodes]
-            print(f"         : compromised nodes {attacker.compromised_nodes}: mean acc={np.mean(compromised_accs):.4f}")
-            print(f"         : honest nodes: mean acc={np.mean(honest_accs):.4f}")
+
+        if args.verbose:
+            acc_strs = [f"{acc:.6f}" for acc in accs]
+            print(f"         : individual accs = {acc_strs}")
+            print(f"         : correct/total = {correct_totals}")
+
+            # Show compromised vs honest node performance if under attack
+            if attacker:
+                compromised_accs = [accs[i] for i in attacker.compromised_nodes]
+                honest_accs = [accs[i] for i in range(args.num_nodes) if i not in attacker.compromised_nodes]
+                if compromised_accs and honest_accs:
+                    print(f"         : compromised nodes: mean acc={np.mean(compromised_accs):.4f}")
+                    print(f"         : honest nodes: mean acc={np.mean(honest_accs):.4f}")
+
+            # Show trust information for trust-weighted methods
+            if args.agg in ["trust-fedavg", "trust-gossip"] and trust_monitors:
+                trust_summaries = []
+                for node_id, monitor in trust_monitors.items():
+                    summary = monitor.get_trust_summary()
+                    if summary["num_neighbors"] > 0:
+                        trust_summaries.append(f"Node {node_id}: {summary['mean_trust']:.3f}")
+                if trust_summaries:
+                    print(f"         : trust scores = {trust_summaries}")
 
     # Final evaluation and summary
     accs = []
@@ -916,16 +1310,32 @@ def run_sim(args):
     print(f"Dataset: {args.dataset}, Nodes: {args.num_nodes}, Graph: {args.graph}, Agg: {args.agg}")
     if attacker:
         print(f"Attack: {args.attack_type}, {args.attack_percentage*100:.1f}% compromised, lambda={args.attack_lambda}")
+        compromised_accs = [accs[i] for i in attacker.compromised_nodes]
+        honest_accs = [accs[i] for i in range(args.num_nodes) if i not in attacker.compromised_nodes]
+        if compromised_accs and honest_accs:
+            print(f"Final accuracy - Compromised: {np.mean(compromised_accs):.4f}, Honest: {np.mean(honest_accs):.4f}")
     else:
         print("No attack (clean run)")
     print(f"Test accuracy: mean={np.mean(accs):.4f} ± {np.std(accs):.4f}")
 
+    # Print trust summary for trust-weighted methods
+    if args.agg in ["trust-fedavg", "trust-gossip"] and trust_monitors:
+        print("\n=== TRUST SUMMARY ===")
+        all_trust_scores = []
+        for node_id, monitor in trust_monitors.items():
+            summary = monitor.get_trust_summary()
+            all_trust_scores.extend(summary["trust_scores"].values())
+            if summary["num_neighbors"] > 0:
+                print(f"Node {node_id}: neighbors={summary['num_neighbors']}, "
+                      f"mean_trust={summary['mean_trust']:.3f}, min_trust={summary['min_trust']:.3f}")
 
-# ---------------------------- Command Line Interface ---------------------------- #
+        if all_trust_scores:
+            print(f"Overall trust distribution: mean={np.mean(all_trust_scores):.3f} ± {np.std(all_trust_scores):.3f}")
+
 
 def parse_args():
     """Parse command line arguments."""
-    p = argparse.ArgumentParser(description="Decentralized Learning Simulator with Attack Capability")
+    p = argparse.ArgumentParser(description="Decentralized Learning Simulator with Trust-Weighted Aggregation")
 
     # Dataset and basic training parameters
     p.add_argument("--dataset", type=str, choices=["femnist", "celeba"], required=True,
@@ -941,15 +1351,21 @@ def parse_args():
     p.add_argument("--lr", type=float, default=0.01,
                    help="Learning rate for local SGD")
     p.add_argument("--max-samples", type=int, default=None,
-                   help="Max samples per client per epoch (for large datasets like CelebA)")
+                   help="Max samples per client per epoch (for large datasets)")
 
     # Aggregation algorithm parameters
-    p.add_argument("--agg", type=str, choices=["d-fedadj", "gossip", "krum"], default="d-fedadj",
-                   help="Aggregation algorithm: d-fedadj=FedAvg-style, gossip=random pairs, krum=Byzantine-robust")
+    p.add_argument("--agg", type=str,
+                   choices=["d-fedavg", "gossip", "krum", "trust-fedavg", "trust-gossip"],
+                   default="d-fedavg",
+                   help="Aggregation algorithm")
     p.add_argument("--gossip-steps", type=int, default=10,
                    help="Number of random edge gossips per round (for gossip aggregation)")
     p.add_argument("--pct-compromised", type=float, default=0.0,
-                   help="Max percentage of compromised models per neighborhood for Krum (c = pct * neighborhood_size)")
+                   help="Max percentage of compromised models per neighborhood for Krum")
+
+    # Trust monitoring parameters
+    p.add_argument("--trust-decay-rate", type=float, default=0.1,
+                   help="Trust decay rate for trust-weighted aggregation")
 
     # Graph topology parameters
     p.add_argument("--graph", type=str, choices=["ring", "fully", "erdos"], default="ring",
@@ -966,10 +1382,10 @@ def parse_args():
                    help="Percentage of nodes to compromise (0.0-1.0)")
     p.add_argument("--attack-type", type=str, choices=["directed_deviation", "random"],
                    default="directed_deviation",
-                   help="Attack type: directed_deviation (from paper) or random baseline")
+                   help="Attack type")
     p.add_argument("--attack-lambda", type=float, default=1.0,
                    help="Lambda parameter controlling attack strength")
-    
+
     # Debug/verbose
     p.add_argument("--verbose", action="store_true",
                    help="Enable verbose output for debugging")
