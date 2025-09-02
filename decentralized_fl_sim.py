@@ -1335,13 +1335,21 @@ def run_sim(args):
 
             # Show trust information for trust-weighted methods
             if args.agg in ["trust-fedavg", "trust-gossip"] and trust_monitors:
-                trust_summaries = []
-                for node_id, monitor in trust_monitors.items():
-                    summary = monitor.get_trust_summary()
-                    if summary["num_neighbors"] > 0:
-                        trust_summaries.append(f"Node {node_id}: {summary['mean_trust']:.3f}")
-                if trust_summaries:
-                    print(f"         : trust scores = {trust_summaries}")
+                # Compute each node's reputation (how much others trust it)
+                node_reputations = {}
+                for target_node in range(args.num_nodes):
+                    trust_received = []
+                    for evaluator_id, monitor in trust_monitors.items():
+                        target_id = str(target_node)
+                        if target_id in monitor.trust_scores:
+                            trust_received.append(monitor.trust_scores[target_id])
+                    
+                    if trust_received:
+                        node_reputations[target_node] = np.mean(trust_received)
+                
+                if node_reputations:
+                    reputation_strs = [f"Node {nid}: {rep:.3f}" for nid, rep in sorted(node_reputations.items())]
+                    print(f"         : node reputations = {reputation_strs}")
 
     # Final evaluation and summary
     accs = []
