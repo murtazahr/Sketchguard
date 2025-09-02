@@ -793,6 +793,7 @@ def run_sim(args):
             args.seed
         )
         print(f"Attack type: {args.attack_type}, lambda: {args.attack_lambda}")
+        print(f"Attack verification: {len(attacker.compromised_nodes)} compromised nodes out of {args.num_nodes}")
 
     # Initialize node models using LEAF architectures
     models = []
@@ -897,6 +898,13 @@ def run_sim(args):
         
         # Correct/total counts
         print(f"         : correct/total = {correct_totals}")
+        
+        # Show compromised vs honest node performance if under attack
+        if attacker and args.verbose:
+            compromised_accs = [accs[i] for i in attacker.compromised_nodes]
+            honest_accs = [accs[i] for i in range(args.num_nodes) if i not in attacker.compromised_nodes]
+            print(f"         : compromised nodes {attacker.compromised_nodes}: mean acc={np.mean(compromised_accs):.4f}")
+            print(f"         : honest nodes: mean acc={np.mean(honest_accs):.4f}")
 
     # Final evaluation and summary
     accs = []
@@ -961,6 +969,10 @@ def parse_args():
                    help="Attack type: directed_deviation (from paper) or random baseline")
     p.add_argument("--attack-lambda", type=float, default=1.0,
                    help="Lambda parameter controlling attack strength")
+    
+    # Debug/verbose
+    p.add_argument("--verbose", action="store_true",
+                   help="Enable verbose output for debugging")
 
     return p.parse_args()
 
