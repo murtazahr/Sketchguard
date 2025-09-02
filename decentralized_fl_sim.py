@@ -320,14 +320,30 @@ class SimpleTrustMonitor:
             # Sudden changes in behavior are suspicious
             anomaly_signals.append(min(1.0, avg_historical_distance * 3.0))
 
-        # 3. Neighborhood consensus check
+        # 3. Neighborhood consensus check - O(N) statistical outlier detection
         if len(all_neighbor_fps) >= 3:  # Need multiple neighbors for meaningful consensus
-            other_fps = [fp for nid, fp in all_neighbor_fps.items() if nid != neighbor_id]
-            if other_fps:
-                consensus_distances = [neighbor_fp.distance_to(fp) for fp in other_fps]
-                avg_consensus_distance = np.mean(consensus_distances)
-                # Outliers from neighborhood consensus are suspicious
-                anomaly_signals.append(min(1.0, avg_consensus_distance * 1.5))
+            # Extract all neighbors' fingerprint values for statistical analysis
+            all_fp_values = [fp for nid, fp in all_neighbor_fps.items() if nid != neighbor_id]
+            
+            if all_fp_values:
+                # Compute neighborhood statistical baseline (median for robustness)
+                norm_values = [fp.gradient_norm for fp in all_fp_values]
+                entropy_values = [fp.gradient_entropy for fp in all_fp_values]
+                
+                # Use median and MAD (Median Absolute Deviation) for robust outlier detection
+                norm_median = np.median(norm_values)
+                norm_mad = np.median([abs(x - norm_median) for x in norm_values])
+                
+                entropy_median = np.median(entropy_values)
+                entropy_mad = np.median([abs(x - entropy_median) for x in entropy_values])
+                
+                # Check if current neighbor is statistical outlier (z-score using MAD)
+                norm_outlier_score = abs(neighbor_fp.gradient_norm - norm_median) / (norm_mad + 1e-8)
+                entropy_outlier_score = abs(neighbor_fp.gradient_entropy - entropy_median) / (entropy_mad + 1e-8)
+                
+                # Convert to anomaly score (3 MAD = strong outlier)
+                consensus_anomaly = min(1.0, max(norm_outlier_score, entropy_outlier_score) / 3.0)
+                anomaly_signals.append(consensus_anomaly)
 
         # 4. Extreme value detection for obvious attacks
         extreme_signals = []
