@@ -27,16 +27,14 @@ from __future__ import annotations
 
 import argparse
 import random
-import logging
-from dataclasses import dataclass
-from typing import Dict, List, Tuple, Optional, Set
 from collections import deque, defaultdict
+from dataclasses import dataclass
+from typing import Dict, List, Tuple, Optional
 
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Subset, RandomSampler
-from scipy import stats as scipy_stats
 
 from leaf_datasets import (
     load_leaf_dataset,
