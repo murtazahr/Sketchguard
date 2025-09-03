@@ -364,17 +364,15 @@ class ParameterAwareBALANCE(OriginalBALANCE):
 
     def _compute_weighted_distance(self, update1: Dict[str, torch.Tensor],
                                    update2: Dict[str, torch.Tensor]) -> float:
-        """
-        Compute parameter-aware weighted distance.
-
-        Instead of uniform L2 distance, weight each parameter by:
-        - Importance (based on magnitude and layer type)
-        - Expected variance (parameters that vary more naturally get lower weight)
-        """
+        """Compute parameter-aware weighted distance with fallback to L2."""
         total_weighted_dist_sq = 0.0
         total_weight = 0.0
 
         common_keys = set(update1.keys()) & set(update2.keys())
+
+        if not common_keys:
+            # Fallback: return large distance if no common parameters
+            return 1000.0
 
         for param_name in common_keys:
             param_diff = update1[param_name] - update2[param_name]
@@ -382,31 +380,29 @@ class ParameterAwareBALANCE(OriginalBALANCE):
             # Get importance weight (default to 1.0 if not computed yet)
             importance = self.importance_weights.get(param_name, 1.0)
 
+            # Ensure importance is positive
+            importance = max(importance, 1e-6)
+
             # Get variance estimate for normalization
             if param_name in self.variance_estimates:
                 variance = self.variance_estimates[param_name]
-                # Avoid division by zero
                 variance_norm = torch.clamp(variance, min=1e-6)
-                # Normalize difference by expected variance
                 normalized_diff = param_diff / torch.sqrt(variance_norm)
             else:
                 normalized_diff = param_diff
 
-            # Weight by importance
             weighted_diff = importance * normalized_diff
-
-            # Add to total weighted distance
             param_dist_sq = torch.sum(weighted_diff * weighted_diff).item()
             total_weighted_dist_sq += param_dist_sq
             total_weight += importance * param_diff.numel()
 
-        # Normalize by total weight to make comparable to L2 distance
-        if total_weight > 0:
-            normalized_dist_sq = total_weighted_dist_sq / total_weight
-        else:
-            normalized_dist_sq = total_weighted_dist_sq
+        # Prevent division by zero
+        if total_weight <= 1e-8:
+            # Fallback to standard L2 distance
+            return self._compute_l2_distance(update1, update2)
 
-        return np.sqrt(normalized_dist_sq)
+        normalized_dist_sq = total_weighted_dist_sq / total_weight
+        return np.sqrt(max(0.0, normalized_dist_sq))  # Ensure non-negative
 
     def filter_neighbors(self, own_update: Dict[str, torch.Tensor],
                          neighbor_updates: Dict[str, Dict[str, torch.Tensor]],
@@ -1081,29 +1077,80 @@ def run_sim(args):
         accs.append(acc)
 
     print("\n=== FINAL RESULTS ===")
-    print(f"Dataset: {args.dataset}, Nodes: {args.num_nodes}, Graph: {args.graph}, Agg: {args.agg}")
+    print(f"Dataset: {args.dataset}, Nodes: {args.num_nodes}, Graph: {args.graph}, Aggregation: {args.agg}")
     if attacker:
         print(f"Attack: {args.attack_type}, {args.attack_percentage*100:.1f}% compromised, lambda={args.attack_lambda}")
         compromised_accs = [accs[i] for i in attacker.compromised_nodes]
         honest_accs = [accs[i] for i in range(args.num_nodes) if i not in attacker.compromised_nodes]
         if compromised_accs and honest_accs:
             print(f"Final accuracy - Compromised: {np.mean(compromised_accs):.4f}, Honest: {np.mean(honest_accs):.4f}")
+            print(f"Attack effectiveness: {max(0, np.mean(honest_accs) - np.mean(compromised_accs)):.4f} accuracy difference")
     else:
         print("No attack (clean run)")
-    print(f"Test accuracy: mean={np.mean(accs):.4f} ± {np.std(accs):.4f}")
+    print(f"Overall test accuracy: mean={np.mean(accs):.4f} ± {np.std(accs):.4f}")
 
+    # Print comprehensive BALANCE summary
     if args.agg in ["balance", "param-balance"] and balance_monitors:
-        print("\n=== BALANCE SUMMARY ===")
+        print(f"\n=== {args.agg.upper()} ALGORITHM SUMMARY ===")
         all_acceptance_rates = []
+        all_thresholds = []
+        parameter_analysis_shown = False
+
         for node_id, monitor in balance_monitors.items():
             stats = monitor.get_statistics()
             all_acceptance_rates.append(stats["mean_acceptance_rate"])
-            if stats["total_rounds_processed"] > 0:
-                print(f"Node {node_id}: acceptance_rate={stats['mean_acceptance_rate']:.3f}, "
-                      f"final_threshold={stats.get('current_threshold', 0):.2f}")
+
+            if monitor.threshold_history:
+                all_thresholds.append(monitor.threshold_history[-1])
+
+            # Show detailed stats for first few nodes
+            if int(node_id) < 5:
+                print(f"Node {node_id}: mean_acceptance={stats['mean_acceptance_rate']:.3f}, "
+                      f"rounds_processed={stats['total_rounds_processed']}")
+
+                # Show parameter analysis for Parameter-Aware BALANCE
+                if args.agg == "param-balance" and not parameter_analysis_shown:
+                    if isinstance(monitor, ParameterAwareBALANCE):
+                        param_stats = monitor.get_statistics()
+                        if param_stats.get("num_parameters_tracked", 0) > 0:
+                            print(f"         : parameters_tracked={param_stats['num_parameters_tracked']}, "
+                                  f"mean_importance={param_stats.get('mean_parameter_importance', 0):.3f}, "
+                                  f"variance_estimates={param_stats.get('parameters_with_variance_estimates', 0)}")
+                            parameter_analysis_shown = True
 
         if all_acceptance_rates:
-            print(f"Overall acceptance rate: mean={np.mean(all_acceptance_rates):.3f} ± {np.std(all_acceptance_rates):.3f}")
+            print(f"Network-wide acceptance statistics:")
+            print(f"  - Mean acceptance rate: {np.mean(all_acceptance_rates):.3f} ± {np.std(all_acceptance_rates):.3f}")
+            print(f"  - Min acceptance rate: {np.min(all_acceptance_rates):.3f}")
+            print(f"  - Max acceptance rate: {np.max(all_acceptance_rates):.3f}")
+
+        if all_thresholds:
+            print(f"  - Final threshold values: mean={np.mean(all_thresholds):.3f} ± {np.std(all_thresholds):.3f}")
+
+        # Algorithm-specific insights
+        if args.agg == "balance":
+            print(f"Original BALANCE insights:")
+            print(f"  - Uses uniform L2 distance for similarity measurement")
+            print(f"  - Threshold decay: gamma={args.balance_gamma} * exp(-{args.balance_kappa} * t)")
+        else:  # param-balance
+            print(f"Parameter-Aware BALANCE insights:")
+            print(f"  - Uses parameter importance weighting based on layer type and magnitude")
+            print(f"  - Incorporates variance normalization from historical parameter data")
+            print(f"  - Enhanced detection of attacks targeting specific parameter structures")
+
+        # Performance analysis
+        if attacker and honest_accs and compromised_accs:
+            avg_acceptance = np.mean(all_acceptance_rates)
+            if avg_acceptance < 0.3:
+                print(f"WARNING: Very low acceptance rate ({avg_acceptance:.3f}) may indicate aggressive filtering")
+            elif avg_acceptance > 0.9:
+                print(f"NOTE: High acceptance rate ({avg_acceptance:.3f}) suggests either weak attacks or ineffective filtering")
+
+            attack_mitigation = max(0, np.mean(honest_accs) - np.mean(accs))
+            if attack_mitigation > 0.05:
+                print(f"ANALYSIS: Algorithm successfully mitigated attack impact by {attack_mitigation:.4f} accuracy")
+            else:
+                print(f"ANALYSIS: Limited attack mitigation - consider tuning parameters or stronger defenses")
 
 
 def parse_args():

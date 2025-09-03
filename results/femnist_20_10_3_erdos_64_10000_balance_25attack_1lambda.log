@@ -1,0 +1,91 @@
+(edgedrift) mrangwala@rs-l-rhatop:~/Projects/Trust-Monitor$ python decentralized_fl_sim.py --dataset femnist --num-nodes 20 --rounds 10 --local-epochs 3 --seed 987654321 --graph erdos --p 0.45 --batch-size 64 --lr 0.01 --max-samples 10000 --agg balance --attack-percentage 0.25
+Device: cpu
+Seed: 987654321
+Loading 36 LEAF FEMNIST train files...
+LEAF FEMNIST train: 3597 users, 734463 samples
+Loading 36 LEAF FEMNIST test files...
+LEAF FEMNIST test: 3597 users, 83388 samples
+Found 3597 train users, 3597 test users, 3597 common users
+User sample counts range: 525 (max) to 17 (min)
+Distributed ALL 3597 users across 20 clients
+Users per client: 179 (with 17 clients getting +1 user)
+Train partition sizes: [36360, 37070, 35957, 38262, 36024, 37732, 36921, 38328, 36867, 37683, 36507, 36915, 36007, 37001, 35681, 35453, 36585, 36801, 35964, 36345]
+Test partition sizes: [4128, 4203, 4081, 4333, 4091, 4287, 4193, 4349, 4191, 4277, 4143, 4193, 4093, 4197, 4052, 4029, 4153, 4183, 4084, 4128]
+  Client 0: 36360 train samples, 62 unique classes
+  Client 1: 37070 train samples, 62 unique classes
+  Client 2: 35957 train samples, 62 unique classes
+  Client 3: 38262 train samples, 62 unique classes
+  Client 4: 36024 train samples, 62 unique classes
+  Client 5: 37732 train samples, 62 unique classes
+  Client 6: 36921 train samples, 62 unique classes
+  Client 7: 38328 train samples, 62 unique classes
+  Client 8: 36867 train samples, 62 unique classes
+  Client 9: 37683 train samples, 62 unique classes
+  Client 10: 36507 train samples, 62 unique classes
+  Client 11: 36915 train samples, 62 unique classes
+  Client 12: 36007 train samples, 62 unique classes
+  Client 13: 37001 train samples, 62 unique classes
+  Client 14: 35681 train samples, 62 unique classes
+  Client 15: 35453 train samples, 62 unique classes
+  Client 16: 36585 train samples, 62 unique classes
+  Client 17: 36801 train samples, 62 unique classes
+  Client 18: 35964 train samples, 62 unique classes
+  Client 19: 36345 train samples, 62 unique classes
+Will sample 10000 samples per client per epoch
+Graph: erdos, nodes: 20, edges: 99
+Attack: Compromised 5/20 nodes: [5, 12, 13, 14, 17]
+Attack type: directed_deviation, lambda: 1.0
+BALANCE algorithm: balance
+  - Gamma: 2.0
+  - Kappa: 1.0
+  - Alpha: 0.5
+Initial test acc across nodes: mean=0.0162 ± 0.0138
+Round 001: test acc mean=0.4820 ± 0.0341 | min=0.4210 max=0.5512
+         : test loss mean=3.7527 ± 0.0300
+Round 002: test acc mean=0.6834 ± 0.0193 | min=0.6404 max=0.7075
+         : test loss mean=3.3348 ± 0.0919
+Round 003: test acc mean=0.7049 ± 0.0199 | min=0.6522 max=0.7376
+         : test loss mean=2.9448 ± 0.1837
+Round 004: test acc mean=0.7051 ± 0.0275 | min=0.6247 max=0.7409
+         : test loss mean=2.3658 ± 0.2466
+Round 005: test acc mean=0.7081 ± 0.0308 | min=0.6278 max=0.7522
+         : test loss mean=1.7324 ± 0.2182
+Round 006: test acc mean=0.7593 ± 0.0173 | min=0.7188 max=0.7803
+         : test loss mean=1.1062 ± 0.1153
+Round 007: test acc mean=0.8009 ± 0.0090 | min=0.7757 max=0.8132
+         : test loss mean=0.7433 ± 0.0529
+Round 008: test acc mean=0.8193 ± 0.0084 | min=0.7982 max=0.8297
+         : test loss mean=0.5921 ± 0.0247
+Round 009: test acc mean=0.8333 ± 0.0056 | min=0.8252 max=0.8482
+         : test loss mean=0.5219 ± 0.0179
+Round 010: test acc mean=0.8417 ± 0.0044 | min=0.8328 max=0.8484
+         : test loss mean=0.4899 ± 0.0176
+
+=== FINAL RESULTS ===
+Dataset: femnist, Nodes: 20, Graph: erdos, Agg: balance
+Attack: directed_deviation, 25.0% compromised, lambda=1.0
+Final accuracy - Compromised: 0.8427, Honest: 0.8413
+Test accuracy: mean=0.8417 ± 0.0044
+
+=== BALANCE SUMMARY ===
+Node 0: acceptance_rate=0.750, final_threshold=12.55
+Node 1: acceptance_rate=0.800, final_threshold=12.62
+Node 2: acceptance_rate=0.875, final_threshold=12.57
+Node 3: acceptance_rate=0.857, final_threshold=12.67
+Node 4: acceptance_rate=0.778, final_threshold=12.67
+Node 5: acceptance_rate=0.700, final_threshold=12.43
+Node 6: acceptance_rate=0.667, final_threshold=12.60
+Node 7: acceptance_rate=0.636, final_threshold=12.58
+Node 8: acceptance_rate=0.429, final_threshold=12.58
+Node 9: acceptance_rate=0.909, final_threshold=12.68
+Node 10: acceptance_rate=0.750, final_threshold=12.62
+Node 11: acceptance_rate=0.667, final_threshold=12.64
+Node 12: acceptance_rate=0.833, final_threshold=12.53
+Node 13: acceptance_rate=0.889, final_threshold=12.60
+Node 14: acceptance_rate=0.714, final_threshold=12.43
+Node 15: acceptance_rate=0.667, final_threshold=12.61
+Node 16: acceptance_rate=0.571, final_threshold=12.62
+Node 17: acceptance_rate=0.750, final_threshold=12.54
+Node 18: acceptance_rate=0.750, final_threshold=12.56
+Node 19: acceptance_rate=0.600, final_threshold=12.66
+Overall acceptance rate: mean=0.730 ± 0.116
