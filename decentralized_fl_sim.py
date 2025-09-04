@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """
-Decentralized Learning Simulator with BALANCE and Parameter-Aware BALANCE
+Decentralized Learning Simulator with BALANCE
 
 Supports aggregation strategies over a peer graph:
   1) Decentralized FedAvg (synchronous neighbor averaging per round)
   2) Gossip averaging (asynchronous-style, simulated with K random edge gossips per round)
   3) Decentralized Krum (Byzantine-robust aggregation, selects most similar model)
   4) BALANCE (Byzantine-robust averaging through local similarity)
-  5) Parameter-Aware BALANCE (enhanced BALANCE with parameter importance weighting)
 
 Example usage:
   # Clean run with BALANCE
@@ -15,10 +14,10 @@ Example usage:
       --dataset femnist --num-nodes 8 --rounds 20 --local-epochs 1 \
       --agg balance --graph ring --lr 0.01
 
-  # Parameter-aware BALANCE under attack
+  # BALANCE under attack
   python decentralized_fl_sim.py \
       --dataset femnist --num-nodes 10 --rounds 30 --local-epochs 1 \
-      --agg param-balance --graph erdos --p 0.3 \
+      --agg balance --graph erdos --p 0.3 \
       --attack-percentage 0.3 --attack-type directed_deviation
 """
 from __future__ import annotations
@@ -125,9 +124,9 @@ class BALANCEConfig:
     min_neighbors: int = 1      # Minimum neighbors to accept before fallback
 
 
-class OriginalBALANCE:
+class BALANCE:
     """
-    Original BALANCE algorithm implementation.
+    BALANCE algorithm implementation.
 
     BALANCE filters neighbors based on L2 distance similarity to own update,
     with exponentially tightening thresholds over time.
@@ -283,182 +282,6 @@ class OriginalBALANCE:
             "current_threshold": self.threshold_history[-1] if self.threshold_history else 0.0,
             "total_rounds_processed": len(self.acceptance_history)
         }
-
-
-class ParameterAwareBALANCE(OriginalBALANCE):
-    """
-    Parameter-Aware BALANCE: Enhanced version that weights parameters by importance.
-
-    Key improvements over original BALANCE:
-    1. Computes parameter importance based on gradient magnitudes and layer types
-    2. Estimates expected parameter variance from historical data
-    3. Uses weighted distance instead of uniform L2 distance
-    4. More robust against attacks that exploit parameter structure
-    """
-
-    def __init__(self, node_id: str, config: BALANCEConfig, total_rounds: int,
-                 importance_window: int = 10):
-        super().__init__(node_id, config, total_rounds)
-
-        # Parameter analysis components
-        self.importance_window = importance_window
-        self.parameter_history = defaultdict(lambda: deque(maxlen=importance_window))
-        self.importance_weights = {}
-        self.variance_estimates = {}
-
-        # Layer type detection for importance weighting
-        self.layer_importance_map = {
-            'weight': 1.0,      # Standard layer weights
-            'bias': 0.3,        # Biases typically less important
-            'bn': 0.5,          # Batch norm parameters
-            'embedding': 1.2,   # Embedding layers often critical
-            'classifier': 1.5,  # Final classifier very important
-            'fc': 1.5,          # Fully connected layers
-            'conv': 1.0,        # Convolutional layers
-        }
-
-    def _detect_parameter_type(self, param_name: str) -> str:
-        """Detect parameter type from name for importance weighting."""
-        name_lower = param_name.lower()
-
-        if 'classifier' in name_lower or 'fc' in name_lower:
-            if 'weight' in name_lower:
-                return 'classifier'
-            else:
-                return 'bias'
-        elif 'embedding' in name_lower:
-            return 'embedding'
-        elif 'conv' in name_lower and 'weight' in name_lower:
-            return 'conv'
-        elif 'bn' in name_lower or 'batch_norm' in name_lower:
-            return 'bn'
-        elif 'weight' in name_lower:
-            return 'weight'
-        elif 'bias' in name_lower:
-            return 'bias'
-        else:
-            return 'weight'  # Default
-
-    def update_parameter_statistics(self, model_update: Dict[str, torch.Tensor]):
-        """Update parameter importance and variance estimates."""
-        for param_name, param_tensor in model_update.items():
-            # Store parameter history for variance estimation
-            self.parameter_history[param_name].append(param_tensor.clone().detach())
-
-            # Compute importance based on magnitude and type
-            param_magnitude = torch.norm(param_tensor).item()
-            param_type = self._detect_parameter_type(param_name)
-            type_weight = self.layer_importance_map.get(param_type, 1.0)
-
-            # Importance = magnitude * type_weight * size_factor
-            size_factor = np.sqrt(param_tensor.numel())  # Larger tensors get more weight
-            importance = param_magnitude * type_weight / size_factor
-
-            self.importance_weights[param_name] = importance
-
-            # Update variance estimate if we have enough history
-            if len(self.parameter_history[param_name]) >= 3:
-                param_history = torch.stack(list(self.parameter_history[param_name]))
-                param_variance = torch.var(param_history, dim=0)
-                self.variance_estimates[param_name] = param_variance
-
-    def _compute_weighted_distance(self, update1: Dict[str, torch.Tensor],
-                                   update2: Dict[str, torch.Tensor]) -> float:
-        """Compute parameter-aware weighted distance with fallback to L2."""
-        total_weighted_dist_sq = 0.0
-        total_weight = 0.0
-
-        common_keys = set(update1.keys()) & set(update2.keys())
-
-        if not common_keys:
-            # Fallback: return large distance if no common parameters
-            return 1000.0
-
-        for param_name in common_keys:
-            param_diff = update1[param_name] - update2[param_name]
-
-            # Get importance weight (default to 1.0 if not computed yet)
-            importance = self.importance_weights.get(param_name, 1.0)
-
-            # Ensure importance is positive
-            importance = max(importance, 1e-6)
-
-            # Get variance estimate for normalization
-            if param_name in self.variance_estimates:
-                variance = self.variance_estimates[param_name]
-                variance_norm = torch.clamp(variance, min=1e-6)
-                normalized_diff = param_diff / torch.sqrt(variance_norm)
-            else:
-                normalized_diff = param_diff
-
-            weighted_diff = importance * normalized_diff
-            param_dist_sq = torch.sum(weighted_diff * weighted_diff).item()
-            total_weighted_dist_sq += param_dist_sq
-            total_weight += importance * param_diff.numel()
-
-        # Prevent division by zero
-        if total_weight <= 1e-8:
-            # Fallback to standard L2 distance
-            return self._compute_l2_distance(update1, update2)
-
-        normalized_dist_sq = total_weighted_dist_sq / total_weight
-        return np.sqrt(max(0.0, normalized_dist_sq))  # Ensure non-negative
-
-    def filter_neighbors(self, own_update: Dict[str, torch.Tensor],
-                         neighbor_updates: Dict[str, Dict[str, torch.Tensor]],
-                         current_round: int) -> Dict[str, Dict[str, torch.Tensor]]:
-        """
-        Filter neighbors using parameter-aware distance metric.
-
-        This overrides the parent class method to use weighted distance
-        instead of standard L2 distance.
-        """
-        # Update parameter statistics with own update
-        self.update_parameter_statistics(own_update)
-
-        threshold = self.compute_similarity_threshold(own_update, current_round)
-        accepted_neighbors = {}
-        distances = {}
-
-        for neighbor_id, neighbor_update in neighbor_updates.items():
-            # Use weighted distance instead of L2 distance
-            distance = self._compute_weighted_distance(own_update, neighbor_update)
-            distances[neighbor_id] = distance
-
-            # Store distance history
-            self.neighbor_distances[neighbor_id].append(distance)
-
-            # Accept if within threshold
-            if distance <= threshold:
-                accepted_neighbors[neighbor_id] = neighbor_update
-
-        # Track acceptance statistics
-        acceptance_rate = len(accepted_neighbors) / max(1, len(neighbor_updates))
-        self.acceptance_history.append(acceptance_rate)
-
-        # Fallback mechanism
-        if len(accepted_neighbors) < self.config.min_neighbors and neighbor_updates:
-            closest_neighbor = min(distances.items(), key=lambda x: x[1])
-            accepted_neighbors[closest_neighbor[0]] = neighbor_updates[closest_neighbor[0]]
-
-        return accepted_neighbors
-
-    def get_statistics(self) -> Dict:
-        """Get enhanced statistics including parameter analysis."""
-        base_stats = super().get_statistics()
-
-        # Add parameter-aware statistics
-        param_stats = {
-            "num_parameters_tracked": len(self.importance_weights),
-            "mean_parameter_importance": np.mean(list(self.importance_weights.values())) if self.importance_weights else 0.0,
-            "parameters_with_variance_estimates": len(self.variance_estimates),
-        }
-
-        # Combine statistics
-        enhanced_stats = {**base_stats, **param_stats}
-        enhanced_stats["algorithm"] = "ParameterAware-BALANCE"
-
-        return enhanced_stats
 
 
 # ---------------------------- Training helpers ---------------------------- #
@@ -708,10 +531,10 @@ class LocalModelPoisoningAttacker:
         return malicious_states[:num_compromised_in_neigh]
 
 
-# ---------------------------- BALANCE Aggregation Functions ---------------------------- #
+# ---------------------------- BALANCE Aggregation Function ---------------------------- #
 
 def balance_aggregation_step(models: List[nn.Module], graph: Graph,
-                             balance_monitors: Dict[str, OriginalBALANCE],
+                             balance_monitors: Dict[str, BALANCE],
                              round_num: int, attacker: Optional[LocalModelPoisoningAttacker] = None):
     """Perform one round of BALANCE aggregation."""
     states = [get_state(m) for m in models]
@@ -949,17 +772,14 @@ def run_sim(args):
 
     # Initialize BALANCE monitors
     balance_monitors = {}
-    if args.agg in ["balance", "param-balance"]:
+    if args.agg == "balance":
         balance_config = BALANCEConfig(
             gamma=args.balance_gamma,
             kappa=args.balance_kappa,
             alpha=args.balance_alpha
         )
         for i in range(args.num_nodes):
-            if args.agg == "balance":
-                balance_monitors[str(i)] = OriginalBALANCE(str(i), balance_config, args.rounds)
-            else:  # param-balance
-                balance_monitors[str(i)] = ParameterAwareBALANCE(str(i), balance_config, args.rounds)
+            balance_monitors[str(i)] = BALANCE(str(i), balance_config, args.rounds)
         print(f"BALANCE algorithm: {args.agg}")
         print(f"  - Gamma: {args.balance_gamma}")
         print(f"  - Kappa: {args.balance_kappa}")
@@ -1031,10 +851,10 @@ def run_sim(args):
                          round_num=r, seed=args.seed, attacker=attacker)
         elif args.agg == "krum":
             decentralized_krum_step(models, graph, args.pct_compromised, r, attacker)
-        elif args.agg in ["balance", "param-balance"]:
+        elif args.agg == "balance":
             balance_aggregation_step(models, graph, balance_monitors, r, attacker)
         else:
-            raise ValueError("agg must be 'd-fedavg', 'gossip', 'krum', 'balance', or 'param-balance'")
+            raise ValueError("agg must be 'd-fedavg', 'gossip', 'krum', or 'balance'")
 
         # Evaluation phase
         accs = []
@@ -1063,7 +883,7 @@ def run_sim(args):
                     print(f"         : honest nodes: mean acc={np.mean(honest_accs):.4f}")
 
             # Show BALANCE information
-            if args.agg in ["balance", "param-balance"] and balance_monitors:
+            if args.agg == "balance" and balance_monitors:
                 balance_stats = []
                 for node_id, monitor in balance_monitors.items():
                     stats = monitor.get_statistics()
@@ -1089,12 +909,11 @@ def run_sim(args):
         print("No attack (clean run)")
     print(f"Overall test accuracy: mean={np.mean(accs):.4f} ± {np.std(accs):.4f}")
 
-    # Print comprehensive BALANCE summary
-    if args.agg in ["balance", "param-balance"] and balance_monitors:
-        print(f"\n=== {args.agg.upper()} ALGORITHM SUMMARY ===")
+    # Print BALANCE summary
+    if args.agg == "balance" and balance_monitors:
+        print(f"\n=== BALANCE ALGORITHM SUMMARY ===")
         all_acceptance_rates = []
         all_thresholds = []
-        parameter_analysis_shown = False
 
         for node_id, monitor in balance_monitors.items():
             stats = monitor.get_statistics()
@@ -1108,16 +927,6 @@ def run_sim(args):
                 print(f"Node {node_id}: mean_acceptance={stats['mean_acceptance_rate']:.3f}, "
                       f"rounds_processed={stats['total_rounds_processed']}")
 
-                # Show parameter analysis for Parameter-Aware BALANCE
-                if args.agg == "param-balance" and not parameter_analysis_shown:
-                    if isinstance(monitor, ParameterAwareBALANCE):
-                        param_stats = monitor.get_statistics()
-                        if param_stats.get("num_parameters_tracked", 0) > 0:
-                            print(f"         : parameters_tracked={param_stats['num_parameters_tracked']}, "
-                                  f"mean_importance={param_stats.get('mean_parameter_importance', 0):.3f}, "
-                                  f"variance_estimates={param_stats.get('parameters_with_variance_estimates', 0)}")
-                            parameter_analysis_shown = True
-
         if all_acceptance_rates:
             print(f"Network-wide acceptance statistics:")
             print(f"  - Mean acceptance rate: {np.mean(all_acceptance_rates):.3f} ± {np.std(all_acceptance_rates):.3f}")
@@ -1127,16 +936,10 @@ def run_sim(args):
         if all_thresholds:
             print(f"  - Final threshold values: mean={np.mean(all_thresholds):.3f} ± {np.std(all_thresholds):.3f}")
 
-        # Algorithm-specific insights
-        if args.agg == "balance":
-            print(f"Original BALANCE insights:")
-            print(f"  - Uses uniform L2 distance for similarity measurement")
-            print(f"  - Threshold decay: gamma={args.balance_gamma} * exp(-{args.balance_kappa} * t)")
-        else:  # param-balance
-            print(f"Parameter-Aware BALANCE insights:")
-            print(f"  - Uses parameter importance weighting based on layer type and magnitude")
-            print(f"  - Incorporates variance normalization from historical parameter data")
-            print(f"  - Enhanced detection of attacks targeting specific parameter structures")
+        # Algorithm insights
+        print(f"BALANCE insights:")
+        print(f"  - Uses uniform L2 distance for similarity measurement")
+        print(f"  - Threshold decay: gamma={args.balance_gamma} * exp(-{args.balance_kappa} * t)")
 
         # Performance analysis
         if attacker and honest_accs and compromised_accs:
@@ -1175,7 +978,7 @@ def parse_args():
 
     # Aggregation algorithm parameters
     p.add_argument("--agg", type=str,
-                   choices=["d-fedavg", "gossip", "krum", "balance", "param-balance"],
+                   choices=["d-fedavg", "gossip", "krum", "balance"],
                    default="d-fedavg",
                    help="Aggregation algorithm")
     p.add_argument("--gossip-steps", type=int, default=10,
