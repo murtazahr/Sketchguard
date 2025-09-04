@@ -1198,6 +1198,12 @@ def run_sim(args):
 
         print(f"Round {r:03d}: test acc mean={np.mean(accs):.4f} ± {np.std(accs):.4f} | "
               f"min={np.min(accs):.4f} max={np.max(accs):.4f}")
+        print(f"         : test loss mean={np.mean(losses):.4f} ± {np.std(losses):.4f}")
+        
+        if args.verbose:
+            acc_strs = [f"{acc:.6f}" for acc in accs]
+            print(f"         : individual accs = {acc_strs}")
+            print(f"         : correct/total = {correct_totals}")
 
         if args.verbose:
             if attacker:
