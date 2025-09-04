@@ -248,7 +248,7 @@ class COARSE:
         self.total_rounds = total_rounds
         self.model_dim = model_dim
 
-        # Generate Count-Sketch hash functions (only need 1 repetition now)
+        # Generate Count-Sketch hash functions using pre-computed tables (fast)
         self.hash_functions = []
         self.sign_functions = []
         for rep in range(1):  # Single repetition sufficient for filtering
@@ -275,20 +275,21 @@ class COARSE:
         print(f"  Using gradients for aggregation, sketches for filtering")
 
     def _generate_count_sketch_functions(self, rep_id: int):
-        """Generate Count-Sketch hash and sign functions for one repetition."""
+        """Generate Count-Sketch hash and sign functions using pre-computed tables for speed."""
         base_seed = self.config.network_seed + rep_id * 1000
+        rng = np.random.RandomState(base_seed)
+
+        # Pre-compute hash and sign tables - much faster than MD5
+        hash_table = rng.randint(0, self.config.sketch_size, size=self.model_dim)
+        sign_table = rng.choice([-1, 1], size=self.model_dim)
 
         def hash_function(index: int) -> int:
-            """Map parameter index to sketch bucket [0, sketch_size)"""
-            hash_input = f"{base_seed}_{index}".encode('utf-8')
-            hash_value = int(hashlib.md5(hash_input).hexdigest(), 16)
-            return hash_value % self.config.sketch_size
+            """Fast lookup instead of MD5 computation."""
+            return hash_table[index % self.model_dim]
 
         def sign_function(index: int) -> int:
-            """Map parameter index to sign {-1, +1}"""
-            hash_input = f"{base_seed}_sign_{index}".encode('utf-8')
-            hash_value = int(hashlib.md5(hash_input).hexdigest(), 16)
-            return 1 if hash_value % 2 == 0 else -1
+            """Fast lookup instead of MD5 computation."""
+            return sign_table[index % self.model_dim]
 
         return hash_function, sign_function
 
@@ -307,7 +308,7 @@ class COARSE:
         hash_fn = self.hash_functions[0]  # Only using first (and only) repetition
         sign_fn = self.sign_functions[0]
 
-        # Single pass through vector - O(d) complexity
+        # Single pass through vector - O(d) complexity with fast lookups
         for i, value in enumerate(vector):
             bucket = hash_fn(i)
             sign = sign_fn(i)
@@ -815,8 +816,10 @@ def coarse_aggregation_step(models: List[nn.Module], graph: Graph,
     gradients = []
     for i, current_state in enumerate(states):
         if coarse_aggregation_step.previous_states[i] is None:
-            # First round: use current state as gradient (from initialization)
-            gradient = current_state
+            # First round: use small random gradients instead of full model parameters
+            gradient = {}
+            for key, param in current_state.items():
+                gradient[key] = torch.randn_like(param) * 0.01  # Small random gradients
         else:
             # Compute difference: current - previous
             gradient = {}
@@ -830,30 +833,11 @@ def coarse_aggregation_step(models: List[nn.Module], graph: Graph,
         {k: v.clone() for k, v in state.items()} for state in states
     ]
 
-    # Phase 2: Apply attacks BEFORE sketching (fair evaluation)
+    # Phase 2: Apply attacks CONSISTENTLY (same as other algorithms)
     if attacker:
         attacker.update_compromised_states(round_num, states)
-
-        for i in range(graph.n):
-            if i in attacker.compromised_nodes:
-                neighbors = [i] + graph.neighbors[i]
-                honest_neighbors = [j for j in neighbors if j not in attacker.compromised_nodes]
-                honest_neigh_states = [states[j] for j in honest_neighbors]
-
-                malicious_states = attacker.craft_malicious_models_decentralized(
-                    i, neighbors, honest_neigh_states, round_num
-                )
-
-                if malicious_states:
-                    states[i] = malicious_states[0]  # Replace with malicious parameters
-
-                    # Also compute malicious gradient
-                    if coarse_aggregation_step.previous_states[i] is not None:
-                        malicious_gradient = {}
-                        prev_state = coarse_aggregation_step.previous_states[i]
-                        for key in states[i].keys():
-                            malicious_gradient[key] = states[i][key] - prev_state[key]
-                        gradients[i] = malicious_gradient
+        # NOTE: We do NOT modify the compromised nodes' own models here
+        # The attack only affects what they send to neighbors, just like BALANCE/FedAvg/Krum
 
     # Phase 3: Compress gradients using Count-Sketch for filtering decisions
     sketched_gradients = {}
@@ -874,9 +858,40 @@ def coarse_aggregation_step(models: List[nn.Module], graph: Graph,
             new_states.append(states[i])
             continue
 
-        # Get neighbor sketches and gradients
-        neighbor_sketch_dict = {str(j): sketched_gradients[j] for j in neighbors}
-        neighbor_gradient_dict = {str(j): gradients[j] for j in neighbors}
+        # Get neighbor sketches and gradients - WITH ATTACK MODIFICATION
+        neighbor_sketch_dict = {}
+        neighbor_gradient_dict = {}
+
+        for j in neighbors:
+            # Check if this neighbor is compromised and craft malicious updates
+            if attacker and j in attacker.compromised_nodes:
+                # Craft malicious updates for what this compromised neighbor sends
+                honest_neighbors = [k for k in neighbors + [i] if k not in attacker.compromised_nodes]
+                honest_neigh_states = [states[k] for k in honest_neighbors]
+
+                malicious_states = attacker.craft_malicious_models_decentralized(
+                    i, [i] + neighbors, honest_neigh_states, round_num
+                )
+
+                if malicious_states:
+                    # Use malicious gradient and sketch
+                    malicious_gradient = {}
+                    for key, param in malicious_states[0].items():
+                        if coarse_aggregation_step.previous_states[j] is not None:
+                            malicious_gradient[key] = param - coarse_aggregation_step.previous_states[j][key]
+                        else:
+                            malicious_gradient[key] = torch.randn_like(param) * 0.01
+
+                    neighbor_gradient_dict[str(j)] = malicious_gradient
+                    neighbor_sketch_dict[str(j)] = coarse_monitors[node_id].get_sketch_for_sharing(malicious_gradient)
+                else:
+                    # Fallback to original
+                    neighbor_gradient_dict[str(j)] = gradients[j]
+                    neighbor_sketch_dict[str(j)] = sketched_gradients[j]
+            else:
+                # Honest neighbor - use original gradients and sketches
+                neighbor_gradient_dict[str(j)] = gradients[j]
+                neighbor_sketch_dict[str(j)] = sketched_gradients[j]
 
         # Perform COARSE filtering and gradient-based aggregation
         coarse_monitor = coarse_monitors[node_id]
@@ -934,7 +949,7 @@ def decentralized_fedavg_step(models: List[nn.Module], graph: Graph, round_num: 
 
 def gossip_round(models: List[nn.Module], graph: Graph, steps: int = 1, round_num: int = 0, seed: int = 42,
                  attacker: Optional[LocalModelPoisoningAttacker] = None):
-    """Gossip averaging with attack capability."""
+    """Gossip averaging with attack capability - FIXED to be consistent with other algorithms."""
     if not graph.edges:
         return
 
@@ -942,23 +957,37 @@ def gossip_round(models: List[nn.Module], graph: Graph, steps: int = 1, round_nu
 
     if attacker and attacker.compromised_nodes:
         attacker.update_compromised_states(round_num, states)
-
-        for comp_idx in attacker.compromised_nodes:
-            neighbors_of_comp = graph.neighbors[comp_idx] + [comp_idx]
-            honest_neighbors = [j for j in neighbors_of_comp if j not in attacker.compromised_nodes]
-            honest_neigh_states = [states[j] for j in honest_neighbors]
-
-            malicious_states = attacker.craft_malicious_models_decentralized(
-                comp_idx, neighbors_of_comp, honest_neigh_states, round_num
-            )
-
-            if malicious_states:
-                set_state(models[comp_idx], malicious_states[0])
+        # NOTE: We no longer corrupt the malicious nodes' own models here
+        # The attack only affects communications, consistent with other algorithms
 
     rng = random.Random(seed + round_num * 100)
     for _ in range(steps):
         i, j = rng.choice(graph.edges)
         si, sj = get_state(models[i]), get_state(models[j])
+
+        # Apply attack to what gets exchanged, not the models themselves
+        if attacker:
+            # If i is compromised, modify what it shares
+            if i in attacker.compromised_nodes:
+                honest_neighbors = [k for k in [i, j] if k not in attacker.compromised_nodes]
+                honest_neigh_states = [get_state(models[k]) for k in honest_neighbors]
+                malicious_states = attacker.craft_malicious_models_decentralized(
+                    j, [i, j], honest_neigh_states, round_num
+                )
+                if malicious_states:
+                    si = malicious_states[0]  # What i shares with j
+
+            # If j is compromised, modify what it shares
+            if j in attacker.compromised_nodes:
+                honest_neighbors = [k for k in [i, j] if k not in attacker.compromised_nodes]
+                honest_neigh_states = [get_state(models[k]) for k in honest_neighbors]
+                malicious_states = attacker.craft_malicious_models_decentralized(
+                    i, [i, j], honest_neigh_states, round_num
+                )
+                if malicious_states:
+                    sj = malicious_states[0]  # What j shares with i
+
+        # Perform gossip averaging with potentially malicious states
         avg = average_states([si, sj], [0.5, 0.5])
         set_state(models[i], avg)
         set_state(models[j], avg)
@@ -1199,7 +1228,7 @@ def run_sim(args):
         print(f"Round {r:03d}: test acc mean={np.mean(accs):.4f} ± {np.std(accs):.4f} | "
               f"min={np.min(accs):.4f} max={np.max(accs):.4f}")
         print(f"         : test loss mean={np.mean(losses):.4f} ± {np.std(losses):.4f}")
-        
+
         if args.verbose:
             acc_strs = [f"{acc:.6f}" for acc in accs]
             print(f"         : individual accs = {acc_strs}")
