@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """
-Decentralized Learning Simulator with BALANCE
+Decentralized Learning Simulator with BALANCE and JL-BALANCE
 
 Supports aggregation strategies over a peer graph:
   1) Decentralized FedAvg (synchronous neighbor averaging per round)
   2) Gossip averaging (asynchronous-style, simulated with K random edge gossips per round)
   3) Decentralized Krum (Byzantine-robust aggregation, selects most similar model)
   4) BALANCE (Byzantine-robust averaging through local similarity)
+  5) JL-BALANCE (Lightweight BALANCE using Johnson-Lindenstrauss projection)
+
+CORRECTED: Attacks now happen at parameter level before projection for fair comparison.
 
 Example usage:
   # Clean run with BALANCE
@@ -14,16 +17,22 @@ Example usage:
       --dataset femnist --num-nodes 8 --rounds 20 --local-epochs 1 \
       --agg balance --graph ring --lr 0.01
 
-  # BALANCE under attack
+  # JL-BALANCE for massive speedup
+  python decentralized_fl_sim.py \
+      --dataset femnist --num-nodes 8 --rounds 20 --local-epochs 1 \
+      --agg jl-balance --graph ring --lr 0.01 --jl-projection-dim 200
+
+  # JL-BALANCE under attack (same attack model as other algorithms)
   python decentralized_fl_sim.py \
       --dataset femnist --num-nodes 10 --rounds 30 --local-epochs 1 \
-      --agg balance --graph erdos --p 0.3 \
-      --attack-percentage 0.3 --attack-type directed_deviation
+      --agg jl-balance --graph erdos --p 0.3 \
+      --attack-percentage 0.3 --attack-type directed_deviation --jl-projection-dim 150
 """
 from __future__ import annotations
 
 import argparse
 import random
+import time
 from collections import deque, defaultdict
 from dataclasses import dataclass
 from typing import Dict, List, Tuple, Optional
@@ -122,6 +131,18 @@ class BALANCEConfig:
     kappa: float = 1.0          # Exponential decay rate for threshold tightening
     alpha: float = 0.5          # Weight for own update vs neighbors (0.5 = equal weight)
     min_neighbors: int = 1      # Minimum neighbors to accept before fallback
+
+
+@dataclass
+class JLBALANCEConfig(BALANCEConfig):
+    """Configuration for JL-BALANCE algorithm."""
+    # BALANCE parameters inherited from BALANCEConfig
+
+    # JL-specific parameters
+    projection_dim: int = 200           # Target projection dimension k
+    network_seed: int = 42              # Shared seed for projection matrix
+    epsilon: float = 0.1                # JL distortion parameter
+    reconstruction_method: str = "pinv" # "pinv" or "iterative"
 
 
 class BALANCE:
@@ -282,6 +303,264 @@ class BALANCE:
             "current_threshold": self.threshold_history[-1] if self.threshold_history else 0.0,
             "total_rounds_processed": len(self.acceptance_history)
         }
+
+
+class LightweightJLBALANCE:
+    """
+    Lightweight JL-BALANCE: High-performance Byzantine-robust aggregation.
+
+    Uses Johnson-Lindenstrauss random projection for:
+    - Fast distance computations in low-dimensional space: O(k) vs O(d)
+    - Massive communication savings: share k-dim vectors vs d-dim parameters
+    - Efficient memory usage: store projected neighbors
+    - Scalable to very large models
+    """
+
+    def __init__(self, node_id: str, config: JLBALANCEConfig, total_rounds: int, model_dim: int):
+        self.node_id = node_id
+        self.config = config
+        self.total_rounds = total_rounds
+        self.model_dim = model_dim
+
+        # Generate shared projection matrix (same across all nodes)
+        self.projection_matrix, self.reconstruction_matrix = self._generate_projection_matrices()
+
+        # BALANCE tracking (in projected space)
+        self.acceptance_history = []
+        self.threshold_history = []
+        self.neighbor_distances = defaultdict(list)
+
+        # Performance tracking
+        self.projection_time = 0.0
+        self.filtering_time = 0.0
+        self.reconstruction_time = 0.0
+
+    def _generate_projection_matrices(self):
+        """Generate shared random projection matrix and its reconstruction matrix."""
+        # Use shared network seed for deterministic generation across all nodes
+        np.random.seed(self.config.network_seed)
+
+        # Gaussian random projection matrix (normalized)
+        R = np.random.randn(self.config.projection_dim, self.model_dim) / np.sqrt(self.config.projection_dim)
+
+        # Compute pseudoinverse for reconstruction
+        if self.config.reconstruction_method == "pinv":
+            R_recon = np.linalg.pinv(R)
+        else:
+            # For very large matrices, iterative methods might be better
+            R_recon = R.T  # Transpose as simple approximation
+
+        return R, R_recon
+
+    def flatten_model_update(self, model_update: Dict[str, torch.Tensor]) -> np.ndarray:
+        """Flatten model parameters into a single vector."""
+        flattened_parts = []
+        for param in model_update.values():
+            flattened_parts.append(param.detach().cpu().numpy().flatten())
+        return np.concatenate(flattened_parts)
+
+    def unflatten_to_model_update(self, flattened: np.ndarray,
+                                  reference_update: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        """Reshape flattened vector back to model parameter structure."""
+        result = {}
+        start_idx = 0
+
+        for param_name, param_tensor in reference_update.items():
+            param_shape = param_tensor.shape
+            param_size = param_tensor.numel()
+
+            # Extract the slice and reshape
+            param_slice = flattened[start_idx:start_idx + param_size]
+            param_reshaped = param_slice.reshape(param_shape)
+
+            # Convert back to tensor with same device/dtype
+            result[param_name] = torch.tensor(param_reshaped,
+                                              dtype=param_tensor.dtype,
+                                              device=param_tensor.device)
+
+            start_idx += param_size
+
+        return result
+
+    def project_update(self, model_update: Dict[str, torch.Tensor]) -> np.ndarray:
+        """Project model update to low-dimensional space for sharing."""
+        start_time = time.time()
+
+        # Flatten parameters
+        flattened = self.flatten_model_update(model_update)
+
+        # Project: z = R @ w
+        projected = self.projection_matrix @ flattened
+
+        self.projection_time += time.time() - start_time
+        return projected
+
+    def compute_projected_threshold(self, own_projected: np.ndarray, current_round: int) -> float:
+        """Compute BALANCE threshold in projected space."""
+        # Time-adaptive threshold: γ * exp(-κ * λ(t)) * ||z_i||
+        lambda_t = current_round / max(1, self.total_rounds)
+        threshold_factor = self.config.gamma * np.exp(-self.config.kappa * lambda_t)
+        own_norm = np.linalg.norm(own_projected)
+        threshold = threshold_factor * own_norm
+
+        self.threshold_history.append(threshold)
+        return threshold
+
+    def filter_neighbors_in_projected_space(self, own_projected: np.ndarray,
+                                            neighbor_projected_dict: Dict[str, np.ndarray],
+                                            current_round: int) -> Dict[str, np.ndarray]:
+        """Perform BALANCE filtering in projected space - the core speedup!"""
+        start_time = time.time()
+
+        threshold = self.compute_projected_threshold(own_projected, current_round)
+        accepted_neighbors = {}
+        distances = {}
+
+        for neighbor_id, neighbor_projected in neighbor_projected_dict.items():
+            # Fast distance computation in k-dimensional space: O(k) instead of O(d)!
+            distance = np.linalg.norm(own_projected - neighbor_projected)
+            distances[neighbor_id] = distance
+
+            # Track distance history for analysis
+            self.neighbor_distances[neighbor_id].append(distance)
+
+            # BALANCE acceptance decision
+            if distance <= threshold:
+                accepted_neighbors[neighbor_id] = neighbor_projected
+
+        # Track acceptance statistics
+        acceptance_rate = len(accepted_neighbors) / max(1, len(neighbor_projected_dict))
+        self.acceptance_history.append(acceptance_rate)
+
+        # Fallback mechanism: ensure minimum neighbors
+        if len(accepted_neighbors) < self.config.min_neighbors and neighbor_projected_dict:
+            closest_neighbor_id = min(distances.items(), key=lambda x: x[1])[0]
+            if closest_neighbor_id not in accepted_neighbors:
+                accepted_neighbors[closest_neighbor_id] = neighbor_projected_dict[closest_neighbor_id]
+
+        self.filtering_time += time.time() - start_time
+        return accepted_neighbors
+
+    def aggregate_in_projected_space(self, own_projected: np.ndarray,
+                                     accepted_neighbors_projected: Dict[str, np.ndarray]) -> np.ndarray:
+        """Perform BALANCE aggregation in projected space - super fast!"""
+        if not accepted_neighbors_projected:
+            return own_projected
+
+        # Compute neighbor average in projected space: O(k) instead of O(d)
+        neighbor_projections = list(accepted_neighbors_projected.values())
+        neighbor_avg_projected = np.mean(neighbor_projections, axis=0)
+
+        # BALANCE aggregation rule: α * own + (1-α) * neighbor_avg
+        aggregated_projected = (self.config.alpha * own_projected +
+                                (1 - self.config.alpha) * neighbor_avg_projected)
+
+        return aggregated_projected
+
+    def reconstruct_from_projected_space(self, aggregated_projected: np.ndarray,
+                                         reference_update: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        """Reconstruct full parameters from projected aggregation."""
+        start_time = time.time()
+
+        if self.config.reconstruction_method == "pinv":
+            # Standard pseudoinverse reconstruction
+            reconstructed_flat = self.reconstruction_matrix @ aggregated_projected
+        elif self.config.reconstruction_method == "iterative":
+            # Iterative refinement for better reconstruction
+            reconstructed_flat = self._iterative_reconstruction(aggregated_projected)
+        else:
+            raise ValueError(f"Unknown reconstruction method: {self.config.reconstruction_method}")
+
+        # Reshape back to model structure
+        reconstructed_params = self.unflatten_to_model_update(reconstructed_flat, reference_update)
+
+        self.reconstruction_time += time.time() - start_time
+        return reconstructed_params
+
+    def _iterative_reconstruction(self, target_projected: np.ndarray, num_iterations: int = 3) -> np.ndarray:
+        """Iterative refinement for better reconstruction quality."""
+        # Start with pseudoinverse solution
+        current_recon = self.reconstruction_matrix @ target_projected
+
+        # Refine iteratively
+        for _ in range(num_iterations):
+            # Project current reconstruction
+            current_proj = self.projection_matrix @ current_recon
+
+            # Compute error in projected space
+            error_proj = target_projected - current_proj
+
+            # Apply correction in original space
+            correction = self.reconstruction_matrix @ error_proj
+            current_recon += 0.5 * correction  # Damped update
+
+        return current_recon
+
+    def jl_balance_round(self, own_update: Dict[str, torch.Tensor],
+                         neighbor_projected_dict: Dict[str, np.ndarray],
+                         current_round: int) -> Dict[str, torch.Tensor]:
+        """
+        Complete JL-BALANCE round: the main entry point.
+
+        Input: own_update (full parameters), neighbor_projected_dict (received projections)
+        Output: aggregated model update (full parameters)
+        """
+        # Step 1: Project own update to low-dimensional space
+        own_projected = self.project_update(own_update)
+
+        # Step 2: Filter neighbors using fast projected distances
+        accepted_neighbors_projected = self.filter_neighbors_in_projected_space(
+            own_projected, neighbor_projected_dict, current_round
+        )
+
+        # Step 3: Aggregate in projected space
+        aggregated_projected = self.aggregate_in_projected_space(
+            own_projected, accepted_neighbors_projected
+        )
+
+        # Step 4: Reconstruct final parameters
+        final_update = self.reconstruct_from_projected_space(aggregated_projected, own_update)
+
+        return final_update
+
+    def get_projected_update_for_sharing(self, model_update: Dict[str, torch.Tensor]) -> np.ndarray:
+        """Get projected version of update for sharing with neighbors."""
+        return self.project_update(model_update)
+
+    def get_statistics(self) -> Dict:
+        """Get detailed performance statistics."""
+        total_time = self.projection_time + self.filtering_time + self.reconstruction_time
+
+        return {
+            "node_id": self.node_id,
+            "algorithm": "JL-BALANCE",
+            "total_rounds_processed": len(self.acceptance_history),
+
+            # BALANCE statistics
+            "mean_acceptance_rate": np.mean(self.acceptance_history) if self.acceptance_history else 0.0,
+            "current_threshold": self.threshold_history[-1] if self.threshold_history else 0.0,
+
+            # Performance statistics
+            "total_computation_time": total_time,
+            "projection_time": self.projection_time,
+            "filtering_time": self.filtering_time,
+            "reconstruction_time": self.reconstruction_time,
+
+            "projection_time_fraction": self.projection_time / max(total_time, 1e-6),
+            "filtering_time_fraction": self.filtering_time / max(total_time, 1e-6),
+            "reconstruction_time_fraction": self.reconstruction_time / max(total_time, 1e-6),
+
+            # Compression statistics
+            "original_dimension": self.model_dim,
+            "projected_dimension": self.config.projection_dim,
+            "compression_ratio": self.model_dim / self.config.projection_dim,
+            "communication_reduction": self.model_dim / self.config.projection_dim
+        }
+
+
+def calculate_model_dimension(model: nn.Module) -> int:
+    """Calculate total number of parameters in model."""
+    return sum(p.numel() for p in model.parameters())
 
 
 # ---------------------------- Training helpers ---------------------------- #
@@ -531,7 +810,7 @@ class LocalModelPoisoningAttacker:
         return malicious_states[:num_compromised_in_neigh]
 
 
-# ---------------------------- BALANCE Aggregation Function ---------------------------- #
+# ---------------------------- Aggregation Functions ---------------------------- #
 
 def balance_aggregation_step(models: List[nn.Module], graph: Graph,
                              balance_monitors: Dict[str, BALANCE],
@@ -589,7 +868,72 @@ def balance_aggregation_step(models: List[nn.Module], graph: Graph,
         set_state(model, state)
 
 
-# ---------------------------- Original Aggregation Functions ---------------------------- #
+def jl_balance_aggregation_step(models: List[nn.Module], graph: Graph,
+                                jl_monitors: Dict[str, LightweightJLBALANCE],
+                                round_num: int, attacker: Optional[LocalModelPoisoningAttacker] = None):
+    """
+    CORRECTED JL-BALANCE aggregation with proper attack model.
+
+    Key fix: Attacks now happen at PARAMETER level before projection,
+    ensuring fair comparison with other aggregation algorithms.
+    """
+
+    # Phase 1: Get current model states
+    states = [get_state(m) for m in models]
+
+    # Phase 2: Apply attacks BEFORE projection (same as other algorithms)
+    if attacker:
+        attacker.update_compromised_states(round_num, states)
+
+        # Replace compromised node states with malicious parameter updates
+        for i in range(graph.n):
+            if i in attacker.compromised_nodes:
+                neighbors = [i] + graph.neighbors[i]
+                honest_neighbors = [j for j in neighbors if j not in attacker.compromised_nodes]
+                honest_neigh_states = [states[j] for j in honest_neighbors]
+
+                malicious_states = attacker.craft_malicious_models_decentralized(
+                    i, neighbors, honest_neigh_states, round_num
+                )
+
+                if malicious_states:
+                    states[i] = malicious_states[0]  # Replace with malicious parameters
+
+    # Phase 3: Project ALL updates (honest and malicious) - no preferential treatment
+    projected_updates = {}
+    for i in range(graph.n):
+        node_id = str(i)
+        if node_id in jl_monitors:
+            # Project whatever update node i has (honest or malicious)
+            projected = jl_monitors[node_id].get_projected_update_for_sharing(states[i])
+            projected_updates[i] = projected
+
+    # Phase 4: Each node performs JL-BALANCE with received projections
+    new_states = []
+    for i in range(graph.n):
+        node_id = str(i)
+        neighbors = graph.neighbors[i]
+
+        if node_id not in jl_monitors:
+            # Fallback if no JL monitor
+            new_states.append(states[i])
+            continue
+
+        # Get neighbor projected updates (includes projected malicious updates)
+        neighbor_projected_dict = {str(j): projected_updates[j] for j in neighbors}
+
+        # Perform JL-BALANCE round with projected malicious updates
+        jl_monitor = jl_monitors[node_id]
+        aggregated_update = jl_monitor.jl_balance_round(
+            states[i], neighbor_projected_dict, round_num
+        )
+
+        new_states.append(aggregated_update)
+
+    # Phase 5: Update models with aggregated states
+    for model, state in zip(models, new_states):
+        set_state(model, state)
+
 
 def decentralized_fedavg_step(models: List[nn.Module], graph: Graph, round_num: int = 0,
                               attacker: Optional[LocalModelPoisoningAttacker] = None):
@@ -770,22 +1114,7 @@ def run_sim(args):
         )
         print(f"Attack type: {args.attack_type}, lambda: {args.attack_lambda}")
 
-    # Initialize BALANCE monitors
-    balance_monitors = {}
-    if args.agg == "balance":
-        balance_config = BALANCEConfig(
-            gamma=args.balance_gamma,
-            kappa=args.balance_kappa,
-            alpha=args.balance_alpha
-        )
-        for i in range(args.num_nodes):
-            balance_monitors[str(i)] = BALANCE(str(i), balance_config, args.rounds)
-        print(f"BALANCE algorithm: {args.agg}")
-        print(f"  - Gamma: {args.balance_gamma}")
-        print(f"  - Kappa: {args.balance_kappa}")
-        print(f"  - Alpha: {args.balance_alpha}")
-
-    # Initialize models
+    # Initialize models first (needed for model dimension calculation)
     models = []
     for i in range(args.num_nodes):
         torch.manual_seed(args.seed + i)
@@ -805,6 +1134,55 @@ def run_sim(args):
             except Exception:
                 pass
         models.append(model)
+
+    # Calculate model dimension for JL-BALANCE
+    model_dim = calculate_model_dimension(models[0])
+
+    # Initialize aggregation monitors
+    balance_monitors = {}
+    jl_monitors = {}
+
+    if args.agg == "balance":
+        balance_config = BALANCEConfig(
+            gamma=args.balance_gamma,
+            kappa=args.balance_kappa,
+            alpha=args.balance_alpha
+        )
+        for i in range(args.num_nodes):
+            balance_monitors[str(i)] = BALANCE(str(i), balance_config, args.rounds)
+        print(f"BALANCE algorithm: {args.agg}")
+        print(f"  - Gamma: {args.balance_gamma}")
+        print(f"  - Kappa: {args.balance_kappa}")
+        print(f"  - Alpha: {args.balance_alpha}")
+        print(f"  - Model dimension: {model_dim:,} parameters")
+
+    elif args.agg == "jl-balance":
+        jl_config = JLBALANCEConfig(
+            # BALANCE parameters
+            gamma=args.balance_gamma,
+            kappa=args.balance_kappa,
+            alpha=args.balance_alpha,
+
+            # JL parameters
+            projection_dim=args.jl_projection_dim,
+            network_seed=args.seed,  # Use training seed for shared projection
+            epsilon=0.1,
+            reconstruction_method=args.jl_reconstruction
+        )
+
+        for i in range(args.num_nodes):
+            jl_monitors[str(i)] = LightweightJLBALANCE(str(i), jl_config, args.rounds, model_dim)
+
+        compression_ratio = model_dim / args.jl_projection_dim
+        print(f"🚀 JL-BALANCE algorithm initialized!")
+        print(f"  - Model dimension: {model_dim:,} parameters")
+        print(f"  - Projected dimension: {args.jl_projection_dim}")
+        print(f"  - Compression ratio: {compression_ratio:.1f}x")
+        print(f"  - Communication savings: {compression_ratio:.1f}x less bandwidth per message")
+        print(f"  - Network seed: {args.seed} (shared across all nodes)")
+        print(f"  - Reconstruction method: {args.jl_reconstruction}")
+        print(f"  - BALANCE params: γ={args.balance_gamma}, κ={args.balance_kappa}, α={args.balance_alpha}")
+        print(f"  - ✅ CORRECTED: Attacks applied at parameter level before projection")
 
     # Evaluate initial performance
     with torch.no_grad():
@@ -853,8 +1231,10 @@ def run_sim(args):
             decentralized_krum_step(models, graph, args.pct_compromised, r, attacker)
         elif args.agg == "balance":
             balance_aggregation_step(models, graph, balance_monitors, r, attacker)
+        elif args.agg == "jl-balance":
+            jl_balance_aggregation_step(models, graph, jl_monitors, r, attacker)
         else:
-            raise ValueError("agg must be 'd-fedavg', 'gossip', 'krum', or 'balance'")
+            raise ValueError("agg must be 'd-fedavg', 'gossip', 'krum', 'balance', or 'jl-balance'")
 
         # Evaluation phase
         accs = []
@@ -882,13 +1262,20 @@ def run_sim(args):
                     print(f"         : compromised nodes: mean acc={np.mean(compromised_accs):.4f}")
                     print(f"         : honest nodes: mean acc={np.mean(honest_accs):.4f}")
 
-            # Show BALANCE information
+            # Show algorithm-specific information
             if args.agg == "balance" and balance_monitors:
                 balance_stats = []
                 for node_id, monitor in balance_monitors.items():
                     stats = monitor.get_statistics()
                     balance_stats.append(f"Node {node_id}: acc_rate={stats['mean_acceptance_rate']:.3f}")
                 print(f"         : balance stats = {balance_stats[:5]}...")
+
+            elif args.agg == "jl-balance" and jl_monitors:
+                jl_stats = []
+                for node_id, monitor in jl_monitors.items():
+                    stats = monitor.get_statistics()
+                    jl_stats.append(f"Node {node_id}: acc_rate={stats['mean_acceptance_rate']:.3f}")
+                print(f"         : jl-balance stats = {jl_stats[:3]}...")
 
     # Final evaluation and summary
     accs = []
@@ -909,7 +1296,7 @@ def run_sim(args):
         print("No attack (clean run)")
     print(f"Overall test accuracy: mean={np.mean(accs):.4f} ± {np.std(accs):.4f}")
 
-    # Print BALANCE summary
+    # Print algorithm-specific summary
     if args.agg == "balance" and balance_monitors:
         print(f"\n=== BALANCE ALGORITHM SUMMARY ===")
         all_acceptance_rates = []
@@ -936,29 +1323,112 @@ def run_sim(args):
         if all_thresholds:
             print(f"  - Final threshold values: mean={np.mean(all_thresholds):.3f} ± {np.std(all_thresholds):.3f}")
 
-        # Algorithm insights
         print(f"BALANCE insights:")
         print(f"  - Uses uniform L2 distance for similarity measurement")
         print(f"  - Threshold decay: gamma={args.balance_gamma} * exp(-{args.balance_kappa} * t)")
 
-        # Performance analysis
-        if attacker and honest_accs and compromised_accs:
+    elif args.agg == "jl-balance" and jl_monitors:
+        print(f"\n=== JL-BALANCE ALGORITHM SUMMARY ===")
+        all_acceptance_rates = []
+        all_thresholds = []
+        all_compression_ratios = []
+        total_proj_time = 0.0
+        total_filter_time = 0.0
+        total_recon_time = 0.0
+
+        for node_id, monitor in jl_monitors.items():
+            stats = monitor.get_statistics()
+            all_acceptance_rates.append(stats["mean_acceptance_rate"])
+            all_compression_ratios.append(stats["compression_ratio"])
+
+            total_proj_time += stats["projection_time"]
+            total_filter_time += stats["filtering_time"]
+            total_recon_time += stats["reconstruction_time"]
+
+            if monitor.threshold_history:
+                all_thresholds.append(monitor.threshold_history[-1])
+
+            # Show detailed stats for first few nodes
+            if int(node_id) < 3:
+                print(f"Node {node_id}: acceptance={stats['mean_acceptance_rate']:.3f}, "
+                      f"compression={stats['compression_ratio']:.1f}x, "
+                      f"proj_time={stats['projection_time']:.3f}s, "
+                      f"filter_time={stats['filtering_time']:.3f}s")
+
+        if all_acceptance_rates:
+            print(f"\nNetwork-wide JL-BALANCE statistics:")
+            print(f"  - Mean acceptance rate: {np.mean(all_acceptance_rates):.3f} ± {np.std(all_acceptance_rates):.3f}")
+            print(f"  - Min acceptance rate: {np.min(all_acceptance_rates):.3f}")
+            print(f"  - Max acceptance rate: {np.max(all_acceptance_rates):.3f}")
+            print(f"  - Average compression ratio: {np.mean(all_compression_ratios):.1f}x")
+
+        if all_thresholds:
+            print(f"  - Final threshold values: mean={np.mean(all_thresholds):.3f} ± {np.std(all_thresholds):.3f}")
+
+        # Performance breakdown
+        total_time = total_proj_time + total_filter_time + total_recon_time
+        if total_time > 0:
+            print(f"\nPerformance breakdown (total across all nodes):")
+            print(f"  - Projection time: {total_proj_time:.3f}s ({total_proj_time/total_time*100:.1f}%)")
+            print(f"  - Filtering time: {total_filter_time:.3f}s ({total_filter_time/total_time*100:.1f}%)")
+            print(f"  - Reconstruction time: {total_recon_time:.3f}s ({total_recon_time/total_time*100:.1f}%)")
+            print(f"  - Total computation time: {total_time:.3f}s")
+
+        print(f"\nJL-BALANCE insights:")
+        print(f"  - Uses Johnson-Lindenstrauss projection for {model_dim} → {args.jl_projection_dim} compression")
+        print(f"  - Communication savings: {model_dim//args.jl_projection_dim:.0f}x less bandwidth per message")
+        print(f"  - Threshold decay in projected space: gamma={args.balance_gamma} * exp(-{args.balance_kappa} * t)")
+        print(f"  - Reconstruction method: {args.jl_reconstruction}")
+        print(f"  - ✅ FAIR EVALUATION: Attacks applied at parameter level (same as other algorithms)")
+
+    # Performance analysis
+    if attacker and args.agg in ["balance", "jl-balance"]:
+        monitors = balance_monitors if args.agg == "balance" else jl_monitors
+        if monitors and honest_accs and compromised_accs:
             avg_acceptance = np.mean(all_acceptance_rates)
             if avg_acceptance < 0.3:
-                print(f"WARNING: Very low acceptance rate ({avg_acceptance:.3f}) may indicate aggressive filtering")
+                print(f"\n⚠️  WARNING: Very low acceptance rate ({avg_acceptance:.3f}) may indicate:")
+                print(f"   - Aggressive filtering (possibly good against attacks)")
+                print(f"   - Network instability or poor parameter tuning")
             elif avg_acceptance > 0.9:
-                print(f"NOTE: High acceptance rate ({avg_acceptance:.3f}) suggests either weak attacks or ineffective filtering")
+                print(f"\n📝 NOTE: High acceptance rate ({avg_acceptance:.3f}) suggests:")
+                print(f"   - Either weak attacks or highly similar model updates")
+                print(f"   - Consider increasing attack strength for robustness testing")
 
             attack_mitigation = max(0, np.mean(honest_accs) - np.mean(accs))
             if attack_mitigation > 0.05:
-                print(f"ANALYSIS: Algorithm successfully mitigated attack impact by {attack_mitigation:.4f} accuracy")
+                print(f"\n✅ ANALYSIS: Algorithm successfully mitigated attack impact by {attack_mitigation:.4f} accuracy")
+                print(f"   - Attack detection and filtering appears effective")
             else:
-                print(f"ANALYSIS: Limited attack mitigation - consider tuning parameters or stronger defenses")
+                print(f"\n❌ ANALYSIS: Limited attack mitigation detected")
+                print(f"   - Consider tuning algorithm parameters or using stronger defenses")
+
+    # JL-BALANCE specific insights
+    if args.agg == "jl-balance":
+        print(f"\n🚀 JL-BALANCE PERFORMANCE SUMMARY:")
+        estimated_orig_ops = args.num_nodes * len(graph.neighbors[0]) * model_dim * args.rounds
+        estimated_jl_ops = args.num_nodes * len(graph.neighbors[0]) * args.jl_projection_dim * args.rounds
+        theoretical_speedup = estimated_orig_ops / estimated_jl_ops
+
+        print(f"  - Theoretical distance computation speedup: {theoretical_speedup:.1f}x")
+        print(f"  - Actual filtering time per node: {total_filter_time/args.num_nodes:.4f}s")
+        print(f"  - Communication bandwidth saved: {(model_dim - args.jl_projection_dim) * args.num_nodes * len(graph.neighbors[0]) * args.rounds:,} fewer parameters transmitted")
+
+        if total_filter_time > 0 and total_proj_time > 0:
+            efficiency_ratio = total_filter_time / (total_proj_time + total_recon_time)
+            if efficiency_ratio > 1.0:
+                print(f"  - ✅ Filtering is {efficiency_ratio:.1f}x faster than projection+reconstruction overhead")
+            else:
+                print(f"  - ⚠️  Projection+reconstruction overhead is {1/efficiency_ratio:.1f}x the filtering time")
+                print(f"     Consider: JL-BALANCE trades computation for communication efficiency")
+
+        print(f"  - 🎯 KEY INSIGHT: JL-BALANCE optimizes for communication/memory, not raw computation")
+        print(f"     Best suited for bandwidth-limited or memory-constrained environments")
 
 
 def parse_args():
     """Parse command line arguments."""
-    p = argparse.ArgumentParser(description="Decentralized Learning Simulator with BALANCE")
+    p = argparse.ArgumentParser(description="Decentralized Learning Simulator with BALANCE and JL-BALANCE")
 
     # Dataset and basic training parameters
     p.add_argument("--dataset", type=str, choices=["femnist", "celeba"], required=True,
@@ -978,7 +1448,7 @@ def parse_args():
 
     # Aggregation algorithm parameters
     p.add_argument("--agg", type=str,
-                   choices=["d-fedavg", "gossip", "krum", "balance"],
+                   choices=["d-fedavg", "gossip", "krum", "balance", "jl-balance"],
                    default="d-fedavg",
                    help="Aggregation algorithm")
     p.add_argument("--gossip-steps", type=int, default=10,
@@ -986,13 +1456,19 @@ def parse_args():
     p.add_argument("--pct-compromised", type=float, default=0.0,
                    help="Max percentage of compromised models per neighborhood for Krum")
 
-    # BALANCE algorithm parameters
+    # BALANCE algorithm parameters (shared by both BALANCE and JL-BALANCE)
     p.add_argument("--balance-gamma", type=float, default=2.0,
                    help="BALANCE similarity threshold multiplier")
     p.add_argument("--balance-kappa", type=float, default=1.0,
                    help="BALANCE threshold decay rate")
     p.add_argument("--balance-alpha", type=float, default=0.5,
                    help="BALANCE weight for own vs neighbor updates")
+
+    # JL-BALANCE specific parameters
+    p.add_argument("--jl-projection-dim", type=int, default=200,
+                   help="JL-BALANCE projected dimension k (lower = more compression)")
+    p.add_argument("--jl-reconstruction", type=str, choices=["pinv", "iterative"], default="pinv",
+                   help="JL-BALANCE reconstruction method")
 
     # Graph topology parameters
     p.add_argument("--graph", type=str, choices=["ring", "fully", "erdos"], default="ring",
