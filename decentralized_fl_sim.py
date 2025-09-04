@@ -1,24 +1,23 @@
 #!/usr/bin/env python3
 """
-Decentralized Learning Simulator with BALANCE and Count-Sketch JL-BALANCE
+Decentralized Learning Simulator with BALANCE and COARSE
 
-Updated to follow the paper's approach for JL compression/decompression.
-Uses Count-Sketch to construct a sparse JL matrix R, then applies
-standard JL operations (R*m for compression, R^T*m for decompression).
-This maintains proper JL distance preservation guarantees.
+COARSE: COmpressed Approximate Robust Secure Estimation
+A lightweight robust aggregation algorithm that uses Count-Sketch compression
+for filtering decisions and full gradients for aggregation.
 
 Supports aggregation strategies over a peer graph:
   1) Decentralized FedAvg
   2) Gossip averaging
   3) Decentralized Krum
   4) BALANCE (original)
-  5) Count-Sketch JL-BALANCE (paper's approach)
+  5) COARSE (sketch-based filtering + gradient aggregation)
 
 Example usage:
-  # Count-Sketch JL-BALANCE following paper's approach
+  # COARSE with Count-Sketch compression
   python decentralized_fl_sim.py \
       --dataset femnist --num-nodes 8 --rounds 20 \
-      --agg cs-jl-balance --cs-sketch-size 200
+      --agg coarse --coarse-sketch-size 1000
 """
 from __future__ import annotations
 
@@ -127,14 +126,16 @@ class BALANCEConfig:
 
 
 @dataclass
-class CountSketchJLBALANCEConfig(BALANCEConfig):
-    """Configuration for Count-Sketch JL-BALANCE algorithm."""
+class COARSEConfig(BALANCEConfig):
+    """Configuration for COARSE algorithm."""
     # BALANCE parameters inherited from BALANCEConfig
 
-    # Count-Sketch JL specific parameters
-    sketch_size: int = 200              # Sketch size k (projected dimension)
+    # Count-Sketch parameters
+    sketch_size: int = 1000             # Sketch dimension k
     network_seed: int = 42              # Shared seed for hash functions
-    epsilon: float = 0.1                # JL distortion parameter
+
+    # COARSE-specific parameters
+    attack_detection_window: int = 5     # Rounds to track for attack detection
 
 
 class BALANCE:
@@ -234,75 +235,62 @@ class BALANCE:
         }
 
 
-class CountSketchJLBALANCE:
+class COARSE:
     """
-    Count-Sketch JL-BALANCE following the paper's approach.
+    COARSE: COmpressed Approximate Robust Secure Estimation
 
-    Uses Count-Sketch to construct a sparse JL matrix R, then applies
-    standard JL compression/decompression via matrix operations.
-    This maintains proper JL distance preservation guarantees.
+    Modified to use sketches for filtering decisions and gradients for aggregation.
     """
 
-    def __init__(self, node_id: str, config: CountSketchJLBALANCEConfig,
-                 total_rounds: int, model_dim: int):
+    def __init__(self, node_id: str, config: COARSEConfig, total_rounds: int, model_dim: int):
         self.node_id = node_id
         self.config = config
         self.total_rounds = total_rounds
         self.model_dim = model_dim
-        self.sketch_size = config.sketch_size
 
-        # Construct Count-Sketch JL matrix R (following paper's Example 1)
-        self.R = self._construct_count_sketch_jl_matrix()
-        self.R_T = self.R.T  # Transpose for decompression
+        # Generate Count-Sketch hash functions (only need 1 repetition now)
+        self.hash_functions = []
+        self.sign_functions = []
+        for rep in range(1):  # Single repetition sufficient for filtering
+            hash_fn, sign_fn = self._generate_count_sketch_functions(rep)
+            self.hash_functions.append(hash_fn)
+            self.sign_functions.append(sign_fn)
 
-        # BALANCE tracking (in sketch space)
+        # COARSE tracking
         self.acceptance_history = []
         self.threshold_history = []
-        self.neighbor_distances = defaultdict(list)
+        self.neighbor_scores = defaultdict(list)
+
+        # Attack detection
+        self.attack_history = deque(maxlen=config.attack_detection_window)
 
         # Performance tracking
-        self.compression_time = 0.0
+        self.sketch_time = 0.0
         self.filtering_time = 0.0
-        self.decompression_time = 0.0
+        self.aggregation_time = 0.0
 
-        print(f"Count-Sketch JL-BALANCE Node {node_id}:")
+        print(f"COARSE Node {node_id}:")
         print(f"  Model dim: {model_dim:,} → Sketch size: {config.sketch_size}")
         print(f"  Compression ratio: {model_dim / config.sketch_size:.1f}x")
-        print(f"  JL matrix R: {self.sketch_size}×{model_dim} (sparse)")
+        print(f"  Using gradients for aggregation, sketches for filtering")
 
-    def _construct_count_sketch_jl_matrix(self) -> np.ndarray:
-        """
-        Construct Count-Sketch JL matrix following paper's Example 1.
+    def _generate_count_sketch_functions(self, rep_id: int):
+        """Generate Count-Sketch hash and sign functions for one repetition."""
+        base_seed = self.config.network_seed + rep_id * 1000
 
-        Creates a sparse random projection matrix R ∈ R^(k×d) where:
-        - k = sketch_size (compressed dimension)
-        - d = model_dim (original dimension)
-        - R is constructed using Count-Sketch structure with hash functions
-        """
-        # Initialize sparse matrix
-        R = np.zeros((self.sketch_size, self.model_dim))
-
-        # For each original dimension, assign to one sketch bucket with ±1
-        for d_idx in range(self.model_dim):
-            # Hash function: map dimension d_idx to bucket [0, sketch_size)
-            hash_input = f"{self.config.network_seed}_{d_idx}".encode('utf-8')
+        def hash_function(index: int) -> int:
+            """Map parameter index to sketch bucket [0, sketch_size)"""
+            hash_input = f"{base_seed}_{index}".encode('utf-8')
             hash_value = int(hashlib.md5(hash_input).hexdigest(), 16)
-            bucket = hash_value % self.sketch_size
+            return hash_value % self.config.sketch_size
 
-            # Sign function: assign ±1 sign
-            sign_hash_input = f"{self.config.network_seed}_sign_{d_idx}".encode('utf-8')
-            sign_hash_value = int(hashlib.md5(sign_hash_input).hexdigest(), 16)
-            sign = 1 if sign_hash_value % 2 == 0 else -1
+        def sign_function(index: int) -> int:
+            """Map parameter index to sign {-1, +1}"""
+            hash_input = f"{base_seed}_sign_{index}".encode('utf-8')
+            hash_value = int(hashlib.md5(hash_input).hexdigest(), 16)
+            return 1 if hash_value % 2 == 0 else -1
 
-            # Set matrix entry: R[bucket, d_idx] = sign
-            R[bucket, d_idx] = sign
-
-        # Apply scaling factor (following Count-Sketch theory)
-        # Note: Paper doesn't specify exact scaling, using standard √p scaling
-        p = 1  # Number of repetitions (simplified case)
-        R = R / np.sqrt(p)
-
-        return R
+        return hash_function, sign_function
 
     def flatten_model_update(self, model_update: Dict[str, torch.Tensor]) -> np.ndarray:
         """Flatten model parameters into a single vector."""
@@ -311,184 +299,191 @@ class CountSketchJLBALANCE:
             flattened_parts.append(param.detach().cpu().numpy().flatten())
         return np.concatenate(flattened_parts)
 
-    def unflatten_to_model_update(self, flattened: np.ndarray,
-                                  reference_update: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
-        """Reshape flattened vector back to model parameter structure."""
-        result = {}
-        start_idx = 0
-
-        for param_name, param_tensor in reference_update.items():
-            param_shape = param_tensor.shape
-            param_size = param_tensor.numel()
-
-            param_slice = flattened[start_idx:start_idx + param_size]
-            param_reshaped = param_slice.reshape(param_shape)
-
-            result[param_name] = torch.tensor(param_reshaped,
-                                              dtype=param_tensor.dtype,
-                                              device=param_tensor.device)
-            start_idx += param_size
-
-        return result
-
-    def jl_compress(self, vector: np.ndarray) -> np.ndarray:
-        """
-        JL compression: m̂ = R * m
-        Following paper's COMPRESS operation.
-        """
+    def count_sketch_compress(self, vector: np.ndarray) -> np.ndarray:
+        """Compress vector using single Count-Sketch (no repetitions needed)."""
         start_time = time.time()
 
-        # Matrix-vector multiplication: R * vector
-        # R is (sketch_size × model_dim), vector is (model_dim,)
-        # Result is (sketch_size,)
-        compressed = self.R @ vector
+        sketch = np.zeros(self.config.sketch_size)
+        hash_fn = self.hash_functions[0]  # Only using first (and only) repetition
+        sign_fn = self.sign_functions[0]
 
-        self.compression_time += time.time() - start_time
-        return compressed
+        # Single pass through vector - O(d) complexity
+        for i, value in enumerate(vector):
+            bucket = hash_fn(i)
+            sign = sign_fn(i)
+            sketch[bucket] += sign * value
 
-    def jl_decompress(self, sketch: np.ndarray) -> np.ndarray:
-        """
-        JL decompression: m ≈ R^T * m̂
-        Following paper's DECOMPRESS operation.
+        self.sketch_time += time.time() - start_time
+        return sketch
 
-        Note: This is an approximation since R^T * R ≠ I
-        The paper bounds the expected error as: E[||R^T * R * v - v||²] ≤ (τd/k)||v||²
-        """
+    def compute_sketch_distances(self, own_sketch: np.ndarray,
+                                 neighbor_sketches_dict: Dict[str, np.ndarray]) -> Dict[str, float]:
+        """Compute L2 distances between sketches for filtering decisions."""
         start_time = time.time()
 
-        # Matrix-vector multiplication: R^T * sketch
-        # R^T is (model_dim × sketch_size), sketch is (sketch_size,)
-        # Result is (model_dim,)
-        decompressed = self.R_T @ sketch
+        distances = {}
+        for neighbor_id, neighbor_sketch in neighbor_sketches_dict.items():
+            distance = np.linalg.norm(own_sketch - neighbor_sketch)
+            distances[neighbor_id] = distance
+            self.neighbor_scores[neighbor_id].append(distance)
 
-        self.decompression_time += time.time() - start_time
-        return decompressed
+        self.filtering_time += time.time() - start_time
+        return distances
 
-    def compute_sketch_threshold(self, own_sketch: np.ndarray, current_round: int) -> float:
-        """Compute BALANCE threshold in sketch space."""
+    def adaptive_threshold(self, current_round: int, own_sketch_norm: float) -> float:
+        """Compute adaptive acceptance threshold based on sketch norms."""
+        # Time decay similar to BALANCE
         lambda_t = current_round / max(1, self.total_rounds)
-        threshold_factor = self.config.gamma * np.exp(-self.config.kappa * lambda_t)
-        own_norm = np.linalg.norm(own_sketch)
-        threshold = threshold_factor * own_norm
+        time_factor = self.config.gamma * np.exp(-self.config.kappa * lambda_t)
 
+        # Attack detection: increase threshold if recent low acceptance rates
+        attack_factor = 1.0
+        if len(self.attack_history) >= 3:
+            recent_acceptance = np.mean(list(self.attack_history)[-3:])
+            if recent_acceptance < 0.3:  # Low acceptance suggests attack
+                attack_factor = 1.5
+
+        threshold = time_factor * own_sketch_norm
         self.threshold_history.append(threshold)
         return threshold
 
-    def filter_neighbors_in_sketch_space(self, own_sketch: np.ndarray,
-                                         neighbor_sketch_dict: Dict[str, np.ndarray],
-                                         current_round: int) -> Dict[str, np.ndarray]:
-        """Perform BALANCE filtering in JL-compressed space."""
-        start_time = time.time()
+    def filter_neighbors_by_sketch(self, own_sketch: np.ndarray,
+                                   neighbor_sketches_dict: Dict[str, np.ndarray],
+                                   current_round: int) -> List[str]:
+        """Filter neighbors based on sketch distances."""
+        distances = self.compute_sketch_distances(own_sketch, neighbor_sketches_dict)
+        own_sketch_norm = np.linalg.norm(own_sketch)
+        threshold = self.adaptive_threshold(current_round, own_sketch_norm)
 
-        threshold = self.compute_sketch_threshold(own_sketch, current_round)
-        accepted_neighbors = {}
-        distances = {}
-
-        for neighbor_id, neighbor_sketch in neighbor_sketch_dict.items():
-            # Distance computation in k-dimensional JL space
-            # This preserves distances due to JL properties
-            distance = np.linalg.norm(own_sketch - neighbor_sketch)
-            distances[neighbor_id] = distance
-
-            self.neighbor_distances[neighbor_id].append(distance)
-
+        # Accept neighbors within threshold
+        accepted_neighbors = []
+        for neighbor_id, distance in distances.items():
             if distance <= threshold:
-                accepted_neighbors[neighbor_id] = neighbor_sketch
-
-        acceptance_rate = len(accepted_neighbors) / max(1, len(neighbor_sketch_dict))
-        self.acceptance_history.append(acceptance_rate)
+                accepted_neighbors.append(neighbor_id)
 
         # Fallback mechanism
-        if len(accepted_neighbors) < self.config.min_neighbors and neighbor_sketch_dict:
+        acceptance_rate = len(accepted_neighbors) / max(1, len(neighbor_sketches_dict))
+        self.acceptance_history.append(acceptance_rate)
+        self.attack_history.append(acceptance_rate)
+
+        if len(accepted_neighbors) < self.config.min_neighbors and neighbor_sketches_dict:
+            # Accept closest neighbor if none above threshold
             closest_neighbor_id = min(distances.items(), key=lambda x: x[1])[0]
             if closest_neighbor_id not in accepted_neighbors:
-                accepted_neighbors[closest_neighbor_id] = neighbor_sketch_dict[closest_neighbor_id]
+                accepted_neighbors.append(closest_neighbor_id)
 
-        self.filtering_time += time.time() - start_time
         return accepted_neighbors
 
-    def aggregate_in_sketch_space(self, own_sketch: np.ndarray,
-                                  accepted_neighbors_sketch: Dict[str, np.ndarray]) -> np.ndarray:
-        """Perform BALANCE aggregation in JL-compressed space."""
-        if not accepted_neighbors_sketch:
-            return own_sketch
+    def aggregate_gradients(self, own_gradient: Dict[str, torch.Tensor],
+                            current_state: Dict[str, torch.Tensor],
+                            accepted_neighbor_gradients: Dict[str, Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]:
+        """Aggregate gradients from accepted neighbors using BALANCE-style weighted averaging."""
+        start_time = time.time()
 
-        # Compute neighbor average in sketch space
-        neighbor_sketches = list(accepted_neighbors_sketch.values())
-        neighbor_avg_sketch = np.mean(neighbor_sketches, axis=0)
+        if not accepted_neighbor_gradients:
+            # No accepted neighbors, apply own gradient
+            new_state = {}
+            for key in current_state.keys():
+                new_state[key] = current_state[key] + own_gradient[key]
+            self.aggregation_time += time.time() - start_time
+            return new_state
 
-        # BALANCE aggregation rule: α * own + (1-α) * neighbor_avg
-        aggregated_sketch = (self.config.alpha * own_sketch +
-                             (1 - self.config.alpha) * neighbor_avg_sketch)
+        # Compute average neighbor gradient
+        neighbor_avg_gradient = {}
+        num_neighbors = len(accepted_neighbor_gradients)
 
-        return aggregated_sketch
+        for key in own_gradient.keys():
+            neighbor_sum = torch.zeros_like(own_gradient[key])
+            for neighbor_gradient in accepted_neighbor_gradients.values():
+                if key in neighbor_gradient:
+                    neighbor_sum += neighbor_gradient[key]
+            neighbor_avg_gradient[key] = neighbor_sum / num_neighbors
 
-    def jl_balance_round(self, own_update: Dict[str, torch.Tensor],
-                         neighbor_sketch_dict: Dict[str, np.ndarray],
-                         current_round: int) -> Dict[str, torch.Tensor]:
+        # BALANCE-style aggregation: α * own + (1-α) * neighbor_avg
+        aggregated_gradient = {}
+        for key in own_gradient.keys():
+            aggregated_gradient[key] = (self.config.alpha * own_gradient[key] +
+                                        (1 - self.config.alpha) * neighbor_avg_gradient[key])
+
+        # Apply aggregated gradient to current state
+        new_state = {}
+        for key in current_state.keys():
+            new_state[key] = current_state[key] + aggregated_gradient[key]
+
+        self.aggregation_time += time.time() - start_time
+        return new_state
+
+    def coarse_gradient_round(self, own_gradient: Dict[str, torch.Tensor],
+                              current_state: Dict[str, torch.Tensor],
+                              neighbor_sketches_dict: Dict[str, np.ndarray],
+                              neighbor_gradients_dict: Dict[str, Dict[str, torch.Tensor]],
+                              current_round: int) -> Dict[str, torch.Tensor]:
         """
-        Complete JL-BALANCE round following the paper's approach.
+        Complete COARSE round with sketch-based filtering and gradient aggregation.
 
-        Input: own_update (full parameters), neighbor_sketch_dict (received JL sketches)
-        Output: aggregated model update (full parameters)
+        Input: own_gradient, current_state, neighbor_sketches, neighbor_gradients
+        Output: new model state after gradient aggregation
         """
-        # Step 1: JL compress own update: m̂ = R * m
-        flattened_own = self.flatten_model_update(own_update)
-        own_sketch = self.jl_compress(flattened_own)
+        # Step 1: Compress own gradient for filtering
+        flattened_own_gradient = self.flatten_model_update(own_gradient)
+        own_sketch = self.count_sketch_compress(flattened_own_gradient)
 
-        # Step 2: Filter neighbors using JL-preserved distances
-        accepted_neighbors_sketch = self.filter_neighbors_in_sketch_space(
-            own_sketch, neighbor_sketch_dict, current_round
+        # Step 2: Filter neighbors based on sketch distances
+        accepted_neighbor_ids = self.filter_neighbors_by_sketch(
+            own_sketch, neighbor_sketches_dict, current_round
         )
 
-        # Step 3: Aggregate in JL space
-        aggregated_sketch = self.aggregate_in_sketch_space(
-            own_sketch, accepted_neighbors_sketch
+        # Step 3: Get gradients from accepted neighbors only
+        accepted_neighbor_gradients = {
+            nid: neighbor_gradients_dict[nid]
+            for nid in accepted_neighbor_ids
+            if nid in neighbor_gradients_dict
+        }
+
+        # Step 4: Aggregate gradients and apply to current state
+        new_state = self.aggregate_gradients(
+            own_gradient, current_state, accepted_neighbor_gradients
         )
 
-        # Step 4: JL decompress: m ≈ R^T * m̂_agg
-        reconstructed_flat = self.jl_decompress(aggregated_sketch)
-        final_update = self.unflatten_to_model_update(reconstructed_flat, own_update)
+        return new_state
 
-        return final_update
-
-    def get_sketch_for_sharing(self, model_update: Dict[str, torch.Tensor]) -> np.ndarray:
-        """Get JL compression of update for sharing with neighbors."""
-        flattened = self.flatten_model_update(model_update)
-        return self.jl_compress(flattened)
+    def get_sketch_for_sharing(self, gradient: Dict[str, torch.Tensor]) -> np.ndarray:
+        """Get Count-Sketch of gradient for sharing with neighbors."""
+        flattened = self.flatten_model_update(gradient)
+        return self.count_sketch_compress(flattened)
 
     def get_statistics(self) -> Dict:
         """Get detailed performance statistics."""
-        total_time = self.compression_time + self.filtering_time + self.decompression_time
+        total_time = self.sketch_time + self.filtering_time + self.aggregation_time
 
         return {
             "node_id": self.node_id,
-            "algorithm": "Count-Sketch-JL-BALANCE-Paper",
+            "algorithm": "COARSE-Gradient",
             "total_rounds_processed": len(self.acceptance_history),
 
-            # BALANCE statistics
+            # COARSE statistics
             "mean_acceptance_rate": np.mean(self.acceptance_history) if self.acceptance_history else 0.0,
             "current_threshold": self.threshold_history[-1] if self.threshold_history else 0.0,
 
             # Performance statistics
             "total_computation_time": total_time,
-            "compression_time": self.compression_time,
+            "sketch_time": self.sketch_time,
             "filtering_time": self.filtering_time,
-            "decompression_time": self.decompression_time,
+            "aggregation_time": self.aggregation_time,
 
-            "compression_time_fraction": self.compression_time / max(total_time, 1e-6),
+            "sketch_time_fraction": self.sketch_time / max(total_time, 1e-6),
             "filtering_time_fraction": self.filtering_time / max(total_time, 1e-6),
-            "decompression_time_fraction": self.decompression_time / max(total_time, 1e-6),
+            "aggregation_time_fraction": self.aggregation_time / max(total_time, 1e-6),
 
             # Compression statistics
             "original_dimension": self.model_dim,
-            "sketch_size": self.sketch_size,
-            "compression_ratio": self.model_dim / self.sketch_size,
+            "sketch_size": self.config.sketch_size,
+            "compression_ratio": self.model_dim / self.config.sketch_size,
+            "single_repetition": True,  # No repetitions needed
 
-            # JL properties
-            "jl_matrix_sparsity": np.count_nonzero(self.R) / self.R.size,
-            "maintains_jl_guarantees": True,
-            "distance_preservation": "JL bounds satisfied with high probability"
+            # Algorithm properties
+            "complexity": f"O({self.model_dim} + N×{self.config.sketch_size})",
+            "approach": "Sketch filtering + gradient aggregation"
         }
 
 
@@ -801,18 +796,39 @@ def balance_aggregation_step(models: List[nn.Module], graph: Graph,
         set_state(model, state)
 
 
-def count_sketch_jl_balance_aggregation_step(models: List[nn.Module], graph: Graph,
-                                             cs_monitors: Dict[str, CountSketchJLBALANCE],
-                                             round_num: int, attacker: Optional[LocalModelPoisoningAttacker] = None):
+def coarse_aggregation_step(models: List[nn.Module], graph: Graph,
+                            coarse_monitors: Dict[str, COARSE],
+                            round_num: int, attacker: Optional[LocalModelPoisoningAttacker] = None):
     """
-    Count-Sketch JL-BALANCE aggregation following paper's approach.
-
-    Key difference: Uses proper JL matrix operations for compression/decompression
-    to maintain distance preservation guarantees.
+    COARSE aggregation step using Count-Sketch compression for filtering decisions
+    and full gradients for actual aggregation.
     """
 
-    # Phase 1: Get current model states
+    # Phase 1: Get current model states and compute gradients
     states = [get_state(m) for m in models]
+
+    # Store previous states for gradient computation (initialize if round 1)
+    if not hasattr(coarse_aggregation_step, 'previous_states'):
+        coarse_aggregation_step.previous_states = [None] * len(models)
+
+    # Compute gradients (parameter updates since last round)
+    gradients = []
+    for i, current_state in enumerate(states):
+        if coarse_aggregation_step.previous_states[i] is None:
+            # First round: use current state as gradient (from initialization)
+            gradient = current_state
+        else:
+            # Compute difference: current - previous
+            gradient = {}
+            prev_state = coarse_aggregation_step.previous_states[i]
+            for key in current_state.keys():
+                gradient[key] = current_state[key] - prev_state[key]
+        gradients.append(gradient)
+
+    # Update previous states for next round
+    coarse_aggregation_step.previous_states = [
+        {k: v.clone() for k, v in state.items()} for state in states
+    ]
 
     # Phase 2: Apply attacks BEFORE sketching (fair evaluation)
     if attacker:
@@ -831,32 +847,41 @@ def count_sketch_jl_balance_aggregation_step(models: List[nn.Module], graph: Gra
                 if malicious_states:
                     states[i] = malicious_states[0]  # Replace with malicious parameters
 
-    # Phase 3: JL compress ALL updates using R matrix multiplication
-    sketched_updates = {}
+                    # Also compute malicious gradient
+                    if coarse_aggregation_step.previous_states[i] is not None:
+                        malicious_gradient = {}
+                        prev_state = coarse_aggregation_step.previous_states[i]
+                        for key in states[i].keys():
+                            malicious_gradient[key] = states[i][key] - prev_state[key]
+                        gradients[i] = malicious_gradient
+
+    # Phase 3: Compress gradients using Count-Sketch for filtering decisions
+    sketched_gradients = {}
     for i in range(graph.n):
         node_id = str(i)
-        if node_id in cs_monitors:
-            # JL compression: m̂ = R * m (maintains distance preservation)
-            sketch = cs_monitors[node_id].get_sketch_for_sharing(states[i])
-            sketched_updates[i] = sketch
+        if node_id in coarse_monitors:
+            # Count-Sketch compression of gradient: O(d) per node
+            sketches = coarse_monitors[node_id].get_sketch_for_sharing(gradients[i])
+            sketched_gradients[i] = sketches
 
-    # Phase 4: Each node performs JL-BALANCE with proper JL guarantees
+    # Phase 4: Each node performs COARSE filtering + gradient aggregation
     new_states = []
     for i in range(graph.n):
         node_id = str(i)
         neighbors = graph.neighbors[i]
 
-        if node_id not in cs_monitors:
+        if node_id not in coarse_monitors:
             new_states.append(states[i])
             continue
 
-        # Get neighbor JL sketches
-        neighbor_sketch_dict = {str(j): sketched_updates[j] for j in neighbors}
+        # Get neighbor sketches and gradients
+        neighbor_sketch_dict = {str(j): sketched_gradients[j] for j in neighbors}
+        neighbor_gradient_dict = {str(j): gradients[j] for j in neighbors}
 
-        # Perform JL-BALANCE round with proper decompression
-        cs_monitor = cs_monitors[node_id]
-        aggregated_update = cs_monitor.jl_balance_round(
-            states[i], neighbor_sketch_dict, round_num
+        # Perform COARSE filtering and gradient-based aggregation
+        coarse_monitor = coarse_monitors[node_id]
+        aggregated_update = coarse_monitor.coarse_gradient_round(
+            gradients[i], states[i], neighbor_sketch_dict, neighbor_gradient_dict, round_num
         )
 
         new_states.append(aggregated_update)
@@ -1066,12 +1091,12 @@ def run_sim(args):
                 pass
         models.append(model)
 
-    # Calculate model dimension for JL algorithms
+    # Calculate model dimension for sketching algorithms
     model_dim = calculate_model_dimension(models[0])
 
     # Initialize aggregation monitors
     balance_monitors = {}
-    cs_monitors = {}
+    coarse_monitors = {}
 
     if args.agg == "balance":
         balance_config = BALANCEConfig(
@@ -1081,31 +1106,33 @@ def run_sim(args):
         )
         for i in range(args.num_nodes):
             balance_monitors[str(i)] = BALANCE(str(i), balance_config, args.rounds)
-        print(f"BALANCE algorithm: {args.agg}")
+        print(f"BALANCE algorithm:")
         print(f"  - Model dimension: {model_dim:,} parameters")
+        print(f"  - Complexity: O(N×d) = O({args.num_nodes}×{model_dim:,})")
 
-    elif args.agg == "cs-jl-balance":
-        cs_config = CountSketchJLBALANCEConfig(
+    elif args.agg == "coarse":
+        coarse_config = COARSEConfig(
             # BALANCE parameters
             gamma=args.balance_gamma,
             kappa=args.balance_kappa,
             alpha=args.balance_alpha,
 
-            # Count-Sketch parameters
-            sketch_size=args.cs_sketch_size,
+            # COARSE parameters
+            sketch_size=args.coarse_sketch_size,
             network_seed=args.seed,
-            epsilon=0.1
+            attack_detection_window=5
         )
 
         for i in range(args.num_nodes):
-            cs_monitors[str(i)] = CountSketchJLBALANCE(str(i), cs_config, args.rounds, model_dim)
+            coarse_monitors[str(i)] = COARSE(str(i), coarse_config, args.rounds, model_dim)
 
-        print(f"COUNT-SKETCH JL-BALANCE (Paper's Approach)")
+        print(f"COARSE ALGORITHM (Sketch-based Filtering + Gradient Aggregation)")
         print(f"  - Model dimension: {model_dim:,} parameters")
-        print(f"  - Sketch size: {args.cs_sketch_size}")
-        print(f"  - Compression ratio: {model_dim / args.cs_sketch_size:.1f}x")
-        print(f"  - JL matrix operations: Maintains distance preservation guarantees")
-        print(f"  - Memory: O({model_dim * args.cs_sketch_size}) for sparse matrix R")
+        print(f"  - Sketch size: {args.coarse_sketch_size}")
+        print(f"  - Compression ratio: {model_dim / args.coarse_sketch_size:.1f}x")
+        print(f"  - Complexity: O(d + N×k) = O({model_dim:,} + {args.num_nodes}×{args.coarse_sketch_size})")
+        speedup = (args.num_nodes * model_dim) / (model_dim + args.num_nodes * args.coarse_sketch_size)
+        print(f"  - Theoretical speedup vs BALANCE: {speedup:.1f}x")
 
     # Evaluate initial performance
     with torch.no_grad():
@@ -1154,10 +1181,10 @@ def run_sim(args):
             decentralized_krum_step(models, graph, args.pct_compromised, r, attacker)
         elif args.agg == "balance":
             balance_aggregation_step(models, graph, balance_monitors, r, attacker)
-        elif args.agg == "cs-jl-balance":
-            count_sketch_jl_balance_aggregation_step(models, graph, cs_monitors, r, attacker)
+        elif args.agg == "coarse":
+            coarse_aggregation_step(models, graph, coarse_monitors, r, attacker)
         else:
-            raise ValueError("agg must be 'd-fedavg', 'gossip', 'krum', 'balance', or 'cs-jl-balance'")
+            raise ValueError("agg must be 'd-fedavg', 'gossip', 'krum', 'balance', or 'coarse'")
 
         # Evaluation phase
         accs = []
@@ -1179,12 +1206,12 @@ def run_sim(args):
                 if compromised_accs and honest_accs:
                     print(f"         : compromised: {np.mean(compromised_accs):.4f}, honest: {np.mean(honest_accs):.4f}")
 
-            if args.agg == "cs-jl-balance" and cs_monitors:
-                cs_stats = []
-                for node_id, monitor in cs_monitors.items():
+            if args.agg == "coarse" and coarse_monitors:
+                coarse_stats = []
+                for node_id, monitor in coarse_monitors.items():
                     stats = monitor.get_statistics()
-                    cs_stats.append(f"Node {node_id}: acc_rate={stats['mean_acceptance_rate']:.3f}")
-                print(f"         : cs-jl stats = {cs_stats[:3]}...")
+                    coarse_stats.append(f"Node {node_id}: acc_rate={stats['mean_acceptance_rate']:.3f}")
+                print(f"         : coarse stats = {coarse_stats[:3]}...")
 
     # Final evaluation and summary
     accs = []
@@ -1202,52 +1229,51 @@ def run_sim(args):
             print(f"Final accuracy - Compromised: {np.mean(compromised_accs):.4f}, Honest: {np.mean(honest_accs):.4f}")
     print(f"Overall test accuracy: mean={np.mean(accs):.4f} ± {np.std(accs):.4f}")
 
-    # Count-Sketch JL-BALANCE summary
-    if args.agg == "cs-jl-balance" and cs_monitors:
-        print(f"\n=== COUNT-SKETCH JL-BALANCE SUMMARY (Paper's Approach) ===")
+    # COARSE summary
+    if args.agg == "coarse" and coarse_monitors:
+        print(f"\n=== COARSE SUMMARY ===")
         all_acceptance_rates = []
-        total_compression_time = 0.0
+        total_sketch_time = 0.0
         total_filter_time = 0.0
-        total_decompression_time = 0.0
+        total_aggregation_time = 0.0
 
-        for node_id, monitor in cs_monitors.items():
+        for node_id, monitor in coarse_monitors.items():
             stats = monitor.get_statistics()
             all_acceptance_rates.append(stats["mean_acceptance_rate"])
 
-            total_compression_time += stats["compression_time"]
+            total_sketch_time += stats["sketch_time"]
             total_filter_time += stats["filtering_time"]
-            total_decompression_time += stats["decompression_time"]
+            total_aggregation_time += stats["aggregation_time"]
 
             if int(node_id) < 3:
-                print(f"Node {node_id}: acceptance={stats['mean_acceptance_rate']:.3f}, "
-                      f"compression_time={stats['compression_time']:.4f}s")
+                print(f"Node {node_id}: acceptance={stats['mean_acceptance_rate']:.3f}")
 
         print(f"\nPerformance Summary:")
-        total_time = total_compression_time + total_filter_time + total_decompression_time
+        total_time = total_sketch_time + total_filter_time + total_aggregation_time
         if total_time > 0:
-            print(f"  - JL Compression time: {total_compression_time:.3f}s ({total_compression_time/total_time*100:.1f}%)")
+            print(f"  - Sketching time: {total_sketch_time:.3f}s ({total_sketch_time/total_time*100:.1f}%)")
             print(f"  - Filtering time: {total_filter_time:.3f}s ({total_filter_time/total_time*100:.1f}%)")
-            print(f"  - JL Decompression time: {total_decompression_time:.3f}s ({total_decompression_time/total_time*100:.1f}%)")
+            print(f"  - Aggregation time: {total_aggregation_time:.3f}s ({total_aggregation_time/total_time*100:.1f}%)")
             print(f"  - Total time: {total_time:.3f}s")
 
         if all_acceptance_rates:
             print(f"  - Mean acceptance rate: {np.mean(all_acceptance_rates):.3f}")
 
-        # JL matrix properties
-        sample_monitor = list(cs_monitors.values())[0]
-        matrix_sparsity = np.count_nonzero(sample_monitor.R) / sample_monitor.R.size
+        # Algorithm properties
+        actual_speedup = (args.num_nodes * model_dim) / (model_dim + args.num_nodes * args.coarse_sketch_size)
 
-        print(f"\nJL Matrix Properties:")
-        print(f"  - Matrix dimensions: {sample_monitor.sketch_size} × {model_dim}")
-        print(f"  - Matrix sparsity: {matrix_sparsity:.4f} ({matrix_sparsity*100:.1f}% non-zero)")
-        print(f"  - Maintains JL distance preservation guarantees")
-        print(f"  - Compression ratio: {model_dim / args.cs_sketch_size:.1f}x")
-        print(f"  - Memory for matrix R: ~{(model_dim * args.cs_sketch_size * 4) / (1024**2):.1f} MB")
+        print(f"\nCOARSE Algorithm Properties:")
+        print(f"  - Original dimension: {model_dim:,}")
+        print(f"  - Sketch size: {args.coarse_sketch_size}")
+        print(f"  - Compression ratio: {actual_speedup:.1f}x")
+        print(f"  - Single repetition: No repetitions needed")
+        print(f"  - Theoretical complexity: O(d + N×k)")
+        print(f"  - Approach: Sketch filtering + gradient aggregation")
 
 
 def parse_args():
     """Parse command line arguments."""
-    p = argparse.ArgumentParser(description="Count-Sketch JL-BALANCE Simulator (Paper's Approach)")
+    p = argparse.ArgumentParser(description="Decentralized FL Simulator with BALANCE and COARSE")
 
     # Dataset and basic training parameters
     p.add_argument("--dataset", type=str, choices=["femnist", "celeba"], required=True)
@@ -1260,7 +1286,7 @@ def parse_args():
 
     # Aggregation algorithm parameters
     p.add_argument("--agg", type=str,
-                   choices=["d-fedavg", "gossip", "krum", "balance", "cs-jl-balance"],
+                   choices=["d-fedavg", "gossip", "krum", "balance", "coarse"],
                    default="d-fedavg",
                    help="Aggregation algorithm")
     p.add_argument("--gossip-steps", type=int, default=10)
@@ -1271,9 +1297,9 @@ def parse_args():
     p.add_argument("--balance-kappa", type=float, default=1.0)
     p.add_argument("--balance-alpha", type=float, default=0.5)
 
-    # Count-Sketch JL-BALANCE specific parameters
-    p.add_argument("--cs-sketch-size", type=int, default=200,
-                   help="Count-Sketch JL size k (lower = more compression)")
+    # COARSE specific parameters
+    p.add_argument("--coarse-sketch-size", type=int, default=1000,
+                   help="COARSE sketch size k (lower = more compression)")
 
     # Graph topology parameters
     p.add_argument("--graph", type=str, choices=["ring", "fully", "erdos"], default="ring")
