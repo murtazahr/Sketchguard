@@ -1264,6 +1264,41 @@ def run_sim(args):
             print(f"Final accuracy - Compromised: {np.mean(compromised_accs):.4f}, Honest: {np.mean(honest_accs):.4f}")
     print(f"Overall test accuracy: mean={np.mean(accs):.4f} ± {np.std(accs):.4f}")
 
+    # BALANCE summary
+    if args.agg == "balance" and balance_monitors:
+        print(f"\n=== BALANCE SUMMARY ===")
+        all_acceptance_rates = []
+        total_distance_time = 0.0
+        total_filter_time = 0.0
+        total_aggregation_time = 0.0
+
+        for node_id, monitor in balance_monitors.items():
+            stats = monitor.get_statistics()
+            all_acceptance_rates.append(stats["mean_acceptance_rate"])
+
+            total_distance_time += stats["distance_computation_time"]
+            total_filter_time += stats["filtering_time"]
+            total_aggregation_time += stats["aggregation_time"]
+
+            print(f"Node {node_id}: acceptance={stats['mean_acceptance_rate']:.3f}")
+
+        print(f"\nPerformance Summary:")
+        total_time = total_distance_time + total_filter_time + total_aggregation_time
+        if total_time > 0:
+            print(f"  - Distance computation time: {total_distance_time:.3f}s ({total_distance_time/total_time*100:.1f}%)")
+            print(f"  - Filtering time: {total_filter_time:.3f}s ({total_filter_time/total_time*100:.1f}%)")
+            print(f"  - Aggregation time: {total_aggregation_time:.3f}s ({total_aggregation_time/total_time*100:.1f}%)")
+            print(f"  - Total time: {total_time:.3f}s")
+
+        if all_acceptance_rates:
+            print(f"  - Mean acceptance rate: {np.mean(all_acceptance_rates):.3f}")
+
+        print(f"\nBALANCE Algorithm Properties:")
+        print(f"  - Model dimension: {model_dim:,}")
+        print(f"  - No compression: Full parameter comparison")
+        print(f"  - Theoretical complexity: O(deg(i)×d)")
+        print(f"  - Approach: Full parameter filtering + averaging")
+
     # COARSE summary
     if args.agg == "coarse" and coarse_monitors:
         print(f"\n=== COARSE SUMMARY ===")
@@ -1280,8 +1315,7 @@ def run_sim(args):
             total_filter_time += stats["filtering_time"]
             total_aggregation_time += stats["aggregation_time"]
 
-            if int(node_id) < 3:
-                print(f"Node {node_id}: acceptance={stats['mean_acceptance_rate']:.3f}")
+            print(f"Node {node_id}: acceptance={stats['mean_acceptance_rate']:.3f}")
 
         print(f"\nPerformance Summary:")
         total_time = total_sketch_time + total_filter_time + total_aggregation_time
