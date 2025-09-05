@@ -4,14 +4,14 @@ Decentralized Learning Simulator with BALANCE and COARSE
 
 COARSE: COmpressed Approximate Robust Secure Estimation
 A lightweight robust aggregation algorithm that uses Count-Sketch compression
-for filtering decisions and full gradients for aggregation.
+for filtering decisions and full model parameters for aggregation.
 
 Supports aggregation strategies over a peer graph:
   1) Decentralized FedAvg
   2) Gossip averaging
   3) Decentralized Krum
   4) BALANCE (original)
-  5) COARSE (sketch-based filtering + gradient aggregation)
+  5) COARSE (sketch-based filtering + state aggregation)
 
 Example usage:
   # COARSE with Count-Sketch compression
@@ -151,6 +151,11 @@ class BALANCE:
         self.threshold_history = []
         self.neighbor_distances = defaultdict(list)
 
+        # Performance tracking (added for consistency with summary code)
+        self.distance_computation_time = 0.0
+        self.filtering_time = 0.0
+        self.aggregation_time = 0.0
+
     def compute_similarity_threshold(self, own_update: Dict[str, torch.Tensor],
                                      current_round: int) -> float:
         """Compute time-adaptive similarity threshold."""
@@ -172,17 +177,23 @@ class BALANCE:
     def _compute_l2_distance(self, update1: Dict[str, torch.Tensor],
                              update2: Dict[str, torch.Tensor]) -> float:
         """Compute L2 distance between two model updates."""
+        start_time = time.time()
+
         total_dist_sq = 0.0
         common_keys = set(update1.keys()) & set(update2.keys())
         for key in common_keys:
             diff = update1[key] - update2[key]
             total_dist_sq += torch.sum(diff * diff).item()
+
+        self.distance_computation_time += time.time() - start_time
         return np.sqrt(total_dist_sq)
 
     def filter_neighbors(self, own_update: Dict[str, torch.Tensor],
                          neighbor_updates: Dict[str, Dict[str, torch.Tensor]],
                          current_round: int) -> Dict[str, Dict[str, torch.Tensor]]:
         """Filter neighbor updates based on similarity to own update."""
+        start_time = time.time()
+
         threshold = self.compute_similarity_threshold(own_update, current_round)
         accepted_neighbors = {}
         distances = {}
@@ -201,12 +212,16 @@ class BALANCE:
             closest_neighbor = min(distances.items(), key=lambda x: x[1])
             accepted_neighbors[closest_neighbor[0]] = neighbor_updates[closest_neighbor[0]]
 
+        self.filtering_time += time.time() - start_time
         return accepted_neighbors
 
     def aggregate_updates(self, own_update: Dict[str, torch.Tensor],
                           accepted_neighbors: Dict[str, Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]:
         """Aggregate own update with accepted neighbor updates."""
+        start_time = time.time()
+
         if not accepted_neighbors:
+            self.aggregation_time += time.time() - start_time
             return own_update
 
         neighbor_avg = {}
@@ -223,6 +238,8 @@ class BALANCE:
         for key in own_update.keys():
             aggregated_update[key] = (self.config.alpha * own_update[key] +
                                       (1 - self.config.alpha) * neighbor_avg[key])
+
+        self.aggregation_time += time.time() - start_time
         return aggregated_update
 
     def get_statistics(self) -> Dict:
@@ -244,7 +261,7 @@ class COARSE:
     """
     COARSE: COmpressed Approximate Robust Secure Estimation
 
-    Modified to use sketches for filtering decisions and gradients for aggregation.
+    Modified to use sketches for filtering decisions and model parameters for aggregation.
     """
 
     def __init__(self, node_id: str, config: COARSEConfig, total_rounds: int, model_dim: int):
@@ -277,7 +294,7 @@ class COARSE:
         print(f"COARSE Node {node_id}:")
         print(f"  Model dim: {model_dim:,} → Sketch size: {config.sketch_size}")
         print(f"  Compression ratio: {model_dim / config.sketch_size:.1f}x")
-        print(f"  Using gradients for aggregation, sketches for filtering")
+        print(f"  Using model parameters for aggregation, sketches for filtering")
 
     def _generate_count_sketch_tables(self, rep_id: int):
         """FIXED: Generate Count-Sketch tables as numpy arrays for maximum speed."""
@@ -379,82 +396,63 @@ class COARSE:
 
         return accepted_neighbors
 
-    def aggregate_gradients(self, own_gradient: Dict[str, torch.Tensor],
-                            current_state: Dict[str, torch.Tensor],
-                            accepted_neighbor_gradients: Dict[str, Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]:
-        """Aggregate gradients from accepted neighbors using BALANCE-style weighted averaging."""
+    def aggregate_states(self, own_state: Dict[str, torch.Tensor],
+                         accepted_neighbor_states: Dict[str, Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]:
+        """Aggregate model states using BALANCE-style weighted averaging."""
         start_time = time.time()
 
-        if not accepted_neighbor_gradients:
-            # No accepted neighbors, apply own gradient
-            new_state = {}
-            for key in current_state.keys():
-                new_state[key] = current_state[key] + own_gradient[key]
+        if not accepted_neighbor_states:
+            # No accepted neighbors, keep own state
             self.aggregation_time += time.time() - start_time
-            return new_state
+            return own_state
 
-        # Compute average neighbor gradient
-        neighbor_avg_gradient = {}
-        num_neighbors = len(accepted_neighbor_gradients)
-
-        for key in own_gradient.keys():
-            neighbor_sum = torch.zeros_like(own_gradient[key])
-            for neighbor_gradient in accepted_neighbor_gradients.values():
-                if key in neighbor_gradient:
-                    neighbor_sum += neighbor_gradient[key]
-            neighbor_avg_gradient[key] = neighbor_sum / num_neighbors
+        # Compute average neighbor state
+        neighbor_states_list = list(accepted_neighbor_states.values())
+        neighbor_avg_state = average_states(neighbor_states_list)
 
         # BALANCE-style aggregation: α * own + (1-α) * neighbor_avg
-        aggregated_gradient = {}
-        for key in own_gradient.keys():
-            aggregated_gradient[key] = (self.config.alpha * own_gradient[key] +
-                                        (1 - self.config.alpha) * neighbor_avg_gradient[key])
-
-        # Apply aggregated gradient to current state
-        new_state = {}
-        for key in current_state.keys():
-            new_state[key] = current_state[key] + aggregated_gradient[key]
+        aggregated_state = {}
+        for key in own_state.keys():
+            aggregated_state[key] = (self.config.alpha * own_state[key] +
+                                     (1 - self.config.alpha) * neighbor_avg_state[key])
 
         self.aggregation_time += time.time() - start_time
-        return new_state
+        return aggregated_state
 
-    def coarse_gradient_round(self, own_gradient: Dict[str, torch.Tensor],
-                              current_state: Dict[str, torch.Tensor],
-                              neighbor_sketches_dict: Dict[str, np.ndarray],
-                              neighbor_gradients_dict: Dict[str, Dict[str, torch.Tensor]],
-                              current_round: int) -> Dict[str, torch.Tensor]:
+    def coarse_state_round(self, own_state: Dict[str, torch.Tensor],
+                           neighbor_sketches_dict: Dict[str, np.ndarray],
+                           neighbor_states_dict: Dict[str, Dict[str, torch.Tensor]],
+                           current_round: int) -> Dict[str, torch.Tensor]:
         """
-        Complete COARSE round with sketch-based filtering and gradient aggregation.
+        Complete COARSE round with sketch-based filtering and state aggregation.
 
-        Input: own_gradient, current_state, neighbor_sketches, neighbor_gradients
-        Output: new model state after gradient aggregation
+        Input: own_state, neighbor_sketches, neighbor_states
+        Output: new model state after aggregation
         """
-        # Step 1: Compress own gradient for filtering
-        flattened_own_gradient = self.flatten_model_update(own_gradient)
-        own_sketch = self.count_sketch_compress(flattened_own_gradient)
+        # Step 1: Compress own model state for filtering
+        flattened_own_state = self.flatten_model_update(own_state)
+        own_sketch = self.count_sketch_compress(flattened_own_state)
 
         # Step 2: Filter neighbors based on sketch distances
         accepted_neighbor_ids = self.filter_neighbors_by_sketch(
             own_sketch, neighbor_sketches_dict, current_round
         )
 
-        # Step 3: Get gradients from accepted neighbors only
-        accepted_neighbor_gradients = {
-            nid: neighbor_gradients_dict[nid]
+        # Step 3: Get states from accepted neighbors only
+        accepted_neighbor_states = {
+            nid: neighbor_states_dict[nid]
             for nid in accepted_neighbor_ids
-            if nid in neighbor_gradients_dict
+            if nid in neighbor_states_dict
         }
 
-        # Step 4: Aggregate gradients and apply to current state
-        new_state = self.aggregate_gradients(
-            own_gradient, current_state, accepted_neighbor_gradients
-        )
+        # Step 4: Aggregate model states (like BALANCE)
+        new_state = self.aggregate_states(own_state, accepted_neighbor_states)
 
         return new_state
 
-    def get_sketch_for_sharing(self, gradient: Dict[str, torch.Tensor]) -> np.ndarray:
-        """Get Count-Sketch of gradient for sharing with neighbors."""
-        flattened = self.flatten_model_update(gradient)
+    def get_sketch_for_sharing(self, model_state: Dict[str, torch.Tensor]) -> np.ndarray:
+        """Get Count-Sketch of model parameters for sharing with neighbors."""
+        flattened = self.flatten_model_update(model_state)
         return self.count_sketch_compress(flattened)
 
     def get_statistics(self) -> Dict:
@@ -463,7 +461,7 @@ class COARSE:
 
         return {
             "node_id": self.node_id,
-            "algorithm": "COARSE-Gradient",
+            "algorithm": "COARSE-State",
             "total_rounds_processed": len(self.acceptance_history),
 
             # COARSE statistics
@@ -487,8 +485,8 @@ class COARSE:
             "single_repetition": True,  # No repetitions needed
 
             # Algorithm properties
-            "complexity": f"O({self.model_dim} + N×{self.config.sketch_size})",
-            "approach": "Sketch filtering + gradient aggregation"
+            "complexity": f"O(d + N×{self.config.sketch_size})",
+            "approach": "Sketch filtering + state aggregation"
         }
 
 
@@ -805,76 +803,44 @@ def coarse_aggregation_step(models: List[nn.Module], graph: Graph,
                             coarse_monitors: Dict[str, COARSE],
                             round_num: int, attacker: Optional[LocalModelPoisoningAttacker] = None):
     """
-    FIXED: COARSE aggregation step with eliminated redundancy.
-    Uses Count-Sketch compression for filtering decisions and full gradients for aggregation.
+    FIXED: COARSE aggregation using MODEL PARAMETERS (more secure than gradients).
+    Uses Count-Sketch compression for filtering decisions and full model states for aggregation.
     """
 
-    # Phase 1: Get current model states and compute gradients
+    # Phase 1: Get current model states
     states = [get_state(m) for m in models]
 
-    # Store previous states for gradient computation (initialize if round 1)
-    if not hasattr(coarse_aggregation_step, 'previous_states'):
-        coarse_aggregation_step.previous_states = [None] * len(models)
-
-    # Compute gradients (parameter updates since last round)
-    gradients = []
-    for i, current_state in enumerate(states):
-        if coarse_aggregation_step.previous_states[i] is None:
-            # First round: use small random gradients instead of full model parameters
-            gradient = {}
-            for key, param in current_state.items():
-                gradient[key] = torch.randn_like(param) * 0.01  # Small random gradients
-        else:
-            # Compute difference: current - previous
-            gradient = {}
-            prev_state = coarse_aggregation_step.previous_states[i]
-            for key in current_state.keys():
-                gradient[key] = current_state[key] - prev_state[key]
-        gradients.append(gradient)
-
-    # Update previous states for next round
-    coarse_aggregation_step.previous_states = [
-        {k: v.clone() for k, v in state.items()} for state in states
-    ]
-
-    # Phase 2: FIXED - Apply attacks to compromised nodes' gradients ONCE
+    # Phase 2: FIXED - Apply attacks to model states directly (like BALANCE/FedAvg/Krum)
     if attacker:
         attacker.update_compromised_states(round_num, states)
 
-        # FIXED: Modify the gradients of compromised nodes directly, no re-sketching
+        # Modify compromised nodes' model states
         for compromised_id in attacker.compromised_nodes:
-            if compromised_id < len(gradients):
+            if compromised_id < len(states):
                 # Get neighbors of this compromised node for attack context
                 neighbors = graph.neighbors[compromised_id] + [compromised_id]
                 honest_neighbors = [j for j in neighbors if j not in attacker.compromised_nodes]
                 honest_neigh_states = [states[j] for j in honest_neighbors]
 
-                # Generate malicious gradient for this compromised node
+                # Generate malicious model state for this compromised node
                 malicious_states = attacker.craft_malicious_models_decentralized(
                     compromised_id, neighbors, honest_neigh_states, round_num
                 )
 
                 if malicious_states:
-                    # Replace the compromised node's gradient with malicious one
-                    malicious_gradient = {}
-                    for key, param in malicious_states[0].items():
-                        if coarse_aggregation_step.previous_states[compromised_id] is not None:
-                            malicious_gradient[key] = param - coarse_aggregation_step.previous_states[compromised_id][key]
-                        else:
-                            malicious_gradient[key] = torch.randn_like(param) * 0.01
+                    # Replace the compromised node's state with malicious one
+                    states[compromised_id] = malicious_states[0]
 
-                    gradients[compromised_id] = malicious_gradient
-
-    # Phase 3: FIXED - Each node sketches their own gradient ONCE (including compromised nodes)
-    sketched_gradients = {}
+    # Phase 3: FIXED - Each node sketches their own MODEL PARAMETERS once
+    sketched_states = {}
     for i in range(graph.n):
         node_id = str(i)
         if node_id in coarse_monitors:
-            # Each node sketches their own gradient (honest or malicious): O(d) per node
-            sketches = coarse_monitors[node_id].get_sketch_for_sharing(gradients[i])
-            sketched_gradients[i] = sketches
+            # Each node sketches their own model state (honest or malicious): O(d) per node
+            sketches = coarse_monitors[node_id].get_sketch_for_sharing(states[i])
+            sketched_states[i] = sketches
 
-    # Phase 4: FIXED - Each node performs COARSE filtering + gradient aggregation
+    # Phase 4: FIXED - Each node performs COARSE filtering + state aggregation
     new_states = []
     for i in range(graph.n):
         node_id = str(i)
@@ -884,22 +850,22 @@ def coarse_aggregation_step(models: List[nn.Module], graph: Graph,
             new_states.append(states[i])
             continue
 
-        # FIXED: Simply use the pre-computed sketches and gradients - NO RE-SKETCHING!
+        # FIXED: Simply use the pre-computed sketches and states - NO RE-SKETCHING!
         neighbor_sketch_dict = {}
-        neighbor_gradient_dict = {}
+        neighbor_state_dict = {}
 
         for j in neighbors:
             # No re-sketching! Just use what each neighbor computed
-            neighbor_gradient_dict[str(j)] = gradients[j]
-            neighbor_sketch_dict[str(j)] = sketched_gradients[j]
+            neighbor_state_dict[str(j)] = states[j]
+            neighbor_sketch_dict[str(j)] = sketched_states[j]
 
-        # Perform COARSE filtering and gradient-based aggregation
+        # Perform COARSE filtering and state-based aggregation
         coarse_monitor = coarse_monitors[node_id]
-        aggregated_update = coarse_monitor.coarse_gradient_round(
-            gradients[i], states[i], neighbor_sketch_dict, neighbor_gradient_dict, round_num
+        aggregated_state = coarse_monitor.coarse_state_round(
+            states[i], neighbor_sketch_dict, neighbor_state_dict, round_num
         )
 
-        new_states.append(aggregated_update)
+        new_states.append(aggregated_state)
 
     # Phase 5: Update models with aggregated states
     for model, state in zip(models, new_states):
@@ -1155,7 +1121,7 @@ def run_sim(args):
         for i in range(args.num_nodes):
             coarse_monitors[str(i)] = COARSE(str(i), coarse_config, args.rounds, model_dim)
 
-        print(f"COARSE ALGORITHM (Sketch-based Filtering + Gradient Aggregation)")
+        print(f"COARSE ALGORITHM (Sketch-based Filtering + State Aggregation)")
         print(f"  - Model dimension: {model_dim:,} parameters")
         print(f"  - Sketch size: {args.coarse_sketch_size}")
         print(f"  - Compression ratio: {model_dim / args.coarse_sketch_size:.1f}x")
