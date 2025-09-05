@@ -805,42 +805,51 @@ def coarse_aggregation_step(models: List[nn.Module], graph: Graph,
     """
     FIXED: COARSE aggregation using MODEL PARAMETERS (more secure than gradients).
     Uses Count-Sketch compression for filtering decisions and full model states for aggregation.
+    Each compromised node creates its malicious sketch once to avoid redundancy.
     """
 
     # Phase 1: Get current model states
     states = [get_state(m) for m in models]
 
-    # Phase 2: FIXED - Apply attacks to model states directly (like BALANCE/FedAvg/Krum)
+    # Phase 2: Apply attack tracking and pre-compute malicious data
+    malicious_updates = {}  # Store malicious updates per compromised node
+    malicious_sketches = {}  # Store malicious sketches per compromised node
+
     if attacker:
         attacker.update_compromised_states(round_num, states)
 
-        # Modify compromised nodes' model states
+        # Each compromised node creates its malicious update and sketch ONCE
         for compromised_id in attacker.compromised_nodes:
             if compromised_id < len(states):
-                # Get neighbors of this compromised node for attack context
-                neighbors = graph.neighbors[compromised_id] + [compromised_id]
-                honest_neighbors = [j for j in neighbors if j not in attacker.compromised_nodes]
+                neighbors_context = graph.neighbors[compromised_id] + [compromised_id]
+                honest_neighbors = [j for j in neighbors_context if j not in attacker.compromised_nodes]
                 honest_neigh_states = [states[j] for j in honest_neighbors]
 
-                # Generate malicious model state for this compromised node
+                # Generate malicious state for this compromised node
                 malicious_states = attacker.craft_malicious_models_decentralized(
-                    compromised_id, neighbors, honest_neigh_states, round_num
+                    compromised_id, neighbors_context, honest_neigh_states, round_num
                 )
 
                 if malicious_states:
-                    # Replace the compromised node's state with malicious one
-                    states[compromised_id] = malicious_states[0]
+                    malicious_state = malicious_states[0]
+                    malicious_updates[compromised_id] = malicious_state
 
-    # Phase 3: FIXED - Each node sketches their own MODEL PARAMETERS once
+                    # Compromised node creates its malicious sketch once
+                    node_id = str(compromised_id)
+                    if node_id in coarse_monitors:
+                        malicious_sketch = coarse_monitors[node_id].get_sketch_for_sharing(malicious_state)
+                        malicious_sketches[compromised_id] = malicious_sketch
+
+    # Phase 3: Each node sketches their own honest MODEL PARAMETERS once
     sketched_states = {}
     for i in range(graph.n):
         node_id = str(i)
         if node_id in coarse_monitors:
-            # Each node sketches their own model state (honest or malicious): O(d) per node
+            # Each node sketches their honest model state: O(d) per node
             sketches = coarse_monitors[node_id].get_sketch_for_sharing(states[i])
             sketched_states[i] = sketches
 
-    # Phase 4: FIXED - Each node performs COARSE filtering + state aggregation
+    # Phase 4: Each node performs COARSE filtering + state aggregation
     new_states = []
     for i in range(graph.n):
         node_id = str(i)
@@ -850,14 +859,24 @@ def coarse_aggregation_step(models: List[nn.Module], graph: Graph,
             new_states.append(states[i])
             continue
 
-        # FIXED: Simply use the pre-computed sketches and states - NO RE-SKETCHING!
+        # Build neighbor data using pre-computed malicious updates/sketches
         neighbor_sketch_dict = {}
         neighbor_state_dict = {}
 
         for j in neighbors:
-            # No re-sketching! Just use what each neighbor computed
-            neighbor_state_dict[str(j)] = states[j]
-            neighbor_sketch_dict[str(j)] = sketched_states[j]
+            if attacker and j in attacker.compromised_nodes:
+                # Use pre-computed malicious data (no re-computation!)
+                if j in malicious_updates and j in malicious_sketches:
+                    neighbor_state_dict[str(j)] = malicious_updates[j]
+                    neighbor_sketch_dict[str(j)] = malicious_sketches[j]
+                else:
+                    # Fallback to honest data if malicious data not available
+                    neighbor_state_dict[str(j)] = states[j]
+                    neighbor_sketch_dict[str(j)] = sketched_states[j]
+            else:
+                # Honest neighbor uses honest data
+                neighbor_state_dict[str(j)] = states[j]
+                neighbor_sketch_dict[str(j)] = sketched_states[j]
 
         # Perform COARSE filtering and state-based aggregation
         coarse_monitor = coarse_monitors[node_id]
@@ -1304,6 +1323,7 @@ def run_sim(args):
         print(f"  - Single repetition: No repetitions needed")
         print(f"  - Theoretical complexity: O(d + N×k)")
         print(f"  - Approach: Sketch filtering + state aggregation")
+
 
 def parse_args():
     """Parse command line arguments."""
