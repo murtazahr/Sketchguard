@@ -141,12 +141,6 @@ def main():
     print(f"Aggregation methods: {agg_methods}")
     print(f"Attack percentages: {attack_percentages}")
     
-    if not args.dry_run:
-        response = input("\nContinue? (y/n): ")
-        if response.lower() != 'y':
-            print("Aborted")
-            return
-    
     # Run all experiments
     successful = 0
     failed = 0
