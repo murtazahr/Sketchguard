@@ -22,12 +22,18 @@ Example usage:
   python decentralized_fl_sim.py \
       --dataset femnist --num-nodes 8 --rounds 20 \
       --agg ubar --ubar-rho 0.4
+
+  # Gaussian attack example
+  python decentralized_fl_sim.py \
+      --dataset femnist --num-nodes 8 --rounds 20 \
+      --agg ubar --attack-percentage 0.2 --attack-type gaussian
 """
 from __future__ import annotations
 
 import argparse
 import random
 import time
+import hashlib
 from collections import deque, defaultdict
 from dataclasses import dataclass
 from typing import Dict, List, Tuple, Optional
@@ -542,31 +548,6 @@ class UBAR:
         self.distance_computation_time += time.time() - start_time
         return np.sqrt(total_dist_sq)
 
-    def _compute_loss_on_sample(self, model_state: Dict[str, torch.Tensor],
-                                sample_batch: Tuple[torch.Tensor, torch.Tensor]) -> float:
-        """Compute loss of model state on a training sample."""
-        start_time = time.time()
-
-        # Create a temporary model to evaluate
-        temp_model = self._create_temp_model(model_state)
-        temp_model.eval()
-
-        xb, yb = sample_batch
-        xb, yb = xb.to(self.device), yb.to(self.device)
-
-        with torch.no_grad():
-            logits = temp_model(xb)
-            loss = self.criterion(logits, yb)
-
-        self.loss_computation_time += time.time() - start_time
-        return loss.item()
-
-    def _create_temp_model(self, model_state: Dict[str, torch.Tensor]):
-        """Create a temporary model with given state for evaluation."""
-        # This is a simplified approach - in practice, you'd need to know the model architecture
-        # For now, we'll assume we have access to a model template
-        raise NotImplementedError("Need model template to create temporary model")
-
     def stage1_distance_filtering(self, own_state: Dict[str, torch.Tensor],
                                   neighbor_states: Dict[str, Dict[str, torch.Tensor]]) -> Dict[str, Dict[str, torch.Tensor]]:
         """
@@ -932,21 +913,29 @@ class LocalModelPoisoningAttacker:
         if num_compromised_in_neigh == 0:
             return []
 
-        if self.attack_type == "random":
+        if self.attack_type == "gaussian":
+            """
+            Gaussian (Gauss) attack: Malicious clients send Gaussian vectors, 
+            randomly drawn from a normal distribution with mean=0 and variance=200.
+            """
             malicious_states = []
             for _ in range(num_compromised_in_neigh):
+                # Get a reference state to determine the structure
                 if honest_neigh_states:
-                    base_state = honest_neigh_states[0]
+                    reference_state = honest_neigh_states[0]
                 elif self.compromised_node_states and round_num in self.compromised_node_states:
-                    base_state = list(self.compromised_node_states[round_num].values())[0]
+                    reference_state = list(self.compromised_node_states[round_num].values())[0]
                 else:
                     continue
 
-                random_state = {}
-                for key in base_state.keys():
-                    noise = torch.randn_like(base_state[key]) * 0.5
-                    random_state[key] = base_state[key] + noise
-                malicious_states.append(random_state)
+                # Create completely random Gaussian vectors with mean=0, variance=200
+                gaussian_state = {}
+                for key in reference_state.keys():
+                    # Generate pure Gaussian noise with mean=0, std=sqrt(200)≈14.14
+                    gaussian_noise = torch.randn_like(reference_state[key]) * np.sqrt(200.0)
+                    gaussian_state[key] = gaussian_noise
+
+                malicious_states.append(gaussian_state)
             return malicious_states
 
         # Directed deviation attack
@@ -1692,7 +1681,7 @@ def parse_args():
 
     # Attack parameters
     p.add_argument("--attack-percentage", type=float, default=0.0)
-    p.add_argument("--attack-type", type=str, choices=["directed_deviation", "random"],
+    p.add_argument("--attack-type", type=str, choices=["directed_deviation", "gaussian"],
                    default="directed_deviation")
     p.add_argument("--attack-lambda", type=float, default=1.0)
 

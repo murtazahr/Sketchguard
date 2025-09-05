@@ -27,11 +27,15 @@ def get_attack_percentages():
     """Get all attack percentages."""
     return [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
 
+def get_attack_types():
+    """Get all attack types."""
+    return ["directed_deviation", "gaussian"]
+
 def get_datasets():
     """Get all datasets."""
     return ["femnist", "celeba"]
 
-def build_log_filename(dataset, graph_config, agg_method, attack_pct):
+def build_log_filename(dataset, graph_config, agg_method, attack_pct, attack_type="directed_deviation"):
     """Build the log filename based on parameters."""
     # Format attack percentage for filename
     attack_str = f"{int(attack_pct*100)}attack" if attack_pct > 0 else "0attack"
@@ -42,11 +46,14 @@ def build_log_filename(dataset, graph_config, agg_method, attack_pct):
     else:
         graph_str = graph_config["name"]
     
+    # Add attack type suffix for gaussian attacks
+    attack_suffix = "_gaussian" if attack_type == "gaussian" and attack_pct > 0 else ""
+    
     # Build filename
-    filename = f"{dataset}_20_10_3_{graph_str}_64_10000_{agg_method}_{attack_str}_1lambda.log"
+    filename = f"{dataset}_20_10_3_{graph_str}_64_10000_{agg_method}_{attack_str}{attack_suffix}_1lambda.log"
     return filename
 
-def build_command(dataset, graph_config, agg_method, attack_pct):
+def build_command(dataset, graph_config, agg_method, attack_pct, attack_type="directed_deviation"):
     """Build the command to run."""
     cmd = [
         "python", "decentralized_fl_sim.py",
@@ -61,6 +68,7 @@ def build_command(dataset, graph_config, agg_method, attack_pct):
         "--max-samples", "10000",
         "--agg", agg_method,
         "--attack-percentage", str(attack_pct),
+        "--attack-type", attack_type,
         "--verbose"
     ]
     
@@ -79,15 +87,15 @@ def build_command(dataset, graph_config, agg_method, attack_pct):
     
     return cmd
 
-def run_experiment(dataset, graph_config, agg_method, attack_pct, dry_run=False):
+def run_experiment(dataset, graph_config, agg_method, attack_pct, attack_type="directed_deviation", dry_run=False):
     """Run a single experiment."""
-    cmd = build_command(dataset, graph_config, agg_method, attack_pct)
-    log_filename = build_log_filename(dataset, graph_config, agg_method, attack_pct)
+    cmd = build_command(dataset, graph_config, agg_method, attack_pct, attack_type)
+    log_filename = build_log_filename(dataset, graph_config, agg_method, attack_pct, attack_type)
     
     print(f"\n{'='*80}")
     print(f"Running: {dataset} | {graph_config['name']}" + 
           (f" (p={graph_config['p']})" if graph_config['p'] else "") +
-          f" | {agg_method} | attack={attack_pct}")
+          f" | {agg_method} | attack={attack_pct} ({attack_type})")
     print(f"Output: {log_filename}")
     print(f"Command: {' '.join(cmd)}")
     
@@ -121,6 +129,9 @@ def main():
                         help='Specific aggregation methods to run (default: all)')
     parser.add_argument('--attack-percentages', nargs='+', type=float,
                         help='Specific attack percentages to run (default: all)')
+    parser.add_argument('--attack-types', nargs='+',
+                        choices=['directed_deviation', 'gaussian'],
+                        help='Specific attack types to run (default: all)')
     args = parser.parse_args()
     
     # Get parameter combinations
@@ -129,6 +140,7 @@ def main():
     agg_methods = args.agg_methods if args.agg_methods else get_aggregation_methods()
     attack_percentages = (args.attack_percentages if args.attack_percentages 
                          else get_attack_percentages())
+    attack_types = args.attack_types if args.attack_types else get_attack_types()
     
     # Validate attack percentages
     for pct in attack_percentages:
@@ -136,15 +148,18 @@ def main():
             print(f"Error: Attack percentage {pct} must be between 0 and 1")
             return
     
-    # Calculate total experiments
-    total_experiments = (len(datasets) * len(graph_configs) * 
-                        len(agg_methods) * len(attack_percentages))
+    # Calculate total experiments (only non-zero attacks get both types)
+    non_zero_attacks = [pct for pct in attack_percentages if pct > 0]
+    zero_attacks = [pct for pct in attack_percentages if pct == 0]
+    total_experiments = (len(datasets) * len(graph_configs) * len(agg_methods) * 
+                        (len(zero_attacks) + len(non_zero_attacks) * len(attack_types)))
     
     print(f"Total experiments to run: {total_experiments}")
     print(f"Datasets: {datasets}")
     print(f"Graph configs: {len(graph_configs)} configurations")
     print(f"Aggregation methods: {agg_methods}")
     print(f"Attack percentages: {attack_percentages}")
+    print(f"Attack types: {attack_types}")
     
     # Run all experiments
     successful = 0
@@ -155,15 +170,29 @@ def main():
     for dataset, graph_config, agg_method, attack_pct in itertools.product(
         datasets, graph_configs, agg_methods, attack_percentages
     ):
-        experiment_count += 1
-        print(f"\nExperiment {experiment_count}/{total_experiments}")
-        
-        success = run_experiment(dataset, graph_config, agg_method, attack_pct, 
-                               dry_run=args.dry_run)
-        if success:
-            successful += 1
+        # For 0% attack, only run once (attack type doesn't matter)
+        if attack_pct == 0:
+            experiment_count += 1
+            print(f"\nExperiment {experiment_count}/{total_experiments}")
+            
+            success = run_experiment(dataset, graph_config, agg_method, attack_pct,
+                                   "directed_deviation", dry_run=args.dry_run)
+            if success:
+                successful += 1
+            else:
+                failed += 1
         else:
-            failed += 1
+            # For non-zero attacks, run for each attack type
+            for attack_type in attack_types:
+                experiment_count += 1
+                print(f"\nExperiment {experiment_count}/{total_experiments}")
+                
+                success = run_experiment(dataset, graph_config, agg_method, attack_pct,
+                                       attack_type, dry_run=args.dry_run)
+                if success:
+                    successful += 1
+                else:
+                    failed += 1
     
     # Print summary
     elapsed_time = time.time() - start_time
