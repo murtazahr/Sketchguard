@@ -21,7 +21,7 @@ def get_graph_configs():
 
 def get_aggregation_methods():
     """Get all aggregation methods."""
-    return ["coarse", "balance", "krum", "d-fedadj"]
+    return ["coarse", "balance", "krum", "d-fedadj", "ubar"]
 
 def get_attack_percentages():
     """Get all attack percentages."""
@@ -72,6 +72,11 @@ def build_command(dataset, graph_config, agg_method, attack_pct):
     if agg_method == "krum":
         cmd.extend(["--pct-compromised", str(attack_pct)])
     
+    # Add ubar-rho for ubar (1 - attack_percentage)
+    if agg_method == "ubar":
+        ubar_rho = 1.0 - attack_pct
+        cmd.extend(["--ubar-rho", str(ubar_rho)])
+    
     return cmd
 
 def run_experiment(dataset, graph_config, agg_method, attack_pct, dry_run=False):
@@ -112,7 +117,7 @@ def main():
     parser.add_argument('--datasets', nargs='+', choices=['femnist', 'celeba'],
                         help='Specific datasets to run (default: all)')
     parser.add_argument('--agg-methods', nargs='+', 
-                        choices=['coarse', 'balance', 'krum', 'd-fedadj'],
+                        choices=['coarse', 'balance', 'krum', 'd-fedadj', 'ubar'],
                         help='Specific aggregation methods to run (default: all)')
     parser.add_argument('--attack-percentages', nargs='+', type=float,
                         help='Specific attack percentages to run (default: all)')

@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """
-Decentralized Learning Simulator with BALANCE and COARSE
+Decentralized Learning Simulator with BALANCE, COARSE, and UBAR
+
+UBAR: Uniform Byzantine-resilient Aggregation Rule
+A two-stage Byzantine-resilient algorithm that combines distance-based filtering
+with performance-based selection for decentralized learning systems.
 
 COARSE: COmpressed Approximate Robust Secure Estimation
 A lightweight robust aggregation algorithm that uses Count-Sketch compression
@@ -8,23 +12,22 @@ for filtering decisions and full model parameters for aggregation.
 
 Supports aggregation strategies over a peer graph:
   1) Decentralized FedAvg
-  2) Gossip averaging
-  3) Decentralized Krum
-  4) BALANCE (original)
-  5) COARSE (sketch-based filtering + state aggregation)
+  2) Decentralized Krum
+  3) BALANCE (original)
+  4) COARSE (sketch-based filtering + state aggregation)
+  5) UBAR (two-stage Byzantine-resilient)
 
 Example usage:
-  # COARSE with Count-Sketch compression
+  # UBAR with default parameters
   python decentralized_fl_sim.py \
       --dataset femnist --num-nodes 8 --rounds 20 \
-      --agg coarse --coarse-sketch-size 1000
+      --agg ubar --ubar-rho 0.4
 """
 from __future__ import annotations
 
 import argparse
 import random
 import time
-import hashlib
 from collections import deque, defaultdict
 from dataclasses import dataclass
 from typing import Dict, List, Tuple, Optional
@@ -136,6 +139,14 @@ class COARSEConfig(BALANCEConfig):
 
     # COARSE-specific parameters
     attack_detection_window: int = 5     # Rounds to track for attack detection
+
+
+@dataclass
+class UBARConfig:
+    """Configuration for UBAR algorithm."""
+    rho: float = 0.4                    # Ratio of benign neighbors (ρ_i)
+    alpha: float = 0.5                  # Weight for own update vs neighbors
+    min_neighbors: int = 1              # Minimum neighbors for fallback
 
 
 class BALANCE:
@@ -487,6 +498,237 @@ class COARSE:
             # Algorithm properties
             "complexity": f"O(d + N×{self.config.sketch_size})",
             "approach": "Sketch filtering + state aggregation"
+        }
+
+
+class UBAR:
+    """
+    UBAR: Uniform Byzantine-resilient Aggregation Rule
+
+    A two-stage Byzantine-resilient algorithm:
+    Stage 1: Distance-based filtering (shortlist candidates)
+    Stage 2: Performance-based selection using training samples
+    """
+
+    def __init__(self, node_id: str, config: UBARConfig, training_loader: DataLoader, device_: torch.device):
+        self.node_id = node_id
+        self.config = config
+        self.training_loader = training_loader
+        self.device = device_
+        self.criterion = nn.CrossEntropyLoss()
+
+        # Statistics tracking
+        self.stage1_acceptance_history = []
+        self.stage2_acceptance_history = []
+        self.neighbor_distances = defaultdict(list)
+        self.neighbor_losses = defaultdict(list)
+
+        # Performance tracking
+        self.distance_computation_time = 0.0
+        self.loss_computation_time = 0.0
+        self.aggregation_time = 0.0
+
+    def _compute_l2_distance(self, update1: Dict[str, torch.Tensor],
+                             update2: Dict[str, torch.Tensor]) -> float:
+        """Compute L2 distance between two model states."""
+        start_time = time.time()
+
+        total_dist_sq = 0.0
+        common_keys = set(update1.keys()) & set(update2.keys())
+        for key in common_keys:
+            diff = update1[key] - update2[key]
+            total_dist_sq += torch.sum(diff * diff).item()
+
+        self.distance_computation_time += time.time() - start_time
+        return np.sqrt(total_dist_sq)
+
+    def _compute_loss_on_sample(self, model_state: Dict[str, torch.Tensor],
+                                sample_batch: Tuple[torch.Tensor, torch.Tensor]) -> float:
+        """Compute loss of model state on a training sample."""
+        start_time = time.time()
+
+        # Create a temporary model to evaluate
+        temp_model = self._create_temp_model(model_state)
+        temp_model.eval()
+
+        xb, yb = sample_batch
+        xb, yb = xb.to(self.device), yb.to(self.device)
+
+        with torch.no_grad():
+            logits = temp_model(xb)
+            loss = self.criterion(logits, yb)
+
+        self.loss_computation_time += time.time() - start_time
+        return loss.item()
+
+    def _create_temp_model(self, model_state: Dict[str, torch.Tensor]):
+        """Create a temporary model with given state for evaluation."""
+        # This is a simplified approach - in practice, you'd need to know the model architecture
+        # For now, we'll assume we have access to a model template
+        raise NotImplementedError("Need model template to create temporary model")
+
+    def stage1_distance_filtering(self, own_state: Dict[str, torch.Tensor],
+                                  neighbor_states: Dict[str, Dict[str, torch.Tensor]]) -> Dict[str, Dict[str, torch.Tensor]]:
+        """
+        Stage 1: Select candidates based on parameter distances (as in UBAR paper).
+        Select ρ|N_i| neighbors with smallest distances to own parameters.
+        """
+        if not neighbor_states:
+            return {}
+
+        # Compute distances to all neighbors
+        distances = {}
+        for neighbor_id, neighbor_state in neighbor_states.items():
+            distance = self._compute_l2_distance(own_state, neighbor_state)
+            distances[neighbor_id] = distance
+            self.neighbor_distances[neighbor_id].append(distance)
+
+        # Select top ρ|N_i| neighbors with smallest distances
+        num_neighbors = len(neighbor_states)
+        num_select = max(1, int(self.config.rho * num_neighbors))
+
+        # Sort by distance and select closest ones
+        sorted_neighbors = sorted(distances.items(), key=lambda x: x[1])
+        selected_neighbors = dict(sorted_neighbors[:num_select])
+
+        # Build shortlisted neighbor states
+        shortlisted_states = {}
+        for neighbor_id in selected_neighbors.keys():
+            shortlisted_states[neighbor_id] = neighbor_states[neighbor_id]
+
+        stage1_acceptance_rate = len(shortlisted_states) / max(1, len(neighbor_states))
+        self.stage1_acceptance_history.append(stage1_acceptance_rate)
+
+        return shortlisted_states
+
+    def stage2_performance_filtering(self, own_state: Dict[str, torch.Tensor],
+                                     shortlisted_states: Dict[str, Dict[str, torch.Tensor]],
+                                     temp_model_template) -> Dict[str, Dict[str, torch.Tensor]]:
+        """
+        Stage 2: Select final neighbors based on loss performance on training sample.
+        Choose neighbors whose loss ≤ own loss.
+        """
+        if not shortlisted_states:
+            return {}
+
+        # Get a batch from training data for evaluation
+        try:
+            sample_batch = next(iter(self.training_loader))
+        except StopIteration:
+            # Fallback: use all shortlisted if no training data available
+            return shortlisted_states
+
+        # Compute own loss
+        temp_model_template.load_state_dict(own_state, strict=False)
+        own_loss = self._compute_loss_with_model(temp_model_template, sample_batch)
+
+        # Evaluate each shortlisted neighbor
+        final_neighbors = {}
+        neighbor_losses = {}
+
+        for neighbor_id, neighbor_state in shortlisted_states.items():
+            temp_model_template.load_state_dict(neighbor_state, strict=False)
+            neighbor_loss = self._compute_loss_with_model(temp_model_template, sample_batch)
+            neighbor_losses[neighbor_id] = neighbor_loss
+            self.neighbor_losses[neighbor_id].append(neighbor_loss)
+
+            # Accept if loss is better or equal to own loss
+            if neighbor_loss <= own_loss:
+                final_neighbors[neighbor_id] = neighbor_state
+
+        # Fallback: if no neighbors pass Stage 2, select the best one from Stage 1
+        if not final_neighbors and shortlisted_states:
+            best_neighbor_id = min(neighbor_losses.items(), key=lambda x: x[1])[0]
+            final_neighbors[best_neighbor_id] = shortlisted_states[best_neighbor_id]
+
+        stage2_acceptance_rate = len(final_neighbors) / max(1, len(shortlisted_states))
+        self.stage2_acceptance_history.append(stage2_acceptance_rate)
+
+        return final_neighbors
+
+    def _compute_loss_with_model(self, model, sample_batch: Tuple[torch.Tensor, torch.Tensor]) -> float:
+        """Helper to compute loss with a given model."""
+        start_time = time.time()
+
+        model.eval()
+        xb, yb = sample_batch
+        xb, yb = xb.to(self.device), yb.to(self.device)
+
+        with torch.no_grad():
+            logits = model(xb)
+            loss = self.criterion(logits, yb)
+
+        self.loss_computation_time += time.time() - start_time
+        return loss.item()
+
+    def aggregate_states(self, own_state: Dict[str, torch.Tensor],
+                         accepted_neighbors: Dict[str, Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]:
+        """Aggregate own state with accepted neighbor states."""
+        start_time = time.time()
+
+        if not accepted_neighbors:
+            self.aggregation_time += time.time() - start_time
+            return own_state
+
+        # Average of accepted neighbor states
+        neighbor_states_list = list(accepted_neighbors.values())
+        neighbor_avg_state = average_states(neighbor_states_list)
+
+        # Weighted aggregation: α * own + (1-α) * neighbor_avg
+        aggregated_state = {}
+        for key in own_state.keys():
+            aggregated_state[key] = (self.config.alpha * own_state[key] +
+                                     (1 - self.config.alpha) * neighbor_avg_state[key])
+
+        self.aggregation_time += time.time() - start_time
+        return aggregated_state
+
+    def ubar_round(self, own_state: Dict[str, torch.Tensor],
+                   neighbor_states: Dict[str, Dict[str, torch.Tensor]],
+                   temp_model_template) -> Dict[str, torch.Tensor]:
+        """
+        Complete UBAR round: Stage 1 + Stage 2 + Aggregation.
+        """
+        # Stage 1: Distance-based filtering
+        shortlisted_states = self.stage1_distance_filtering(own_state, neighbor_states)
+
+        # Stage 2: Performance-based selection
+        final_neighbors = self.stage2_performance_filtering(own_state, shortlisted_states, temp_model_template)
+
+        # Aggregation
+        aggregated_state = self.aggregate_states(own_state, final_neighbors)
+
+        return aggregated_state
+
+    def get_statistics(self) -> Dict:
+        """Get UBAR algorithm statistics."""
+        total_time = self.distance_computation_time + self.loss_computation_time + self.aggregation_time
+
+        return {
+            "node_id": self.node_id,
+            "algorithm": "UBAR",
+            "total_rounds_processed": len(self.stage1_acceptance_history),
+
+            # UBAR-specific statistics
+            "stage1_mean_acceptance_rate": np.mean(self.stage1_acceptance_history) if self.stage1_acceptance_history else 0.0,
+            "stage2_mean_acceptance_rate": np.mean(self.stage2_acceptance_history) if self.stage2_acceptance_history else 0.0,
+            "overall_acceptance_rate": (np.mean(self.stage1_acceptance_history) * np.mean(self.stage2_acceptance_history)) if self.stage1_acceptance_history and self.stage2_acceptance_history else 0.0,
+
+            # Performance statistics
+            "total_computation_time": total_time,
+            "distance_computation_time": self.distance_computation_time,
+            "loss_computation_time": self.loss_computation_time,
+            "aggregation_time": self.aggregation_time,
+
+            "distance_time_fraction": self.distance_computation_time / max(total_time, 1e-6),
+            "loss_time_fraction": self.loss_computation_time / max(total_time, 1e-6),
+            "aggregation_time_fraction": self.aggregation_time / max(total_time, 1e-6),
+
+            # Algorithm properties
+            "rho_parameter": self.config.rho,
+            "two_stage_approach": True,
+            "complexity": "O(deg(i)×d + deg(i)×inference)",
+            "approach": "Distance filtering + performance selection"
         }
 
 
@@ -891,6 +1133,58 @@ def coarse_aggregation_step(models: List[nn.Module], graph: Graph,
         set_state(model, state)
 
 
+def ubar_aggregation_step(models: List[nn.Module], graph: Graph,
+                          ubar_monitors: Dict[str, UBAR],
+                          round_num: int, attacker: Optional[LocalModelPoisoningAttacker] = None):
+    """Perform one round of UBAR aggregation."""
+    states = [get_state(m) for m in models]
+
+    if attacker:
+        attacker.update_compromised_states(round_num, states)
+
+    new_states = []
+
+    for i in range(graph.n):
+        node_id = str(i)
+        neighbors = graph.neighbors[i]
+        own_state = states[i]
+
+        # Get neighbor states with potential attacks
+        if attacker and any(j in attacker.compromised_nodes for j in neighbors):
+            compromised_in_neigh = [j for j in neighbors if j in attacker.compromised_nodes]
+            honest_in_neigh = [j for j in neighbors if j not in attacker.compromised_nodes]
+            honest_neigh_states = [states[j] for j in honest_in_neigh]
+
+            malicious_states = attacker.craft_malicious_models_decentralized(
+                i, [i] + neighbors, honest_neigh_states, round_num
+            )
+
+            neighbor_states = {}
+            malicious_idx = 0
+
+            for j in neighbors:
+                if j in attacker.compromised_nodes and malicious_idx < len(malicious_states):
+                    neighbor_states[str(j)] = malicious_states[malicious_idx]
+                    malicious_idx += 1
+                else:
+                    neighbor_states[str(j)] = states[j]
+        else:
+            neighbor_states = {str(j): states[j] for j in neighbors}
+
+        if neighbor_states and node_id in ubar_monitors:
+            ubar_monitor = ubar_monitors[node_id]
+            # UBAR two-stage filtering and aggregation
+            aggregated_state = ubar_monitor.ubar_round(
+                own_state, neighbor_states, models[i]  # Pass model as template
+            )
+            new_states.append(aggregated_state)
+        else:
+            new_states.append(own_state)
+
+    for model, state in zip(models, new_states):
+        set_state(model, state)
+
+
 def decentralized_fedavg_step(models: List[nn.Module], graph: Graph, round_num: int = 0,
                               attacker: Optional[LocalModelPoisoningAttacker] = None):
     """Decentralized FedAvg with attack capability."""
@@ -930,52 +1224,6 @@ def decentralized_fedavg_step(models: List[nn.Module], graph: Graph, round_num: 
 
     for model, st in zip(models, new_states):
         set_state(model, st)
-
-
-def gossip_round(models: List[nn.Module], graph: Graph, steps: int = 1, round_num: int = 0, seed: int = 42,
-                 attacker: Optional[LocalModelPoisoningAttacker] = None):
-    """Gossip averaging with attack capability - FIXED to be consistent with other algorithms."""
-    if not graph.edges:
-        return
-
-    states = [get_state(m) for m in models]
-
-    if attacker and attacker.compromised_nodes:
-        attacker.update_compromised_states(round_num, states)
-        # NOTE: We no longer corrupt the malicious nodes' own models here
-        # The attack only affects communications, consistent with other algorithms
-
-    rng = random.Random(seed + round_num * 100)
-    for _ in range(steps):
-        i, j = rng.choice(graph.edges)
-        si, sj = get_state(models[i]), get_state(models[j])
-
-        # Apply attack to what gets exchanged, not the models themselves
-        if attacker:
-            # If i is compromised, modify what it shares
-            if i in attacker.compromised_nodes:
-                honest_neighbors = [k for k in [i, j] if k not in attacker.compromised_nodes]
-                honest_neigh_states = [get_state(models[k]) for k in honest_neighbors]
-                malicious_states = attacker.craft_malicious_models_decentralized(
-                    j, [i, j], honest_neigh_states, round_num
-                )
-                if malicious_states:
-                    si = malicious_states[0]  # What i shares with j
-
-            # If j is compromised, modify what it shares
-            if j in attacker.compromised_nodes:
-                honest_neighbors = [k for k in [i, j] if k not in attacker.compromised_nodes]
-                honest_neigh_states = [get_state(models[k]) for k in honest_neighbors]
-                malicious_states = attacker.craft_malicious_models_decentralized(
-                    i, [i, j], honest_neigh_states, round_num
-                )
-                if malicious_states:
-                    sj = malicious_states[0]  # What j shares with i
-
-        # Perform gossip averaging with potentially malicious states
-        avg = average_states([si, sj], [0.5, 0.5])
-        set_state(models[i], avg)
-        set_state(models[j], avg)
 
 
 def decentralized_krum_step(models: List[nn.Module], graph: Graph,
@@ -1111,6 +1359,7 @@ def run_sim(args):
     # Initialize aggregation monitors
     balance_monitors = {}
     coarse_monitors = {}
+    ubar_monitors = {}
 
     if args.agg == "balance":
         balance_config = BALANCEConfig(
@@ -1147,6 +1396,32 @@ def run_sim(args):
         print(f"  - Complexity: O(d + N×k) = O({model_dim:,} + {args.num_nodes}×{args.coarse_sketch_size})")
         speedup = (args.num_nodes * model_dim) / (model_dim + args.num_nodes * args.coarse_sketch_size)
         print(f"  - Theoretical speedup vs BALANCE: {speedup:.1f}x")
+
+    elif args.agg == "ubar":
+        ubar_config = UBARConfig(
+            rho=args.ubar_rho,
+            alpha=args.balance_alpha  # Reuse alpha parameter
+        )
+
+        # Create training loaders for UBAR (needed for Stage 2 evaluation)
+        ubar_train_loaders = []
+        for i, p in enumerate(parts):
+            # Use a small subset for UBAR evaluation to avoid computational overhead
+            subset_size = min(64, len(p))  # Small batch for loss evaluation
+            subset_indices = random.sample(range(len(p)), subset_size)
+            subset_data = Subset(p, subset_indices)
+            loader = DataLoader(subset_data, batch_size=32, shuffle=True, num_workers=0)
+            ubar_train_loaders.append(loader)
+
+        for i in range(args.num_nodes):
+            ubar_monitors[str(i)] = UBAR(str(i), ubar_config, ubar_train_loaders[i], dev)
+
+        print(f"UBAR ALGORITHM (Two-Stage Byzantine-resilient)")
+        print(f"  - Model dimension: {model_dim:,} parameters")
+        print(f"  - Rho parameter: {args.ubar_rho}")
+        print(f"  - Stage 1: Distance-based filtering (select {args.ubar_rho*100:.0f}% closest neighbors)")
+        print(f"  - Stage 2: Performance-based selection (loss comparison)")
+        print(f"  - Complexity: O(deg(i)×d + deg(i)×inference)")
 
     # Evaluate initial performance
     with torch.no_grad():
@@ -1188,17 +1463,16 @@ def run_sim(args):
         # Communication/aggregation phase
         if args.agg == "d-fedavg":
             decentralized_fedavg_step(models, graph, r, attacker)
-        elif args.agg == "gossip":
-            gossip_round(models, graph, steps=args.gossip_steps,
-                         round_num=r, seed=args.seed, attacker=attacker)
         elif args.agg == "krum":
             decentralized_krum_step(models, graph, args.pct_compromised, r, attacker)
         elif args.agg == "balance":
             balance_aggregation_step(models, graph, balance_monitors, r, attacker)
         elif args.agg == "coarse":
             coarse_aggregation_step(models, graph, coarse_monitors, r, attacker)
+        elif args.agg == "ubar":
+            ubar_aggregation_step(models, graph, ubar_monitors, r, attacker)
         else:
-            raise ValueError("agg must be 'd-fedavg', 'gossip', 'krum', 'balance', or 'coarse'")
+            raise ValueError("agg must be 'd-fedavg', 'krum', 'balance', 'coarse', or 'ubar'")
 
         # Evaluation phase
         accs = []
@@ -1226,7 +1500,14 @@ def run_sim(args):
                 if compromised_accs and honest_accs:
                     print(f"         : compromised: {np.mean(compromised_accs):.4f}, honest: {np.mean(honest_accs):.4f}")
 
-            if args.agg == "coarse" and coarse_monitors:
+            if args.agg == "ubar" and ubar_monitors:
+                ubar_stats = []
+                for node_id, monitor in ubar_monitors.items():
+                    stats = monitor.get_statistics()
+                    ubar_stats.append(f"Node {node_id}: s1={stats['stage1_mean_acceptance_rate']:.3f}, s2={stats['stage2_mean_acceptance_rate']:.3f}")
+                print(f"         : ubar stats = {ubar_stats[:3]}...")
+
+            elif args.agg == "coarse" and coarse_monitors:
                 coarse_stats = []
                 for node_id, monitor in coarse_monitors.items():
                     stats = monitor.get_statistics()
@@ -1324,10 +1605,54 @@ def run_sim(args):
         print(f"  - Theoretical complexity: O(d + N×k)")
         print(f"  - Approach: Sketch filtering + state aggregation")
 
+    # UBAR summary
+    if args.agg == "ubar" and ubar_monitors:
+        print(f"\n=== UBAR SUMMARY ===")
+        all_stage1_rates = []
+        all_stage2_rates = []
+        total_distance_time = 0.0
+        total_loss_time = 0.0
+        total_aggregation_time = 0.0
+
+        for node_id, monitor in ubar_monitors.items():
+            stats = monitor.get_statistics()
+            all_stage1_rates.append(stats["stage1_mean_acceptance_rate"])
+            all_stage2_rates.append(stats["stage2_mean_acceptance_rate"])
+
+            total_distance_time += stats["distance_computation_time"]
+            total_loss_time += stats["loss_computation_time"]
+            total_aggregation_time += stats["aggregation_time"]
+
+            print(f"Node {node_id}: stage1={stats['stage1_mean_acceptance_rate']:.3f}, "
+                  f"stage2={stats['stage2_mean_acceptance_rate']:.3f}, "
+                  f"overall={stats['overall_acceptance_rate']:.3f}")
+
+        print(f"\nPerformance Summary:")
+        total_time = total_distance_time + total_loss_time + total_aggregation_time
+        if total_time > 0:
+            print(f"  - Distance computation time: {total_distance_time:.3f}s ({total_distance_time/total_time*100:.1f}%)")
+            print(f"  - Loss computation time: {total_loss_time:.3f}s ({total_loss_time/total_time*100:.1f}%)")
+            print(f"  - Aggregation time: {total_aggregation_time:.3f}s ({total_aggregation_time/total_time*100:.1f}%)")
+            print(f"  - Total time: {total_time:.3f}s")
+
+        if all_stage1_rates and all_stage2_rates:
+            print(f"  - Mean Stage 1 acceptance rate: {np.mean(all_stage1_rates):.3f}")
+            print(f"  - Mean Stage 2 acceptance rate: {np.mean(all_stage2_rates):.3f}")
+            print(f"  - Overall acceptance rate: {np.mean(all_stage1_rates) * np.mean(all_stage2_rates):.3f}")
+
+        print(f"\nUBAR Algorithm Properties:")
+        print(f"  - Model dimension: {model_dim:,}")
+        print(f"  - Rho parameter: {args.ubar_rho}")
+        print(f"  - Two-stage approach: Distance filtering + loss evaluation")
+        print(f"  - Stage 1 selects: {args.ubar_rho*100:.0f}% of neighbors")
+        print(f"  - Stage 2 uses: Training sample loss comparison")
+        print(f"  - Theoretical complexity: O(deg(i)×d + deg(i)×inference)")
+        print(f"  - Approach: UBAR paper implementation")
+
 
 def parse_args():
     """Parse command line arguments."""
-    p = argparse.ArgumentParser(description="Decentralized FL Simulator with BALANCE and COARSE")
+    p = argparse.ArgumentParser(description="Decentralized FL Simulator with BALANCE, COARSE, and UBAR")
 
     # Dataset and basic training parameters
     p.add_argument("--dataset", type=str, choices=["femnist", "celeba"], required=True)
@@ -1340,10 +1665,9 @@ def parse_args():
 
     # Aggregation algorithm parameters
     p.add_argument("--agg", type=str,
-                   choices=["d-fedavg", "gossip", "krum", "balance", "coarse"],
+                   choices=["d-fedavg", "krum", "balance", "coarse", "ubar"],
                    default="d-fedavg",
                    help="Aggregation algorithm")
-    p.add_argument("--gossip-steps", type=int, default=10)
     p.add_argument("--pct-compromised", type=float, default=0.0)
 
     # BALANCE algorithm parameters
@@ -1354,6 +1678,10 @@ def parse_args():
     # COARSE specific parameters
     p.add_argument("--coarse-sketch-size", type=int, default=1000,
                    help="COARSE sketch size k (lower = more compression)")
+
+    # UBAR specific parameters
+    p.add_argument("--ubar-rho", type=float, default=0.4,
+                   help="UBAR rho parameter (ratio of benign neighbors)")
 
     # Graph topology parameters
     p.add_argument("--graph", type=str, choices=["ring", "fully", "erdos"], default="ring")
