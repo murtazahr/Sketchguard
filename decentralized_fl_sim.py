@@ -1305,7 +1305,6 @@ def run_sim(args):
         print(f"  - Theoretical complexity: O(d + N×k)")
         print(f"  - Approach: Sketch filtering + state aggregation")
 
-
 def parse_args():
     """Parse command line arguments."""
     p = argparse.ArgumentParser(description="Decentralized FL Simulator with BALANCE and COARSE")
