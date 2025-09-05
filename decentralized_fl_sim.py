@@ -231,7 +231,12 @@ class BALANCE:
             "node_id": self.node_id,
             "mean_acceptance_rate": np.mean(self.acceptance_history) if self.acceptance_history else 0.0,
             "current_threshold": self.threshold_history[-1] if self.threshold_history else 0.0,
-            "total_rounds_processed": len(self.acceptance_history)
+            "total_rounds_processed": len(self.acceptance_history),
+
+            # Performance timing (added for consistency)
+            "distance_computation_time": self.distance_computation_time,
+            "filtering_time": self.filtering_time,
+            "aggregation_time": self.aggregation_time
         }
 
 
@@ -248,13 +253,13 @@ class COARSE:
         self.total_rounds = total_rounds
         self.model_dim = model_dim
 
-        # Generate Count-Sketch hash functions using pre-computed tables (fast)
-        self.hash_functions = []
-        self.sign_functions = []
+        # FIXED: Store hash and sign functions as pre-computed arrays for speed
+        self.hash_tables = []
+        self.sign_tables = []
         for rep in range(1):  # Single repetition sufficient for filtering
-            hash_fn, sign_fn = self._generate_count_sketch_functions(rep)
-            self.hash_functions.append(hash_fn)
-            self.sign_functions.append(sign_fn)
+            hash_table, sign_table = self._generate_count_sketch_tables(rep)
+            self.hash_tables.append(hash_table)
+            self.sign_tables.append(sign_table)
 
         # COARSE tracking
         self.acceptance_history = []
@@ -274,24 +279,16 @@ class COARSE:
         print(f"  Compression ratio: {model_dim / config.sketch_size:.1f}x")
         print(f"  Using gradients for aggregation, sketches for filtering")
 
-    def _generate_count_sketch_functions(self, rep_id: int):
-        """Generate Count-Sketch hash and sign functions using pre-computed tables for speed."""
+    def _generate_count_sketch_tables(self, rep_id: int):
+        """FIXED: Generate Count-Sketch tables as numpy arrays for maximum speed."""
         base_seed = self.config.network_seed + rep_id * 1000
         rng = np.random.RandomState(base_seed)
 
-        # Pre-compute hash and sign tables - much faster than MD5
+        # Pre-compute hash and sign tables as arrays - much faster than function calls
         hash_table = rng.randint(0, self.config.sketch_size, size=self.model_dim)
         sign_table = rng.choice([-1, 1], size=self.model_dim)
 
-        def hash_function(index: int) -> int:
-            """Fast lookup instead of MD5 computation."""
-            return hash_table[index % self.model_dim]
-
-        def sign_function(index: int) -> int:
-            """Fast lookup instead of MD5 computation."""
-            return sign_table[index % self.model_dim]
-
-        return hash_function, sign_function
+        return hash_table, sign_table
 
     def flatten_model_update(self, model_update: Dict[str, torch.Tensor]) -> np.ndarray:
         """Flatten model parameters into a single vector."""
@@ -301,18 +298,25 @@ class COARSE:
         return np.concatenate(flattened_parts)
 
     def count_sketch_compress(self, vector: np.ndarray) -> np.ndarray:
-        """Compress vector using single Count-Sketch (no repetitions needed)."""
+        """FIXED: Optimized Count-Sketch using vectorized operations."""
         start_time = time.time()
 
-        sketch = np.zeros(self.config.sketch_size)
-        hash_fn = self.hash_functions[0]  # Only using first (and only) repetition
-        sign_fn = self.sign_functions[0]
+        # Use pre-computed hash and sign tables (no function calls)
+        hash_table = self.hash_tables[0]
+        sign_table = self.sign_tables[0]
 
-        # Single pass through vector - O(d) complexity with fast lookups
-        for i, value in enumerate(vector):
-            bucket = hash_fn(i)
-            sign = sign_fn(i)
-            sketch[bucket] += sign * value
+        # Ensure lengths match
+        vector_len = len(vector)
+        if vector_len != len(hash_table):
+            hash_buckets = hash_table[:vector_len]
+            signs = sign_table[:vector_len]
+        else:
+            hash_buckets = hash_table
+            signs = sign_table
+
+        # FIXED: Vectorized computation using np.bincount - much faster than loops
+        signed_values = signs * vector
+        sketch = np.bincount(hash_buckets, weights=signed_values, minlength=self.config.sketch_size)
 
         self.sketch_time += time.time() - start_time
         return sketch
@@ -801,8 +805,8 @@ def coarse_aggregation_step(models: List[nn.Module], graph: Graph,
                             coarse_monitors: Dict[str, COARSE],
                             round_num: int, attacker: Optional[LocalModelPoisoningAttacker] = None):
     """
-    COARSE aggregation step using Count-Sketch compression for filtering decisions
-    and full gradients for actual aggregation.
+    FIXED: COARSE aggregation step with eliminated redundancy.
+    Uses Count-Sketch compression for filtering decisions and full gradients for aggregation.
     """
 
     # Phase 1: Get current model states and compute gradients
@@ -833,22 +837,44 @@ def coarse_aggregation_step(models: List[nn.Module], graph: Graph,
         {k: v.clone() for k, v in state.items()} for state in states
     ]
 
-    # Phase 2: Apply attacks CONSISTENTLY (same as other algorithms)
+    # Phase 2: FIXED - Apply attacks to compromised nodes' gradients ONCE
     if attacker:
         attacker.update_compromised_states(round_num, states)
-        # NOTE: We do NOT modify the compromised nodes' own models here
-        # The attack only affects what they send to neighbors, just like BALANCE/FedAvg/Krum
 
-    # Phase 3: Compress gradients using Count-Sketch for filtering decisions
+        # FIXED: Modify the gradients of compromised nodes directly, no re-sketching
+        for compromised_id in attacker.compromised_nodes:
+            if compromised_id < len(gradients):
+                # Get neighbors of this compromised node for attack context
+                neighbors = graph.neighbors[compromised_id] + [compromised_id]
+                honest_neighbors = [j for j in neighbors if j not in attacker.compromised_nodes]
+                honest_neigh_states = [states[j] for j in honest_neighbors]
+
+                # Generate malicious gradient for this compromised node
+                malicious_states = attacker.craft_malicious_models_decentralized(
+                    compromised_id, neighbors, honest_neigh_states, round_num
+                )
+
+                if malicious_states:
+                    # Replace the compromised node's gradient with malicious one
+                    malicious_gradient = {}
+                    for key, param in malicious_states[0].items():
+                        if coarse_aggregation_step.previous_states[compromised_id] is not None:
+                            malicious_gradient[key] = param - coarse_aggregation_step.previous_states[compromised_id][key]
+                        else:
+                            malicious_gradient[key] = torch.randn_like(param) * 0.01
+
+                    gradients[compromised_id] = malicious_gradient
+
+    # Phase 3: FIXED - Each node sketches their own gradient ONCE (including compromised nodes)
     sketched_gradients = {}
     for i in range(graph.n):
         node_id = str(i)
         if node_id in coarse_monitors:
-            # Count-Sketch compression of gradient: O(d) per node
+            # Each node sketches their own gradient (honest or malicious): O(d) per node
             sketches = coarse_monitors[node_id].get_sketch_for_sharing(gradients[i])
             sketched_gradients[i] = sketches
 
-    # Phase 4: Each node performs COARSE filtering + gradient aggregation
+    # Phase 4: FIXED - Each node performs COARSE filtering + gradient aggregation
     new_states = []
     for i in range(graph.n):
         node_id = str(i)
@@ -858,40 +884,14 @@ def coarse_aggregation_step(models: List[nn.Module], graph: Graph,
             new_states.append(states[i])
             continue
 
-        # Get neighbor sketches and gradients - WITH ATTACK MODIFICATION
+        # FIXED: Simply use the pre-computed sketches and gradients - NO RE-SKETCHING!
         neighbor_sketch_dict = {}
         neighbor_gradient_dict = {}
 
         for j in neighbors:
-            # Check if this neighbor is compromised and craft malicious updates
-            if attacker and j in attacker.compromised_nodes:
-                # Craft malicious updates for what this compromised neighbor sends
-                honest_neighbors = [k for k in neighbors + [i] if k not in attacker.compromised_nodes]
-                honest_neigh_states = [states[k] for k in honest_neighbors]
-
-                malicious_states = attacker.craft_malicious_models_decentralized(
-                    i, [i] + neighbors, honest_neigh_states, round_num
-                )
-
-                if malicious_states:
-                    # Use malicious gradient and sketch
-                    malicious_gradient = {}
-                    for key, param in malicious_states[0].items():
-                        if coarse_aggregation_step.previous_states[j] is not None:
-                            malicious_gradient[key] = param - coarse_aggregation_step.previous_states[j][key]
-                        else:
-                            malicious_gradient[key] = torch.randn_like(param) * 0.01
-
-                    neighbor_gradient_dict[str(j)] = malicious_gradient
-                    neighbor_sketch_dict[str(j)] = coarse_monitors[node_id].get_sketch_for_sharing(malicious_gradient)
-                else:
-                    # Fallback to original
-                    neighbor_gradient_dict[str(j)] = gradients[j]
-                    neighbor_sketch_dict[str(j)] = sketched_gradients[j]
-            else:
-                # Honest neighbor - use original gradients and sketches
-                neighbor_gradient_dict[str(j)] = gradients[j]
-                neighbor_sketch_dict[str(j)] = sketched_gradients[j]
+            # No re-sketching! Just use what each neighbor computed
+            neighbor_gradient_dict[str(j)] = gradients[j]
+            neighbor_sketch_dict[str(j)] = sketched_gradients[j]
 
         # Perform COARSE filtering and gradient-based aggregation
         coarse_monitor = coarse_monitors[node_id]
@@ -1337,7 +1337,7 @@ def run_sim(args):
         print(f"  - Compression ratio: {actual_speedup:.1f}x")
         print(f"  - Single repetition: No repetitions needed")
         print(f"  - Theoretical complexity: O(d + N×k)")
-        print(f"  - Approach: Sketch filtering + gradient aggregation")
+        print(f"  - Approach: Sketch filtering + state aggregation")
 
 
 def parse_args():
