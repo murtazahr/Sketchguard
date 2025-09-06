@@ -8,6 +8,7 @@ import itertools
 from typing import List, Dict, Any
 import argparse
 import time
+import os
 
 def get_graph_configs():
     """Get all graph configurations."""
@@ -87,10 +88,19 @@ def build_command(dataset, graph_config, agg_method, attack_pct, attack_type="di
     
     return cmd
 
-def run_experiment(dataset, graph_config, agg_method, attack_pct, attack_type="directed_deviation", dry_run=False):
+def run_experiment(dataset, graph_config, agg_method, attack_pct, attack_type="directed_deviation", dry_run=False, skip_existing=True):
     """Run a single experiment."""
     cmd = build_command(dataset, graph_config, agg_method, attack_pct, attack_type)
     log_filename = build_log_filename(dataset, graph_config, agg_method, attack_pct, attack_type)
+    
+    # Check if experiment already completed
+    if skip_existing and os.path.exists(log_filename):
+        print(f"\n{'='*80}")
+        print(f"Skipping (already exists): {dataset} | {graph_config['name']}" + 
+              (f" (p={graph_config['p']})" if graph_config['p'] else "") +
+              f" | {agg_method} | attack={attack_pct} ({attack_type})")
+        print(f"Existing log: {log_filename}")
+        return True
     
     print(f"\n{'='*80}")
     print(f"Running: {dataset} | {graph_config['name']}" + 
@@ -132,6 +142,8 @@ def main():
     parser.add_argument('--attack-types', nargs='+',
                         choices=['directed_deviation', 'gaussian'],
                         help='Specific attack types to run (default: all)')
+    parser.add_argument('--no-skip', action='store_true',
+                        help='Do not skip existing experiments (overwrite logs)')
     args = parser.parse_args()
     
     # Get parameter combinations
@@ -164,8 +176,10 @@ def main():
     # Run all experiments
     successful = 0
     failed = 0
+    skipped = 0
     experiment_count = 0
     start_time = time.time()
+    skip_existing = not args.no_skip
     
     for dataset, graph_config, agg_method, attack_pct in itertools.product(
         datasets, graph_configs, agg_methods, attack_percentages
@@ -176,8 +190,11 @@ def main():
             print(f"\nExperiment {experiment_count}/{total_experiments}")
             
             success = run_experiment(dataset, graph_config, agg_method, attack_pct,
-                                   "directed_deviation", dry_run=args.dry_run)
-            if success:
+                                   "directed_deviation", dry_run=args.dry_run, skip_existing=skip_existing)
+            log_file = build_log_filename(dataset, graph_config, agg_method, attack_pct)
+            if skip_existing and os.path.exists(log_file):
+                skipped += 1
+            elif success:
                 successful += 1
             else:
                 failed += 1
@@ -188,8 +205,11 @@ def main():
                 print(f"\nExperiment {experiment_count}/{total_experiments}")
                 
                 success = run_experiment(dataset, graph_config, agg_method, attack_pct,
-                                       attack_type, dry_run=args.dry_run)
-                if success:
+                                       attack_type, dry_run=args.dry_run, skip_existing=skip_existing)
+                log_file = build_log_filename(dataset, graph_config, agg_method, attack_pct, attack_type)
+                if skip_existing and os.path.exists(log_file):
+                    skipped += 1
+                elif success:
                     successful += 1
                 else:
                     failed += 1
@@ -202,9 +222,11 @@ def main():
     print(f"Total experiments: {total_experiments}")
     if not args.dry_run:
         print(f"Successful: {successful}")
+        print(f"Skipped (existing): {skipped}")
         print(f"Failed: {failed}")
         print(f"Total time: {elapsed_time:.2f} seconds")
-        print(f"Average time per experiment: {elapsed_time/total_experiments:.2f} seconds")
+        if (successful + failed) > 0:
+            print(f"Average time per experiment: {elapsed_time/(successful + failed):.2f} seconds")
     else:
         print("DRY RUN - No experiments were actually executed")
 
