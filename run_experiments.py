@@ -22,7 +22,7 @@ def get_graph_configs():
 
 def get_aggregation_methods():
     """Get all aggregation methods."""
-    return ["coarse", "balance", "krum", "d-fedadj", "ubar"]
+    return ["coarse", "balance", "krum", "d-fedavg", "ubar"]
 
 def get_attack_percentages():
     """Get all attack percentages."""
@@ -34,7 +34,7 @@ def get_attack_types():
 
 def get_datasets():
     """Get all datasets."""
-    return ["femnist", "celeba"]
+    return ["celeba"]
 
 def build_log_filename(dataset, graph_config, agg_method, attack_pct, attack_type="directed_deviation"):
     """Build the log filename based on parameters."""
@@ -135,7 +135,7 @@ def main():
     parser.add_argument('--datasets', nargs='+', choices=['femnist', 'celeba'],
                         help='Specific datasets to run (default: all)')
     parser.add_argument('--agg-methods', nargs='+', 
-                        choices=['coarse', 'balance', 'krum', 'd-fedadj', 'ubar'],
+                        choices=['coarse', 'balance', 'krum', 'd-fedavg', 'ubar'],
                         help='Specific aggregation methods to run (default: all)')
     parser.add_argument('--attack-percentages', nargs='+', type=float,
                         help='Specific attack percentages to run (default: all)')
