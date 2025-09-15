@@ -89,3 +89,61 @@ Round 008: test acc mean=0.8321 ± 0.0086 | min=0.8069 max=0.8421
          : correct/total = [(3405, 4128), (3520, 4203), (3343, 4081), (3640, 4333), (3387, 4091), (3580, 4287), (3519, 4193), (3652, 4349), (3504, 4191), (3588, 4277), (3410, 4143), (3499, 4193), (3396, 4093), (3510, 4197), (3412, 4052), (3373, 4029), (3419, 4153), (3487, 4183), (3418, 4084), (3331, 4128)]
          : compromised: 0.8357, honest: 0.8297
          : ubar stats = ['Node 0: s1=0.579, s2=0.182', 'Node 1: s1=0.579, s2=0.511', 'Node 2: s1=0.579, s2=0.534']...
+Round 009: test acc mean=0.8400 ± 0.0075 | min=0.8263 max=0.8537
+         : test loss mean=0.4858 ± 0.0220
+         : individual accs = ['0.826308', '0.843683', '0.831169', '0.844911', '0.830604', '0.845813', '0.844503', '0.850540', '0.853734', '0.845686', '0.826937', '0.835679', '0.835084', '0.843460', '0.839339', '0.847853', '0.841801', '0.839350', '0.839373', '0.833576']
+         : correct/total = [(3411, 4128), (3546, 4203), (3392, 4081), (3661, 4333), (3398, 4091), (3626, 4287), (3541, 4193), (3699, 4349), (3578, 4191), (3617, 4277), (3426, 4143), (3504, 4193), (3418, 4093), (3540, 4197), (3401, 4052), (3416, 4029), (3496, 4153), (3511, 4183), (3428, 4084), (3441, 4128)]
+         : compromised: 0.8402, honest: 0.8398
+         : ubar stats = ['Node 0: s1=0.579, s2=0.172', 'Node 1: s1=0.579, s2=0.465', 'Node 2: s1=0.579, s2=0.485']...
+Round 010: test acc mean=0.8429 ± 0.0054 | min=0.8301 max=0.8526
+         : test loss mean=0.4782 ± 0.0195
+         : individual accs = ['0.833091', '0.845824', '0.836805', '0.842372', '0.838181', '0.842780', '0.848796', '0.842722', '0.847053', '0.843348', '0.830075', '0.844741', '0.844613', '0.848463', '0.842794', '0.852569', '0.842764', '0.850347', '0.841577', '0.838178']
+         : correct/total = [(3439, 4128), (3555, 4203), (3415, 4081), (3650, 4333), (3429, 4091), (3613, 4287), (3559, 4193), (3665, 4349), (3550, 4191), (3607, 4277), (3439, 4143), (3542, 4193), (3457, 4093), (3561, 4197), (3415, 4052), (3435, 4029), (3500, 4153), (3557, 4183), (3437, 4084), (3460, 4128)]
+         : compromised: 0.8451, honest: 0.8413
+         : ubar stats = ['Node 0: s1=0.579, s2=0.164', 'Node 1: s1=0.579, s2=0.427', 'Node 2: s1=0.579, s2=0.445']...
+
+=== FINAL RESULTS ===
+Dataset: femnist, Nodes: 20, Graph: fully, Aggregation: ubar
+Attack: gaussian, 40.0% compromised
+Final accuracy - Compromised: 0.8451, Honest: 0.8413
+Overall test accuracy: mean=0.8429 ± 0.0054
+
+=== UBAR SUMMARY ===
+Node 0: stage1=0.579, stage2=0.164, overall=0.095
+Node 1: stage1=0.579, stage2=0.427, overall=0.247
+Node 2: stage1=0.579, stage2=0.445, overall=0.258
+Node 3: stage1=0.579, stage2=0.318, overall=0.184
+Node 4: stage1=0.579, stage2=0.418, overall=0.242
+Node 5: stage1=0.579, stage2=0.355, overall=0.205
+Node 6: stage1=0.579, stage2=0.182, overall=0.105
+Node 7: stage1=0.579, stage2=0.200, overall=0.116
+Node 8: stage1=0.579, stage2=0.345, overall=0.200
+Node 9: stage1=0.579, stage2=0.336, overall=0.195
+Node 10: stage1=0.579, stage2=0.355, overall=0.205
+Node 11: stage1=0.579, stage2=0.291, overall=0.168
+Node 12: stage1=0.579, stage2=0.455, overall=0.263
+Node 13: stage1=0.579, stage2=0.491, overall=0.284
+Node 14: stage1=0.579, stage2=0.309, overall=0.179
+Node 15: stage1=0.579, stage2=0.173, overall=0.100
+Node 16: stage1=0.579, stage2=0.509, overall=0.295
+Node 17: stage1=0.579, stage2=0.391, overall=0.226
+Node 18: stage1=0.579, stage2=0.364, overall=0.211
+Node 19: stage1=0.579, stage2=0.345, overall=0.200
+
+Performance Summary:
+  - Distance computation time: 1.616s (1.8%)
+  - Loss computation time: 86.135s (98.0%)
+  - Aggregation time: 0.174s (0.2%)
+  - Total time: 87.925s
+  - Mean Stage 1 acceptance rate: 0.579
+  - Mean Stage 2 acceptance rate: 0.344
+  - Overall acceptance rate: 0.199
+
+UBAR Algorithm Properties:
+  - Model dimension: 6,603,710
+  - Rho parameter: 0.6
+  - Two-stage approach: Distance filtering + loss evaluation
+  - Stage 1 selects: 60% of neighbors
+  - Stage 2 uses: Training sample loss comparison
+  - Theoretical complexity: O(deg(i)×d + deg(i)×inference)
+  - Approach: UBAR paper implementation
