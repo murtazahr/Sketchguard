@@ -34,7 +34,7 @@ def get_attack_types():
 
 def get_datasets():
     """Get all datasets."""
-    return ["femnist"]
+    return ["celeba"]
 
 def build_log_filename(dataset, graph_config, agg_method, attack_pct, attack_type="directed_deviation"):
     """Build the log filename based on parameters."""
