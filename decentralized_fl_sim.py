@@ -873,6 +873,14 @@ class LocalModelPoisoningAttacker:
 
         return directions
 
+    def safe_randn_like(self, tensor: torch.Tensor, scale: float = 1.0) -> torch.Tensor:
+        """Safely generate random normal tensor, handling integer dtypes."""
+        if tensor.dtype in [torch.long, torch.int, torch.int32, torch.int64, torch.int8, torch.int16]:
+            # For integer tensors, create float tensor with same shape, then convert back if needed
+            return torch.randn(tensor.shape, device=tensor.device, dtype=torch.float32) * scale
+        else:
+            return torch.randn_like(tensor) * scale
+    
     def estimate_neighborhood_directions(self, node_id: int, current_neigh_states: List[Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]:
         """Estimate directions using only neighborhood information."""
         if not current_neigh_states:
@@ -880,7 +888,7 @@ class LocalModelPoisoningAttacker:
                 sample_state = list(self.compromised_node_states[max(self.compromised_node_states.keys())].values())[0]
                 directions = {}
                 for key in sample_state.keys():
-                    directions[key] = torch.sign(torch.randn_like(sample_state[key]))
+                    directions[key] = torch.sign(self.safe_randn_like(sample_state[key]))
                 return directions
             return {}
 
@@ -890,7 +898,7 @@ class LocalModelPoisoningAttacker:
         if previous_neigh_avg is None:
             directions = {}
             for key in current_neigh_avg.keys():
-                directions[key] = torch.sign(torch.randn_like(current_neigh_avg[key]))
+                directions[key] = torch.sign(self.safe_randn_like(current_neigh_avg[key]))
             self.previous_neighborhood_avgs[node_id] = {k: v.clone() for k, v in current_neigh_avg.items()}
             return directions
 
@@ -932,7 +940,7 @@ class LocalModelPoisoningAttacker:
                 gaussian_state = {}
                 for key in reference_state.keys():
                     # Generate pure Gaussian noise with mean=0, std=sqrt(200)≈14.14
-                    gaussian_noise = torch.randn_like(reference_state[key]) * np.sqrt(200.0)
+                    gaussian_noise = self.safe_randn_like(reference_state[key], scale=np.sqrt(200.0))
                     gaussian_state[key] = gaussian_noise
 
                 malicious_states.append(gaussian_state)
@@ -965,7 +973,7 @@ class LocalModelPoisoningAttacker:
         for _ in range(num_compromised_in_neigh - 1):
             supporting_model = {}
             for key in primary_malicious.keys():
-                noise = torch.randn_like(primary_malicious[key]) * epsilon
+                noise = self.safe_randn_like(primary_malicious[key], scale=epsilon)
                 supporting_model[key] = primary_malicious[key] + noise
             malicious_states.append(supporting_model)
 
