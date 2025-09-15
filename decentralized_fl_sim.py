@@ -248,7 +248,11 @@ class BALANCE:
             neighbor_sum = torch.zeros_like(own_update[key])
             for neighbor_update in accepted_neighbors.values():
                 if key in neighbor_update:
-                    neighbor_sum += neighbor_update[key]
+                    # Ensure dtype compatibility for arithmetic operations
+                    neighbor_param = neighbor_update[key]
+                    if neighbor_param.dtype != neighbor_sum.dtype:
+                        neighbor_param = neighbor_param.to(neighbor_sum.dtype)
+                    neighbor_sum += neighbor_param
             neighbor_avg[key] = neighbor_sum / num_neighbors
 
         aggregated_update = {}
@@ -714,8 +718,8 @@ class UBAR:
 
 
 def calculate_model_dimension(model: nn.Module) -> int:
-    """Calculate total number of parameters in model."""
-    return sum(p.numel() for p in model.parameters())
+    """Calculate total number of parameters in model state_dict (matches flatten_model_update)."""
+    return sum(p.numel() for p in model.state_dict().values())
 
 
 # ---------------------------- Training helpers ---------------------------- #
@@ -773,6 +777,9 @@ def average_states(states: List[Dict[str, torch.Tensor]], weights: List[float] |
         acc = None
         for s, w in zip(states, weights):
             t = s[k]
+            # Ensure dtype compatibility for arithmetic operations
+            if acc is not None and t.dtype != acc.dtype:
+                t = t.to(acc.dtype)
             acc = t * w if acc is None else acc + t * w
         out[k] = acc
     return out
