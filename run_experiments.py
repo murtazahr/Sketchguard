@@ -13,16 +13,16 @@ import os
 def get_graph_configs():
     """Get all graph configurations."""
     return [
-        {"name": "erdos", "p": 0.2},
-        {"name": "erdos", "p": 0.45},
-        {"name": "erdos", "p": 0.6},
+        # {"name": "erdos", "p": 0.2},
+        # {"name": "erdos", "p": 0.45},
+        # {"name": "erdos", "p": 0.6},
         {"name": "fully", "p": None},
         {"name": "ring", "p": None}
     ]
 
 def get_aggregation_methods():
     """Get all aggregation methods."""
-    return ["coarse", "balance", "krum", "d-fedavg", "ubar"]
+    return ["d-fedavg"]
 
 def get_attack_percentages():
     """Get all attack percentages."""
@@ -34,7 +34,7 @@ def get_attack_types():
 
 def get_datasets():
     """Get all datasets."""
-    return ["celeba"]
+    return ["femnist"]
 
 def build_log_filename(dataset, graph_config, agg_method, attack_pct, attack_type="directed_deviation"):
     """Build the log filename based on parameters."""
