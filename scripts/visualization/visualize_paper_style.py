@@ -58,24 +58,27 @@ def create_combined_figure(df, save_prefix=''):
     node_type = 'honest'  # Focus on honest nodes
     
     # Define algorithms and their visual properties matching the style
-    algorithms = ['krum', 'balance', 'ubar', 'coarse']
-    
+    algorithms = ['d-fedavg', 'krum', 'balance', 'ubar', 'coarse']
+
     # Define colors and styles to match the reference
     colors = {
+        'd-fedavg': '#DC143C',  # Crimson red for FedAvg
         'krum': '#000000',      # Black with dots
         'balance': '#0000FF',   # Blue dash-dot
         'ubar': '#FF8C00',      # Orange solid
         'coarse': '#FF00FF'     # Magenta/Pink dashed
     }
-    
+
     line_styles = {
+        'd-fedavg': '--',       # Dashed
         'krum': ':',            # Dotted
         'balance': '-.',        # Dash-dot
         'ubar': '-',            # Solid
         'coarse': (0, (1, 1))   # More dotted (1 pixel line, 1 pixel gap)
     }
-    
+
     markers = {
+        'd-fedavg': 'v',
         'krum': 'o',
         'balance': 's',
         'ubar': '^',
@@ -105,11 +108,16 @@ def create_combined_figure(df, save_prefix=''):
                 grouped = algo_data.groupby('attack_percentage')[error_col].mean().reset_index()
                 grouped = grouped.sort_values('attack_percentage')
                 
-                # Set z-order: coarse (top), balance (middle), ubar (bottom), krum (separate)
-                z_orders = {'coarse': 4, 'balance': 3, 'ubar': 2, 'krum': 1}
-                
+                # Set z-order: coarse (top), balance (middle), ubar (bottom), krum (separate), fedavg (back)
+                z_orders = {'coarse': 5, 'balance': 4, 'ubar': 3, 'krum': 2, 'd-fedavg': 1}
+
                 # Map algorithm names for display
-                display_name = 'SKETCHGUARD' if algo == 'coarse' else algo.upper()
+                if algo == 'coarse':
+                    display_name = 'SKETCHGUARD'
+                elif algo == 'd-fedavg':
+                    display_name = 'FEDAVG'
+                else:
+                    display_name = algo.upper()
                 
                 line, = ax.plot(grouped['attack_percentage'], 
                                grouped[error_col],
@@ -149,7 +157,7 @@ def create_combined_figure(df, save_prefix=''):
                 zoom_data = grouped[(grouped['attack_percentage'] >= 10) & (grouped['attack_percentage'] <= 80)]
                 
                 if len(zoom_data) > 0:
-                    z_orders = {'coarse': 4, 'balance': 3, 'ubar': 2, 'krum': 1}
+                    z_orders = {'coarse': 5, 'balance': 4, 'ubar': 3, 'krum': 2, 'd-fedavg': 1}
                     axins.plot(zoom_data['attack_percentage'], 
                               zoom_data[error_col],
                               linestyle=line_styles[algo],
@@ -222,10 +230,10 @@ def create_combined_figure(df, save_prefix=''):
         ax.spines['right'].set_visible(False)
     
     # Add single legend at the top of the figure
-    fig.legend(legend_handles, legend_labels, 
-               loc='upper center', 
+    fig.legend(legend_handles, legend_labels,
+               loc='upper center',
                bbox_to_anchor=(0.5, 1.05),
-               ncol=4,  # All algorithms in one row
+               ncol=5,  # All algorithms in one row (now 5 with FedAvg)
                frameon=True,
                fancybox=False,
                shadow=False,

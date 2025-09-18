@@ -62,23 +62,26 @@ def create_topology_figure(df, save_prefix=''):
     attack_type = 'directed_deviation'  # Use directed deviation as the attack type
     
     # Define algorithms and their visual properties
-    algorithms = ['krum', 'balance', 'ubar', 'coarse']
-    
+    algorithms = ['d-fedavg', 'krum', 'balance', 'ubar', 'coarse']
+
     colors = {
+        'd-fedavg': '#DC143C',  # Crimson red for FedAvg
         'krum': '#000000',      # Black
         'balance': '#0000FF',   # Blue
         'ubar': '#FF8C00',      # Orange
         'coarse': '#FF00FF'     # Magenta
     }
-    
+
     line_styles = {
+        'd-fedavg': '--',       # Dashed
         'krum': ':',            # Dotted
         'balance': '-.',        # Dash-dot
         'ubar': '-',            # Solid
         'coarse': (0, (1, 1))   # More dotted (1 pixel line, 1 pixel gap)
     }
-    
+
     markers = {
+        'd-fedavg': 'v',
         'krum': 'o',
         'balance': 's',
         'ubar': '^',
@@ -129,11 +132,16 @@ def create_topology_figure(df, save_prefix=''):
                 grouped = algo_data.groupby('attack_percentage')[error_col].mean().reset_index()
                 grouped = grouped.sort_values('attack_percentage')
                 
-                # Set z-order: coarse (top), balance (middle), ubar (bottom), krum (separate)
-                z_orders = {'coarse': 4, 'balance': 3, 'ubar': 2, 'krum': 1}
-                
+                # Set z-order: coarse (top), balance (middle), ubar (bottom), krum (separate), fedavg (back)
+                z_orders = {'coarse': 5, 'balance': 4, 'ubar': 3, 'krum': 2, 'd-fedavg': 1}
+
                 # Map algorithm names for display
-                algo_display_name = 'SKETCHGUARD' if algo == 'coarse' else algo.upper()
+                if algo == 'coarse':
+                    algo_display_name = 'SKETCHGUARD'
+                elif algo == 'd-fedavg':
+                    algo_display_name = 'FEDAVG'
+                else:
+                    algo_display_name = algo.upper()
                 
                 line, = ax.plot(grouped['attack_percentage'], 
                                grouped[error_col],
@@ -186,7 +194,7 @@ def create_topology_figure(df, save_prefix=''):
                         zoom_data = grouped[(grouped['attack_percentage'] >= 10) & (grouped['attack_percentage'] <= 80)]
                         
                         if len(zoom_data) > 0:
-                            z_orders = {'coarse': 4, 'balance': 3, 'ubar': 2, 'krum': 1}
+                            z_orders = {'coarse': 5, 'balance': 4, 'ubar': 3, 'krum': 2, 'd-fedavg': 1}
                             axins.plot(zoom_data['attack_percentage'], 
                                       zoom_data[error_col],
                                       linestyle=line_styles[algo],
@@ -243,10 +251,10 @@ def create_topology_figure(df, save_prefix=''):
     
     # Add single legend at the top of the figure
     if legend_handles:
-        fig.legend(legend_handles, legend_labels, 
-                   loc='upper center', 
+        fig.legend(legend_handles, legend_labels,
+                   loc='upper center',
                    bbox_to_anchor=(0.5, 0.98),
-                   ncol=4,
+                   ncol=5,
                    frameon=True,
                    fancybox=False,
                    shadow=False,
