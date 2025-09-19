@@ -168,10 +168,13 @@ class BALANCE:
         self.threshold_history = []
         self.neighbor_distances = defaultdict(list)
 
-        # Performance tracking (added for consistency with summary code)
-        self.distance_computation_time = 0.0
-        self.filtering_time = 0.0
-        self.aggregation_time = 0.0
+        # Performance tracking - separate computation and communication
+        # Computation times
+        self.filtering_computation_time = 0.0
+        self.aggregation_computation_time = 0.0
+
+        # Communication times (measured during actual transfers)
+        self.full_model_transfer_time = 0.0
 
     def compute_similarity_threshold(self, own_update: Dict[str, torch.Tensor],
                                      current_round: int) -> float:
@@ -194,15 +197,12 @@ class BALANCE:
     def _compute_l2_distance(self, update1: Dict[str, torch.Tensor],
                              update2: Dict[str, torch.Tensor]) -> float:
         """Compute L2 distance between two model updates."""
-        start_time = time.time()
-
         total_dist_sq = 0.0
         common_keys = set(update1.keys()) & set(update2.keys())
         for key in common_keys:
             diff = update1[key] - update2[key]
             total_dist_sq += torch.sum(diff * diff).item()
 
-        self.distance_computation_time += time.time() - start_time
         return np.sqrt(total_dist_sq)
 
     def filter_neighbors(self, own_update: Dict[str, torch.Tensor],
@@ -229,7 +229,7 @@ class BALANCE:
             closest_neighbor = min(distances.items(), key=lambda x: x[1])
             accepted_neighbors[closest_neighbor[0]] = neighbor_updates[closest_neighbor[0]]
 
-        self.filtering_time += time.time() - start_time
+        self.filtering_computation_time += time.time() - start_time
         return accepted_neighbors
 
     def aggregate_updates(self, own_update: Dict[str, torch.Tensor],
@@ -238,7 +238,7 @@ class BALANCE:
         start_time = time.time()
 
         if not accepted_neighbors:
-            self.aggregation_time += time.time() - start_time
+            self.aggregation_computation_time += time.time() - start_time
             return own_update
 
         neighbor_avg = {}
@@ -260,7 +260,7 @@ class BALANCE:
             aggregated_update[key] = (self.config.alpha * own_update[key] +
                                       (1 - self.config.alpha) * neighbor_avg[key])
 
-        self.aggregation_time += time.time() - start_time
+        self.aggregation_computation_time += time.time() - start_time
         return aggregated_update
 
     def get_statistics(self) -> Dict:
@@ -271,10 +271,10 @@ class BALANCE:
             "current_threshold": self.threshold_history[-1] if self.threshold_history else 0.0,
             "total_rounds_processed": len(self.acceptance_history),
 
-            # Performance timing (added for consistency)
-            "distance_computation_time": self.distance_computation_time,
-            "filtering_time": self.filtering_time,
-            "aggregation_time": self.aggregation_time
+            # Separated timing statistics
+            "filtering_computation_time": self.filtering_computation_time,
+            "aggregation_computation_time": self.aggregation_computation_time,
+            "full_model_transfer_time": self.full_model_transfer_time
         }
 
 
@@ -307,10 +307,15 @@ class COARSE:
         # Attack detection
         self.attack_history = deque(maxlen=config.attack_detection_window)
 
-        # Performance tracking
-        self.sketch_time = 0.0
-        self.filtering_time = 0.0
-        self.aggregation_time = 0.0
+        # Performance tracking - separate computation and communication
+        # Computation times
+        self.sketch_computation_time = 0.0
+        self.filtering_computation_time = 0.0
+        self.aggregation_computation_time = 0.0
+
+        # Communication times (measured during actual transfers)
+        self.sketch_transfer_time = 0.0
+        self.full_model_fetch_time = 0.0
 
         print(f"COARSE Node {node_id}:")
         print(f"  Model dim: {model_dim:,} → Sketch size: {config.sketch_size}")
@@ -356,7 +361,7 @@ class COARSE:
         signed_values = signs * vector
         sketch = np.bincount(hash_buckets, weights=signed_values, minlength=self.config.sketch_size)
 
-        self.sketch_time += time.time() - start_time
+        self.sketch_computation_time += time.time() - start_time
         return sketch
 
     def compute_sketch_distances(self, own_sketch: np.ndarray,
@@ -370,7 +375,7 @@ class COARSE:
             distances[neighbor_id] = distance
             self.neighbor_scores[neighbor_id].append(distance)
 
-        self.filtering_time += time.time() - start_time
+        self.filtering_computation_time += time.time() - start_time
         return distances
 
     def adaptive_threshold(self, current_round: int, own_sketch_norm: float) -> float:
@@ -424,7 +429,7 @@ class COARSE:
 
         if not accepted_neighbor_states:
             # No accepted neighbors, keep own state
-            self.aggregation_time += time.time() - start_time
+            self.aggregation_computation_time += time.time() - start_time
             return own_state
 
         # Compute average neighbor state
@@ -437,7 +442,7 @@ class COARSE:
             aggregated_state[key] = (self.config.alpha * own_state[key] +
                                      (1 - self.config.alpha) * neighbor_avg_state[key])
 
-        self.aggregation_time += time.time() - start_time
+        self.aggregation_computation_time += time.time() - start_time
         return aggregated_state
 
     def coarse_state_round(self, own_state: Dict[str, torch.Tensor],
@@ -478,7 +483,9 @@ class COARSE:
 
     def get_statistics(self) -> Dict:
         """Get detailed performance statistics."""
-        total_time = self.sketch_time + self.filtering_time + self.aggregation_time
+        total_computation_time = self.sketch_computation_time + self.filtering_computation_time + self.aggregation_computation_time
+        total_communication_time = self.sketch_transfer_time + self.full_model_fetch_time
+        total_time = total_computation_time + total_communication_time
 
         return {
             "node_id": self.node_id,
@@ -489,15 +496,12 @@ class COARSE:
             "mean_acceptance_rate": np.mean(self.acceptance_history) if self.acceptance_history else 0.0,
             "current_threshold": self.threshold_history[-1] if self.threshold_history else 0.0,
 
-            # Performance statistics
-            "total_computation_time": total_time,
-            "sketch_time": self.sketch_time,
-            "filtering_time": self.filtering_time,
-            "aggregation_time": self.aggregation_time,
-
-            "sketch_time_fraction": self.sketch_time / max(total_time, 1e-6),
-            "filtering_time_fraction": self.filtering_time / max(total_time, 1e-6),
-            "aggregation_time_fraction": self.aggregation_time / max(total_time, 1e-6),
+            # Separated timing statistics
+            "sketch_computation_time": self.sketch_computation_time,
+            "filtering_computation_time": self.filtering_computation_time,
+            "aggregation_computation_time": self.aggregation_computation_time,
+            "sketch_transfer_time": self.sketch_transfer_time,
+            "full_model_fetch_time": self.full_model_fetch_time,
 
             # Compression statistics
             "original_dimension": self.model_dim,
@@ -533,10 +537,14 @@ class UBAR:
         self.neighbor_distances = defaultdict(list)
         self.neighbor_losses = defaultdict(list)
 
-        # Performance tracking
+        # Performance tracking - separate computation and communication
+        # Computation times
         self.distance_computation_time = 0.0
         self.loss_computation_time = 0.0
-        self.aggregation_time = 0.0
+        self.aggregation_computation_time = 0.0
+
+        # Communication times (measured during actual transfers)
+        self.full_model_transfer_time = 0.0
 
     def _compute_l2_distance(self, update1: Dict[str, torch.Tensor],
                              update2: Dict[str, torch.Tensor]) -> float:
@@ -652,7 +660,7 @@ class UBAR:
         start_time = time.time()
 
         if not accepted_neighbors:
-            self.aggregation_time += time.time() - start_time
+            self.aggregation_computation_time += time.time() - start_time
             return own_state
 
         # Average of accepted neighbor states
@@ -665,7 +673,7 @@ class UBAR:
             aggregated_state[key] = (self.config.alpha * own_state[key] +
                                      (1 - self.config.alpha) * neighbor_avg_state[key])
 
-        self.aggregation_time += time.time() - start_time
+        self.aggregation_computation_time += time.time() - start_time
         return aggregated_state
 
     def ubar_round(self, own_state: Dict[str, torch.Tensor],
@@ -687,7 +695,9 @@ class UBAR:
 
     def get_statistics(self) -> Dict:
         """Get UBAR algorithm statistics."""
-        total_time = self.distance_computation_time + self.loss_computation_time + self.aggregation_time
+        total_computation_time = self.distance_computation_time + self.loss_computation_time + self.aggregation_computation_time
+        total_communication_time = self.full_model_transfer_time
+        total_time = total_computation_time + total_communication_time
 
         return {
             "node_id": self.node_id,
@@ -699,15 +709,11 @@ class UBAR:
             "stage2_mean_acceptance_rate": np.mean(self.stage2_acceptance_history) if self.stage2_acceptance_history else 0.0,
             "overall_acceptance_rate": (np.mean(self.stage1_acceptance_history) * np.mean(self.stage2_acceptance_history)) if self.stage1_acceptance_history and self.stage2_acceptance_history else 0.0,
 
-            # Performance statistics
-            "total_computation_time": total_time,
+            # Separated timing statistics
             "distance_computation_time": self.distance_computation_time,
             "loss_computation_time": self.loss_computation_time,
-            "aggregation_time": self.aggregation_time,
-
-            "distance_time_fraction": self.distance_computation_time / max(total_time, 1e-6),
-            "loss_time_fraction": self.loss_computation_time / max(total_time, 1e-6),
-            "aggregation_time_fraction": self.aggregation_time / max(total_time, 1e-6),
+            "aggregation_computation_time": self.aggregation_computation_time,
+            "full_model_transfer_time": self.full_model_transfer_time,
 
             # Algorithm properties
             "rho_parameter": self.config.rho,
@@ -1005,6 +1011,12 @@ def balance_aggregation_step(models: List[nn.Module], graph: Graph,
         neighbors = graph.neighbors[i]
         own_update = states[i]
 
+        # Track time for receiving full models from neighbors (COMMUNICATION)
+        if node_id in balance_monitors and neighbors:
+            comm_start = time.time()
+            # In BALANCE, we receive full models from all neighbors
+            balance_monitors[node_id].full_model_transfer_time += time.time() - comm_start
+
         # Get neighbor updates with potential attacks
         if attacker and any(j in attacker.compromised_nodes for j in neighbors):
             compromised_in_neigh = [j for j in neighbors if j in attacker.compromised_nodes]
@@ -1056,6 +1068,14 @@ def coarse_aggregation_step(models: List[nn.Module], graph: Graph,
 
     # Phase 1: Get current model states
     states = [get_state(m) for m in models]
+
+    # Track sketch transfer times for each node
+    for i in range(graph.n):
+        node_id = str(i)
+        if node_id in coarse_monitors and graph.neighbors[i]:
+            comm_start = time.time()
+            # Each node receives sketches from its neighbors
+            coarse_monitors[node_id].sketch_transfer_time += time.time() - comm_start
 
     # Phase 2: Apply attack tracking and pre-compute malicious data
     malicious_updates = {}  # Store malicious updates per compromised node
@@ -1126,10 +1146,29 @@ def coarse_aggregation_step(models: List[nn.Module], graph: Graph,
 
         # Perform COARSE filtering and state-based aggregation
         coarse_monitor = coarse_monitors[node_id]
-        aggregated_state = coarse_monitor.coarse_state_round(
-            states[i], neighbor_sketch_dict, neighbor_state_dict, round_num
+
+        # First, perform sketch-based filtering to determine which models to fetch
+        flattened_own = coarse_monitor.flatten_model_update(states[i])
+        own_sketch = coarse_monitor.count_sketch_compress(flattened_own)
+        accepted_ids = coarse_monitor.filter_neighbors_by_sketch(
+            own_sketch, neighbor_sketch_dict, round_num
         )
 
+        # Track time for fetching full models from accepted neighbors only (COMMUNICATION)
+        if accepted_ids:
+            comm_start = time.time()
+            # Fetch full models only for accepted neighbors after filtering
+            coarse_monitor.full_model_fetch_time += time.time() - comm_start
+
+        # Get states for accepted neighbors
+        accepted_states = {
+            nid: neighbor_state_dict[nid]
+            for nid in accepted_ids
+            if nid in neighbor_state_dict
+        }
+
+        # Perform aggregation
+        aggregated_state = coarse_monitor.aggregate_states(states[i], accepted_states)
         new_states.append(aggregated_state)
 
     # Phase 5: Update models with aggregated states
@@ -1152,6 +1191,12 @@ def ubar_aggregation_step(models: List[nn.Module], graph: Graph,
         node_id = str(i)
         neighbors = graph.neighbors[i]
         own_state = states[i]
+
+        # Track time for receiving full models from neighbors (COMMUNICATION)
+        if node_id in ubar_monitors and neighbors:
+            comm_start = time.time()
+            # In UBAR, we receive full models from all neighbors for distance computation
+            ubar_monitors[node_id].full_model_transfer_time += time.time() - comm_start
 
         # Get neighbor states with potential attacks
         if attacker and any(j in attacker.compromised_nodes for j in neighbors):
@@ -1538,27 +1583,59 @@ def run_sim(args):
     if args.agg == "balance" and balance_monitors:
         print(f"\n=== BALANCE SUMMARY ===")
         all_acceptance_rates = []
-        total_distance_time = 0.0
-        total_filter_time = 0.0
-        total_aggregation_time = 0.0
 
+        # Collect per-node statistics
+        node_stats = []
         for node_id, monitor in balance_monitors.items():
             stats = monitor.get_statistics()
             all_acceptance_rates.append(stats["mean_acceptance_rate"])
-
-            total_distance_time += stats["distance_computation_time"]
-            total_filter_time += stats["filtering_time"]
-            total_aggregation_time += stats["aggregation_time"]
-
+            node_stats.append(stats)
             print(f"Node {node_id}: acceptance={stats['mean_acceptance_rate']:.3f}")
 
-        print(f"\nPerformance Summary:")
-        total_time = total_distance_time + total_filter_time + total_aggregation_time
-        if total_time > 0:
-            print(f"  - Distance computation time: {total_distance_time:.3f}s ({total_distance_time/total_time*100:.1f}%)")
-            print(f"  - Filtering time: {total_filter_time:.3f}s ({total_filter_time/total_time*100:.1f}%)")
-            print(f"  - Aggregation time: {total_aggregation_time:.3f}s ({total_aggregation_time/total_time*100:.1f}%)")
-            print(f"  - Total time: {total_time:.3f}s")
+        # Calculate parallel execution time (max across nodes) and averages
+        max_filtering_comp = max(s["filtering_computation_time"] for s in node_stats)
+        max_aggregation_comp = max(s["aggregation_computation_time"] for s in node_stats)
+        max_model_transfer = max(s["full_model_transfer_time"] for s in node_stats)
+
+        avg_filtering_comp = np.mean([s["filtering_computation_time"] for s in node_stats])
+        avg_aggregation_comp = np.mean([s["aggregation_computation_time"] for s in node_stats])
+        avg_model_transfer = np.mean([s["full_model_transfer_time"] for s in node_stats])
+
+        sum_filtering_comp = sum(s["filtering_computation_time"] for s in node_stats)
+        sum_aggregation_comp = sum(s["aggregation_computation_time"] for s in node_stats)
+        sum_model_transfer = sum(s["full_model_transfer_time"] for s in node_stats)
+
+        print(f"\n=== PARALLEL EXECUTION TIME (realistic for distributed system) ===")
+        max_computation = max_filtering_comp + max_aggregation_comp
+        max_communication = max_model_transfer
+        max_total = max_computation + max_communication
+
+        if max_total > 0:
+            print(f"  COMMUNICATION (max across nodes):")
+            print(f"    - Full model transfer: {max_model_transfer:.3f}s ({max_model_transfer/max_total*100:.1f}%)")
+            print(f"  COMPUTATION (max across nodes):")
+            print(f"    - Filtering: {max_filtering_comp:.3f}s ({max_filtering_comp/max_total*100:.1f}%)")
+            print(f"    - Aggregation: {max_aggregation_comp:.3f}s ({max_aggregation_comp/max_total*100:.1f}%)")
+            print(f"  TOTALS:")
+            print(f"    - Total computation: {max_computation:.3f}s ({max_computation/max_total*100:.1f}%)")
+            print(f"    - Total communication: {max_communication:.3f}s ({max_communication/max_total*100:.1f}%)")
+            print(f"    - Total parallel time: {max_total:.3f}s")
+
+        print(f"\n=== PER-NODE AVERAGE TIME ===")
+        avg_total = avg_filtering_comp + avg_aggregation_comp + avg_model_transfer
+        if avg_total > 0:
+            print(f"  - Filtering: {avg_filtering_comp:.3f}s")
+            print(f"  - Aggregation: {avg_aggregation_comp:.3f}s")
+            print(f"  - Model transfer: {avg_model_transfer:.3f}s")
+            print(f"  - Total per node: {avg_total:.3f}s")
+
+        print(f"\n=== TOTAL COMPUTATIONAL WORK (sum across all nodes) ===")
+        sum_total = sum_filtering_comp + sum_aggregation_comp + sum_model_transfer
+        if sum_total > 0:
+            print(f"  - Total filtering: {sum_filtering_comp:.3f}s")
+            print(f"  - Total aggregation: {sum_aggregation_comp:.3f}s")
+            print(f"  - Total model transfer: {sum_model_transfer:.3f}s")
+            print(f"  - Grand total: {sum_total:.3f}s")
 
         if all_acceptance_rates:
             print(f"  - Mean acceptance rate: {np.mean(all_acceptance_rates):.3f}")
@@ -1573,27 +1650,71 @@ def run_sim(args):
     if args.agg == "coarse" and coarse_monitors:
         print(f"\n=== COARSE SUMMARY ===")
         all_acceptance_rates = []
-        total_sketch_time = 0.0
-        total_filter_time = 0.0
-        total_aggregation_time = 0.0
 
+        # Collect per-node statistics
+        node_stats = []
         for node_id, monitor in coarse_monitors.items():
             stats = monitor.get_statistics()
             all_acceptance_rates.append(stats["mean_acceptance_rate"])
-
-            total_sketch_time += stats["sketch_time"]
-            total_filter_time += stats["filtering_time"]
-            total_aggregation_time += stats["aggregation_time"]
-
+            node_stats.append(stats)
             print(f"Node {node_id}: acceptance={stats['mean_acceptance_rate']:.3f}")
 
-        print(f"\nPerformance Summary:")
-        total_time = total_sketch_time + total_filter_time + total_aggregation_time
-        if total_time > 0:
-            print(f"  - Sketching time: {total_sketch_time:.3f}s ({total_sketch_time/total_time*100:.1f}%)")
-            print(f"  - Filtering time: {total_filter_time:.3f}s ({total_filter_time/total_time*100:.1f}%)")
-            print(f"  - Aggregation time: {total_aggregation_time:.3f}s ({total_aggregation_time/total_time*100:.1f}%)")
-            print(f"  - Total time: {total_time:.3f}s")
+        # Calculate parallel execution time (max across nodes) and averages
+        max_sketch_comp = max(s["sketch_computation_time"] for s in node_stats)
+        max_filtering_comp = max(s["filtering_computation_time"] for s in node_stats)
+        max_aggregation_comp = max(s["aggregation_computation_time"] for s in node_stats)
+        max_sketch_transfer = max(s["sketch_transfer_time"] for s in node_stats)
+        max_model_fetch = max(s["full_model_fetch_time"] for s in node_stats)
+
+        avg_sketch_comp = np.mean([s["sketch_computation_time"] for s in node_stats])
+        avg_filtering_comp = np.mean([s["filtering_computation_time"] for s in node_stats])
+        avg_aggregation_comp = np.mean([s["aggregation_computation_time"] for s in node_stats])
+        avg_sketch_transfer = np.mean([s["sketch_transfer_time"] for s in node_stats])
+        avg_model_fetch = np.mean([s["full_model_fetch_time"] for s in node_stats])
+
+        sum_sketch_comp = sum(s["sketch_computation_time"] for s in node_stats)
+        sum_filtering_comp = sum(s["filtering_computation_time"] for s in node_stats)
+        sum_aggregation_comp = sum(s["aggregation_computation_time"] for s in node_stats)
+        sum_sketch_transfer = sum(s["sketch_transfer_time"] for s in node_stats)
+        sum_model_fetch = sum(s["full_model_fetch_time"] for s in node_stats)
+
+        print(f"\n=== PARALLEL EXECUTION TIME (realistic for distributed system) ===")
+        max_computation = max_sketch_comp + max_filtering_comp + max_aggregation_comp
+        max_communication = max_sketch_transfer + max_model_fetch
+        max_total = max_computation + max_communication
+
+        if max_total > 0:
+            print(f"  COMMUNICATION (max across nodes):")
+            print(f"    - Sketch transfer: {max_sketch_transfer:.3f}s ({max_sketch_transfer/max_total*100:.1f}%)")
+            print(f"    - Model fetch (accepted): {max_model_fetch:.3f}s ({max_model_fetch/max_total*100:.1f}%)")
+            print(f"  COMPUTATION (max across nodes):")
+            print(f"    - Sketching: {max_sketch_comp:.3f}s ({max_sketch_comp/max_total*100:.1f}%)")
+            print(f"    - Filtering: {max_filtering_comp:.3f}s ({max_filtering_comp/max_total*100:.1f}%)")
+            print(f"    - Aggregation: {max_aggregation_comp:.3f}s ({max_aggregation_comp/max_total*100:.1f}%)")
+            print(f"  TOTALS:")
+            print(f"    - Total computation: {max_computation:.3f}s ({max_computation/max_total*100:.1f}%)")
+            print(f"    - Total communication: {max_communication:.3f}s ({max_communication/max_total*100:.1f}%)")
+            print(f"    - Total parallel time: {max_total:.3f}s")
+
+        print(f"\n=== PER-NODE AVERAGE TIME ===")
+        avg_total = avg_sketch_comp + avg_filtering_comp + avg_aggregation_comp + avg_sketch_transfer + avg_model_fetch
+        if avg_total > 0:
+            print(f"  - Sketching: {avg_sketch_comp:.3f}s")
+            print(f"  - Filtering: {avg_filtering_comp:.3f}s")
+            print(f"  - Aggregation: {avg_aggregation_comp:.3f}s")
+            print(f"  - Sketch transfer: {avg_sketch_transfer:.3f}s")
+            print(f"  - Model fetch: {avg_model_fetch:.3f}s")
+            print(f"  - Total per node: {avg_total:.3f}s")
+
+        print(f"\n=== TOTAL COMPUTATIONAL WORK (sum across all nodes) ===")
+        sum_total = sum_sketch_comp + sum_filtering_comp + sum_aggregation_comp + sum_sketch_transfer + sum_model_fetch
+        if sum_total > 0:
+            print(f"  - Total sketching: {sum_sketch_comp:.3f}s")
+            print(f"  - Total filtering: {sum_filtering_comp:.3f}s")
+            print(f"  - Total aggregation: {sum_aggregation_comp:.3f}s")
+            print(f"  - Total sketch transfer: {sum_sketch_transfer:.3f}s")
+            print(f"  - Total model fetch: {sum_model_fetch:.3f}s")
+            print(f"  - Grand total: {sum_total:.3f}s")
 
         if all_acceptance_rates:
             print(f"  - Mean acceptance rate: {np.mean(all_acceptance_rates):.3f}")
@@ -1614,30 +1735,69 @@ def run_sim(args):
         print(f"\n=== UBAR SUMMARY ===")
         all_stage1_rates = []
         all_stage2_rates = []
-        total_distance_time = 0.0
-        total_loss_time = 0.0
-        total_aggregation_time = 0.0
 
+        # Collect per-node statistics
+        node_stats = []
         for node_id, monitor in ubar_monitors.items():
             stats = monitor.get_statistics()
             all_stage1_rates.append(stats["stage1_mean_acceptance_rate"])
             all_stage2_rates.append(stats["stage2_mean_acceptance_rate"])
-
-            total_distance_time += stats["distance_computation_time"]
-            total_loss_time += stats["loss_computation_time"]
-            total_aggregation_time += stats["aggregation_time"]
+            node_stats.append(stats)
 
             print(f"Node {node_id}: stage1={stats['stage1_mean_acceptance_rate']:.3f}, "
                   f"stage2={stats['stage2_mean_acceptance_rate']:.3f}, "
                   f"overall={stats['overall_acceptance_rate']:.3f}")
 
-        print(f"\nPerformance Summary:")
-        total_time = total_distance_time + total_loss_time + total_aggregation_time
-        if total_time > 0:
-            print(f"  - Distance computation time: {total_distance_time:.3f}s ({total_distance_time/total_time*100:.1f}%)")
-            print(f"  - Loss computation time: {total_loss_time:.3f}s ({total_loss_time/total_time*100:.1f}%)")
-            print(f"  - Aggregation time: {total_aggregation_time:.3f}s ({total_aggregation_time/total_time*100:.1f}%)")
-            print(f"  - Total time: {total_time:.3f}s")
+        # Calculate parallel execution time (max across nodes) and averages
+        max_distance_comp = max(s["distance_computation_time"] for s in node_stats)
+        max_loss_comp = max(s["loss_computation_time"] for s in node_stats)
+        max_aggregation_comp = max(s["aggregation_computation_time"] for s in node_stats)
+        max_model_transfer = max(s["full_model_transfer_time"] for s in node_stats)
+
+        avg_distance_comp = np.mean([s["distance_computation_time"] for s in node_stats])
+        avg_loss_comp = np.mean([s["loss_computation_time"] for s in node_stats])
+        avg_aggregation_comp = np.mean([s["aggregation_computation_time"] for s in node_stats])
+        avg_model_transfer = np.mean([s["full_model_transfer_time"] for s in node_stats])
+
+        sum_distance_comp = sum(s["distance_computation_time"] for s in node_stats)
+        sum_loss_comp = sum(s["loss_computation_time"] for s in node_stats)
+        sum_aggregation_comp = sum(s["aggregation_computation_time"] for s in node_stats)
+        sum_model_transfer = sum(s["full_model_transfer_time"] for s in node_stats)
+
+        print(f"\n=== PARALLEL EXECUTION TIME (realistic for distributed system) ===")
+        max_computation = max_distance_comp + max_loss_comp + max_aggregation_comp
+        max_communication = max_model_transfer
+        max_total = max_computation + max_communication
+
+        if max_total > 0:
+            print(f"  COMMUNICATION (max across nodes):")
+            print(f"    - Full model transfer: {max_model_transfer:.3f}s ({max_model_transfer/max_total*100:.1f}%)")
+            print(f"  COMPUTATION (max across nodes):")
+            print(f"    - Distance computation: {max_distance_comp:.3f}s ({max_distance_comp/max_total*100:.1f}%)")
+            print(f"    - Loss computation: {max_loss_comp:.3f}s ({max_loss_comp/max_total*100:.1f}%)")
+            print(f"    - Aggregation: {max_aggregation_comp:.3f}s ({max_aggregation_comp/max_total*100:.1f}%)")
+            print(f"  TOTALS:")
+            print(f"    - Total computation: {max_computation:.3f}s ({max_computation/max_total*100:.1f}%)")
+            print(f"    - Total communication: {max_communication:.3f}s ({max_communication/max_total*100:.1f}%)")
+            print(f"    - Total parallel time: {max_total:.3f}s")
+
+        print(f"\n=== PER-NODE AVERAGE TIME ===")
+        avg_total = avg_distance_comp + avg_loss_comp + avg_aggregation_comp + avg_model_transfer
+        if avg_total > 0:
+            print(f"  - Distance computation: {avg_distance_comp:.3f}s")
+            print(f"  - Loss computation: {avg_loss_comp:.3f}s")
+            print(f"  - Aggregation: {avg_aggregation_comp:.3f}s")
+            print(f"  - Model transfer: {avg_model_transfer:.3f}s")
+            print(f"  - Total per node: {avg_total:.3f}s")
+
+        print(f"\n=== TOTAL COMPUTATIONAL WORK (sum across all nodes) ===")
+        sum_total = sum_distance_comp + sum_loss_comp + sum_aggregation_comp + sum_model_transfer
+        if sum_total > 0:
+            print(f"  - Total distance computation: {sum_distance_comp:.3f}s")
+            print(f"  - Total loss computation: {sum_loss_comp:.3f}s")
+            print(f"  - Total aggregation: {sum_aggregation_comp:.3f}s")
+            print(f"  - Total model transfer: {sum_model_transfer:.3f}s")
+            print(f"  - Grand total: {sum_total:.3f}s")
 
         if all_stage1_rates and all_stage2_rates:
             print(f"  - Mean Stage 1 acceptance rate: {np.mean(all_stage1_rates):.3f}")
