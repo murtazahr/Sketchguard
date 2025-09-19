@@ -82,8 +82,15 @@ class Graph:
     edges: List[Tuple[int, int]]
 
 
-def make_graph(n: int, kind: str, p: float = 0.3) -> Graph:
-    """Create different graph topologies for decentralized learning."""
+def make_graph(n: int, kind: str, p: float = 0.3, k: int = 4) -> Graph:
+    """Create different graph topologies for decentralized learning.
+
+    Args:
+        n: Number of nodes
+        kind: Graph type ('ring', 'fully', 'erdos', 'k-regular')
+        p: Edge probability for Erdos-Renyi graphs
+        k: Degree for k-regular graphs (must be even for ring lattice)
+    """
     kind = kind.lower()
     neighbors = [[] for _ in range(n)]
     edges: List[Tuple[int, int]] = []
@@ -94,7 +101,27 @@ def make_graph(n: int, kind: str, p: float = 0.3) -> Graph:
             neighbors[i].append(j)
             neighbors[j].append(i)
             edges.append((min(i, j), max(i, j)))
-    elif kind == "fully":
+    elif kind == "k-regular" or kind == "kregular":
+        # k-regular ring lattice (circulant graph)
+        # Each node connects to k/2 predecessors and k/2 successors
+        if k % 2 != 0:
+            print(f"Warning: k={k} is odd, using k={k+1} for regular ring lattice")
+            k = k + 1
+        if k >= n:
+            print(f"Warning: k={k} >= n={n}, creating fully connected graph")
+            kind = "fully"
+        else:
+            half_k = k // 2
+            for i in range(n):
+                # Connect to k/2 successors and k/2 predecessors
+                for offset in range(1, half_k + 1):
+                    j = (i + offset) % n
+                    if j not in neighbors[i]:
+                        neighbors[i].append(j)
+                        neighbors[j].append(i)
+                        edges.append((min(i, j), max(i, j)))
+
+    if kind == "fully":
         for i in range(n):
             for j in range(i + 1, n):
                 neighbors[i].append(j)
@@ -115,7 +142,7 @@ def make_graph(n: int, kind: str, p: float = 0.3) -> Graph:
                 neighbors[i].append(j)
                 neighbors[j].append(i)
                 edges.append((min(i, j), max(i, j)))
-    else:
+    elif kind not in ["ring", "k-regular", "kregular", "fully", "erdos", "er"]:
         raise ValueError(f"Unknown graph kind: {kind}")
 
     neighbors = [sorted(set(ns)) for ns in neighbors]
@@ -1366,8 +1393,17 @@ def run_sim(args):
                                num_workers=0, pin_memory=False) for tp in test_parts]
 
     # Create graph topology
-    graph = make_graph(args.num_nodes, args.graph, p=args.p)
+    graph = make_graph(args.num_nodes, args.graph, p=args.p, k=args.k)
     print(f"Graph: {args.graph}, nodes: {args.num_nodes}, edges: {len(graph.edges)}")
+
+    # Report topology statistics
+    degrees = [len(neighbors) for neighbors in graph.neighbors]
+    avg_degree = np.mean(degrees)
+    min_degree = min(degrees)
+    max_degree = max(degrees)
+    print(f"Degree statistics: avg={avg_degree:.2f}, min={min_degree}, max={max_degree}")
+    if args.graph in ["k-regular", "kregular"]:
+        print(f"k-regular with k={args.k} (each node has exactly {min_degree} neighbors)")
 
     # Initialize attacker if requested
     attacker = None
@@ -1848,8 +1884,10 @@ def parse_args():
                    help="UBAR rho parameter (ratio of benign neighbors)")
 
     # Graph topology parameters
-    p.add_argument("--graph", type=str, choices=["ring", "fully", "erdos"], default="ring")
-    p.add_argument("--p", type=float, default=0.3)
+    p.add_argument("--graph", type=str, choices=["ring", "fully", "erdos", "k-regular"], default="ring",
+                   help="Graph topology: ring (degree=2), fully (degree=n-1), erdos (random), k-regular (degree=k)")
+    p.add_argument("--p", type=float, default=0.3, help="Edge probability for Erdos-Renyi graphs")
+    p.add_argument("--k", type=int, default=4, help="Degree k for k-regular graphs (must be even)")
 
     # Reproducibility
     p.add_argument("--seed", type=int, default=42)
