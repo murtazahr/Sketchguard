@@ -1,0 +1,137 @@
+# Experiment: ubar k=16 dataset=femnist
+# Timestamp: 2025-09-19T16:28:32.386912
+# Command: python decentralized_fl_sim.py --dataset femnist --rounds 3 --local-epochs 1 --seed 987654321 --batch-size 64 --lr 0.01 --max-samples 10000 --agg ubar --ubar-rho 0.5 --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 16 --num-nodes 20
+================================================================================
+
+Device: cuda
+Seed: 987654321
+Loading 36 LEAF FEMNIST train files...
+LEAF FEMNIST train: 3597 users, 734463 samples
+Loading 36 LEAF FEMNIST test files...
+LEAF FEMNIST test: 3597 users, 83388 samples
+Found 3597 train users, 3597 test users, 3597 common users
+User sample counts range: 525 (max) to 17 (min)
+Distributed ALL 3597 users across 20 clients
+Users per client: 179 (with 17 clients getting +1 user)
+Train partition sizes: [36360, 37070, 35957, 38262, 36024, 37732, 36921, 38328, 36867, 37683, 36507, 36915, 36007, 37001, 35681, 35453, 36585, 36801, 35964, 36345]
+Test partition sizes: [4128, 4203, 4081, 4333, 4091, 4287, 4193, 4349, 4191, 4277, 4143, 4193, 4093, 4197, 4052, 4029, 4153, 4183, 4084, 4128]
+  Client 0: 36360 train samples, 62 unique classes
+  Client 1: 37070 train samples, 62 unique classes
+  Client 2: 35957 train samples, 62 unique classes
+  Client 3: 38262 train samples, 62 unique classes
+  Client 4: 36024 train samples, 62 unique classes
+  Client 5: 37732 train samples, 62 unique classes
+  Client 6: 36921 train samples, 62 unique classes
+  Client 7: 38328 train samples, 62 unique classes
+  Client 8: 36867 train samples, 62 unique classes
+  Client 9: 37683 train samples, 62 unique classes
+  Client 10: 36507 train samples, 62 unique classes
+  Client 11: 36915 train samples, 62 unique classes
+  Client 12: 36007 train samples, 62 unique classes
+  Client 13: 37001 train samples, 62 unique classes
+  Client 14: 35681 train samples, 62 unique classes
+  Client 15: 35453 train samples, 62 unique classes
+  Client 16: 36585 train samples, 62 unique classes
+  Client 17: 36801 train samples, 62 unique classes
+  Client 18: 35964 train samples, 62 unique classes
+  Client 19: 36345 train samples, 62 unique classes
+Will sample 10000 samples per client per epoch
+Graph: k-regular, nodes: 20, edges: 160
+Degree statistics: avg=16.00, min=16, max=16
+k-regular with k=16 (each node has exactly 16 neighbors)
+Attack: Compromised 10/20 nodes: [1, 2, 5, 11, 12, 13, 14, 15, 17, 18]
+Attack type: directed_deviation, lambda: 1.0
+UBAR ALGORITHM (Two-Stage Byzantine-resilient)
+  - Model dimension: 6,603,710 parameters
+  - Rho parameter: 0.5
+  - Stage 1: Distance-based filtering (select 50% closest neighbors)
+  - Stage 2: Performance-based selection (loss comparison)
+  - Complexity: O(deg(i)×d + deg(i)×inference)
+Initial test acc across nodes: mean=0.0162 ± 0.0138
+Round 001: test acc mean=0.0586 ± 0.0174 | min=0.0433 max=0.1028
+         : test loss mean=4.0066 ± 0.0367
+         : individual accs = ['0.049661', '0.052819', '0.046802', '0.049850', '0.054999', '0.090506', '0.053422', '0.060474', '0.047721', '0.043255', '0.051895', '0.068924', '0.048131', '0.053848', '0.047878', '0.102755', '0.048158', '0.049247', '0.051910', '0.100291']
+         : correct/total = [(205, 4128), (222, 4203), (191, 4081), (216, 4333), (225, 4091), (388, 4287), (224, 4193), (263, 4349), (200, 4191), (185, 4277), (215, 4143), (289, 4193), (197, 4093), (226, 4197), (194, 4052), (414, 4029), (200, 4153), (206, 4183), (212, 4084), (414, 4128)]
+         : compromised: 0.0613, honest: 0.0560
+         : ubar stats = ['Node 0: s1=0.500, s2=0.875', 'Node 1: s1=0.500, s2=0.875', 'Node 2: s1=0.500, s2=0.125']...
+Round 002: test acc mean=0.0590 ± 0.0146 | min=0.0428 max=0.0989
+         : test loss mean=3.9001 ± 0.0661
+         : individual accs = ['0.049661', '0.052819', '0.068366', '0.049850', '0.046199', '0.098904', '0.067732', '0.052656', '0.072059', '0.042787', '0.051895', '0.054853', '0.048375', '0.049083', '0.055775', '0.080417', '0.083554', '0.046378', '0.060235', '0.047965']
+         : correct/total = [(205, 4128), (222, 4203), (279, 4081), (216, 4333), (189, 4091), (424, 4287), (284, 4193), (229, 4349), (302, 4191), (183, 4277), (215, 4143), (230, 4193), (198, 4093), (206, 4197), (226, 4052), (324, 4029), (347, 4153), (194, 4183), (246, 4084), (198, 4128)]
+         : compromised: 0.0615, honest: 0.0564
+         : ubar stats = ['Node 0: s1=0.500, s2=0.812', 'Node 1: s1=0.500, s2=0.938', 'Node 2: s1=0.500, s2=0.375']...
+Round 003: test acc mean=0.0617 ± 0.0157 | min=0.0455 max=0.0947
+         : test loss mean=3.7837 ± 0.0697
+         : individual accs = ['0.049661', '0.048775', '0.049743', '0.056312', '0.052066', '0.045486', '0.094443', '0.094734', '0.068241', '0.056348', '0.053584', '0.051514', '0.062301', '0.054801', '0.081688', '0.061554', '0.093186', '0.047574', '0.054358', '0.057413']
+         : correct/total = [(205, 4128), (205, 4203), (203, 4081), (244, 4333), (213, 4091), (195, 4287), (396, 4193), (412, 4349), (286, 4191), (241, 4277), (222, 4143), (216, 4193), (255, 4093), (230, 4197), (331, 4052), (248, 4029), (387, 4153), (199, 4183), (222, 4084), (237, 4128)]
+         : compromised: 0.0558, honest: 0.0676
+         : ubar stats = ['Node 0: s1=0.500, s2=0.833', 'Node 1: s1=0.500, s2=0.875', 'Node 2: s1=0.500, s2=0.500']...
+
+=== FINAL RESULTS ===
+Dataset: femnist, Nodes: 20, Graph: k-regular, Aggregation: ubar
+Attack: directed_deviation, 50.0% compromised
+Final accuracy - Compromised: 0.0558, Honest: 0.0676
+Overall test accuracy: mean=0.0617 ± 0.0157
+
+=== UBAR SUMMARY ===
+Node 0: stage1=0.500, stage2=0.833, overall=0.417
+Node 1: stage1=0.500, stage2=0.875, overall=0.438
+Node 2: stage1=0.500, stage2=0.500, overall=0.250
+Node 3: stage1=0.500, stage2=0.708, overall=0.354
+Node 4: stage1=0.500, stage2=0.625, overall=0.312
+Node 5: stage1=0.500, stage2=0.375, overall=0.188
+Node 6: stage1=0.500, stage2=0.292, overall=0.146
+Node 7: stage1=0.500, stage2=0.667, overall=0.333
+Node 8: stage1=0.500, stage2=0.208, overall=0.104
+Node 9: stage1=0.500, stage2=0.500, overall=0.250
+Node 10: stage1=0.500, stage2=0.625, overall=0.312
+Node 11: stage1=0.500, stage2=0.583, overall=0.292
+Node 12: stage1=0.500, stage2=0.792, overall=0.396
+Node 13: stage1=0.500, stage2=0.458, overall=0.229
+Node 14: stage1=0.500, stage2=0.125, overall=0.062
+Node 15: stage1=0.500, stage2=0.708, overall=0.354
+Node 16: stage1=0.500, stage2=0.125, overall=0.062
+Node 17: stage1=0.500, stage2=0.375, overall=0.188
+Node 18: stage1=0.500, stage2=0.458, overall=0.229
+Node 19: stage1=0.500, stage2=0.458, overall=0.229
+
+=== PARALLEL EXECUTION TIME (realistic for distributed system) ===
+  COMMUNICATION (max across nodes):
+    - Full model transfer: 0.000s (0.0%)
+  COMPUTATION (max across nodes):
+    - Distance computation: 0.032s (0.7%)
+    - Loss computation: 4.556s (99.1%)
+    - Aggregation: 0.007s (0.2%)
+  TOTALS:
+    - Total computation: 4.596s (100.0%)
+    - Total communication: 0.000s (0.0%)
+    - Total parallel time: 4.596s
+
+=== PER-NODE AVERAGE TIME ===
+  - Distance computation: 0.020s
+  - Loss computation: 4.271s
+  - Aggregation: 0.004s
+  - Model transfer: 0.000s
+  - Total per node: 4.295s
+
+=== TOTAL COMPUTATIONAL WORK (sum across all nodes) ===
+  - Total distance computation: 0.398s
+  - Total loss computation: 85.426s
+  - Total aggregation: 0.083s
+  - Total model transfer: 0.000s
+  - Grand total: 85.907s
+  - Mean Stage 1 acceptance rate: 0.500
+  - Mean Stage 2 acceptance rate: 0.515
+  - Overall acceptance rate: 0.257
+
+UBAR Algorithm Properties:
+  - Model dimension: 6,603,710
+  - Rho parameter: 0.5
+  - Two-stage approach: Distance filtering + loss evaluation
+  - Stage 1 selects: 50% of neighbors
+  - Stage 2 uses: Training sample loss comparison
+  - Theoretical complexity: O(deg(i)×d + deg(i)×inference)
+  - Approach: UBAR paper implementation
+
+
+# Experiment completed successfully
