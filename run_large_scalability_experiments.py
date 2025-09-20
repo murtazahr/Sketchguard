@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Script to run scalability experiments for decentralized learning algorithms.
-Runs commands serially and saves logs with naming convention: agg_kvalue_dataset.log
+Script to run LARGE scalability experiments (k=154 and k=299) for decentralized learning algorithms.
+These run on CPU to avoid GPU VRAM issues.
+Saves logs with naming convention: agg_kvalue_dataset.log
 """
 
 import subprocess
@@ -9,32 +10,8 @@ import os
 import sys
 from datetime import datetime
 
-# List of experiments to run
+# Only the large experiments (k=154 and k=299)
 experiments = [
-    {
-        "agg": "balance",
-        "k": 96,
-        "dataset": "femnist",
-        "cmd": "python decentralized_fl_sim.py --dataset femnist --rounds 3 --local-epochs 1 --seed 987654321 --batch-size 64 --lr 0.01 --max-samples 10000 --agg balance --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 96 --num-nodes 100"
-    },
-    {
-        "agg": "ubar",
-        "k": 16,
-        "dataset": "femnist",
-        "cmd": "python decentralized_fl_sim.py --dataset femnist --rounds 3 --local-epochs 1 --seed 987654321 --batch-size 64 --lr 0.01 --max-samples 10000 --agg ubar --ubar-rho 0.5 --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 16 --num-nodes 20"
-    },
-    {
-        "agg": "ubar",
-        "k": 32,
-        "dataset": "femnist",
-        "cmd": "python decentralized_fl_sim.py --dataset femnist --rounds 3 --local-epochs 1 --seed 987654321 --batch-size 64 --lr 0.01 --max-samples 10000 --agg ubar --ubar-rho 0.5 --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 32 --num-nodes 35"
-    },
-    {
-        "agg": "ubar",
-        "k": 96,
-        "dataset": "femnist",
-        "cmd": "python decentralized_fl_sim.py --dataset femnist --rounds 3 --local-epochs 1 --seed 987654321 --batch-size 64 --lr 0.01 --max-samples 10000 --agg ubar --ubar-rho 0.5 --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 96 --num-nodes 100"
-    },
     {
         "agg": "coarse",
         "k": 154,
@@ -82,8 +59,13 @@ def run_experiment(exp_dict):
     # Create directory if it doesn't exist
     os.makedirs(os.path.dirname(log_path), exist_ok=True)
 
+    # Force CPU usage for these large experiments to avoid GPU VRAM issues
+    env = os.environ.copy()
+    env['CUDA_VISIBLE_DEVICES'] = ''  # Hide CUDA devices to force CPU
+
     print(f"\n{'='*60}")
-    print(f"Running: {exp_dict['agg'].upper()} with k={exp_dict['k']}")
+    print(f"Running: {exp_dict['agg'].upper()} with k={exp_dict['k']} (CPU Mode)")
+    print(f"Nodes: {exp_dict['k']+1}")
     print(f"Log file: {log_path}")
     print(f"Command: {exp_dict['cmd']}")
     print(f"{'='*60}")
@@ -94,17 +76,19 @@ def run_experiment(exp_dict):
             # Write header with experiment details
             log_file.write(f"# Experiment: {exp_dict['agg']} k={exp_dict['k']} dataset={exp_dict['dataset']}\n")
             log_file.write(f"# Timestamp: {datetime.now().isoformat()}\n")
+            log_file.write(f"# Device: CPU (forced for large experiment)\n")
             log_file.write(f"# Command: {exp_dict['cmd']}\n")
             log_file.write(f"{'='*80}\n\n")
             log_file.flush()
 
-            # Run the command
+            # Run the command with CPU environment
             process = subprocess.Popen(
                 exp_dict['cmd'].split(),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
-                bufsize=1
+                bufsize=1,
+                env=env
             )
 
             # Stream output to both console and log file
@@ -133,8 +117,12 @@ def run_experiment(exp_dict):
 
 def main():
     """Main function to run all experiments."""
-    print("Starting scalability experiments...")
+    print("Starting LARGE scalability experiments (CPU mode)...")
     print(f"Total experiments to run: {len(experiments)}")
+    print("\n⚠️  These experiments will run on CPU to avoid GPU VRAM issues")
+    print("Configurations:")
+    print("  - k=154 (155 nodes): COARSE, BALANCE, UBAR")
+    print("  - k=299 (300 nodes): COARSE, BALANCE, UBAR")
 
     successful = 0
     failed = 0
@@ -158,6 +146,7 @@ def main():
     print(f"Successful: {successful}")
     print(f"Failed: {failed}")
     print(f"Total time: {duration}")
+    print(f"Average time per experiment: {duration / len(experiments)}")
     print(f"Logs saved in: results/scalability_results/")
     print(f"{'='*60}")
 
