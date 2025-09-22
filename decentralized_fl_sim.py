@@ -1881,8 +1881,8 @@ def parse_args():
     p.add_argument("--pct-compromised", type=float, default=0.0)
 
     # BALANCE algorithm parameters
-    p.add_argument("--balance-gamma", type=float, default=2.0)
-    p.add_argument("--balance-kappa", type=float, default=1.0)
+    p.add_argument("--balance-gamma", type=float, default=0.5)
+    p.add_argument("--balance-kappa", type=float, default=0.5)
     p.add_argument("--balance-alpha", type=float, default=0.5)
 
     # COARSE specific parameters
