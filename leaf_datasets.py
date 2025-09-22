@@ -233,104 +233,66 @@ class LEAFFEMNISTModel(nn.Module):
 
 
 class LEAFCelebAModel(nn.Module):
-    """Improved CelebA CNN Model with higher capacity for better performance."""
+    """Simple LeNet-style CelebA CNN Model for stable training."""
 
     def __init__(self, num_classes: int = 2, image_size: int = 84):
         super().__init__()
         self.num_classes = num_classes
         self.image_size = image_size
 
-        # Modern CNN architecture with progressive channel expansion
-        # Total params will be ~500K-1M instead of ~30K
+        # Simple LeNet-style architecture adapted for CelebA
+        # Input: 84×84×3 (vs original 28×28×1)
 
-        # Block 1: 3 -> 64 channels
-        self.block1 = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=3, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(64, 64, kernel_size=3, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(2, 2)
-        )
+        # First convolution: 3×3×30 (adapted from 3×3×30)
+        self.conv1 = nn.Conv2d(3, 30, kernel_size=3, padding=1)
+        self.pool1 = nn.MaxPool2d(2, 2)
 
-        # Block 2: 64 -> 128 channels
-        self.block2 = nn.Sequential(
-            nn.Conv2d(64, 128, kernel_size=3, padding=1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(128, 128, kernel_size=3, padding=1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(2, 2)
-        )
+        # Second convolution: 3×3×50 (same as original)
+        self.conv2 = nn.Conv2d(30, 50, kernel_size=3, padding=1)
+        self.pool2 = nn.MaxPool2d(2, 2)
 
-        # Block 3: 128 -> 256 channels
-        self.block3 = nn.Sequential(
-            nn.Conv2d(128, 256, kernel_size=3, padding=1),
-            nn.BatchNorm2d(256),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(256, 256, kernel_size=3, padding=1),
-            nn.BatchNorm2d(256),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(2, 2)
-        )
+        # Calculate size after pooling
+        # 84 → 42 (after pool1) → 21 (after pool2)
+        conv_output_size = 21 * 21 * 50
 
-        # Block 4: 256 -> 512 channels
-        self.block4 = nn.Sequential(
-            nn.Conv2d(256, 512, kernel_size=3, padding=1),
-            nn.BatchNorm2d(512),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(512, 512, kernel_size=3, padding=1),
-            nn.BatchNorm2d(512),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(2, 2)
-        )
+        # Fully connected layers
+        self.fc1 = nn.Linear(conv_output_size, 100)  # Hidden layer with 100 units
+        self.fc2 = nn.Linear(100, num_classes)       # Output layer
 
-        # Calculate the size after 4 max pooling layers
-        # 84 -> 42 -> 21 -> 10 -> 5
-        final_size = image_size // (2**4)
-
-        # Fully connected layers with dropout for regularization
-        self.classifier = nn.Sequential(
-            nn.Dropout(0.5),
-            nn.Linear(512 * final_size * final_size, 512),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0.5),
-            nn.Linear(512, 256),
-            nn.ReLU(inplace=True),
-            nn.Linear(256, num_classes)
-        )
-
-        # Initialize weights properly
+        # Initialize weights
         self._initialize_weights()
 
     def _initialize_weights(self):
-        """Initialize model weights using He initialization for ReLU networks."""
+        """Initialize weights with small random values for stability."""
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.Linear):
                 nn.init.normal_(m.weight, 0, 0.01)
                 nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
-        # Input: (batch, 3, image_size, image_size)
-        x = self.block1(x)  # -> (batch, 64, 42, 42)
-        x = self.block2(x)  # -> (batch, 128, 21, 21)
-        x = self.block3(x)  # -> (batch, 256, 10, 10)
-        x = self.block4(x)  # -> (batch, 512, 5, 5)
+        # Input: (batch, 3, 84, 84)
+
+        # First conv + pool
+        x = self.conv1(x)           # → (batch, 30, 84, 84)
+        x = torch.relu(x)
+        x = self.pool1(x)           # → (batch, 30, 42, 42)
+
+        # Second conv + pool
+        x = self.conv2(x)           # → (batch, 50, 42, 42)
+        x = torch.relu(x)
+        x = self.pool2(x)           # → (batch, 50, 21, 21)
 
         # Flatten
-        x = x.view(x.size(0), -1)
+        x = x.view(x.size(0), -1)   # → (batch, 50*21*21)
 
-        # Classifier with dropout
-        x = self.classifier(x)
+        # Fully connected layers
+        x = self.fc1(x)             # → (batch, 100)
+        x = torch.relu(x)
+        x = self.fc2(x)             # → (batch, num_classes)
 
         return x
 
