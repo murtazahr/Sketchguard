@@ -49,6 +49,7 @@ from leaf_datasets import (
     LEAFFEMNISTModel,
     LEAFCelebAModel
 )
+from model_variants import get_model_variant
 
 
 # ---------------------------- Utilities ---------------------------- #
@@ -1425,7 +1426,11 @@ def run_sim(args):
             torch.cuda.manual_seed_all(args.seed + i)
 
         if args.dataset.lower() == "femnist":
-            model = LEAFFEMNISTModel(num_classes=num_classes).to(dev)
+            # Use model variant if specified, otherwise use baseline
+            if hasattr(args, 'model_variant') and args.model_variant != 'baseline':
+                model = get_model_variant(args.model_variant, num_classes).to(dev)
+            else:
+                model = LEAFFEMNISTModel(num_classes=num_classes).to(dev)
         elif args.dataset.lower() == "celeba":
             model = LEAFCelebAModel(num_classes=num_classes, image_size=image_size).to(dev)
         else:
@@ -1440,6 +1445,11 @@ def run_sim(args):
 
     # Calculate model dimension for sketching algorithms
     model_dim = calculate_model_dimension(models[0])
+
+    # Print model variant info if using variants
+    if hasattr(args, 'model_variant'):
+        print(f"Model variant: {args.model_variant}")
+        print(f"Model parameters: {model_dim:,}")
 
     # Initialize aggregation monitors
     balance_monitors = {}
@@ -1900,6 +1910,12 @@ def parse_args():
 
     # Debug/verbose
     p.add_argument("--verbose", action="store_true")
+
+    # Model variant
+    p.add_argument("--model-variant", type=str,
+                   choices=["tiny", "small", "baseline", "large", "xlarge"],
+                   default="baseline",
+                   help="Model size variant to use (only for FEMNIST)")
 
     return p.parse_args()
 
