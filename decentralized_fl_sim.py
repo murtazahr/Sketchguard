@@ -1465,6 +1465,7 @@ def run_sim(args):
         for i in range(args.num_nodes):
             balance_monitors[str(i)] = BALANCE(str(i), balance_config, args.rounds)
         print(f"BALANCE algorithm:")
+        print(f"Balance Config: {balance_config}")
         print(f"  - Model dimension: {model_dim:,} parameters")
         print(f"  - Complexity: O(N×d) = O({args.num_nodes}×{model_dim:,})")
 
@@ -1486,6 +1487,7 @@ def run_sim(args):
 
         print(f"COARSE ALGORITHM (Sketch-based Filtering + State Aggregation)")
         print(f"  - Model dimension: {model_dim:,} parameters")
+        print(f"  - Config: {coarse_config}")
         print(f"  - Sketch size: {args.coarse_sketch_size}")
         print(f"  - Compression ratio: {model_dim / args.coarse_sketch_size:.1f}x")
         print(f"  - Complexity: O(d + N×k) = O({model_dim:,} + {args.num_nodes}×{args.coarse_sketch_size})")
