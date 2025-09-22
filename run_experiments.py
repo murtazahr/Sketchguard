@@ -13,20 +13,20 @@ import os
 def get_graph_configs():
     """Get all graph configurations."""
     return [
-        {"name": "erdos", "p": 0.2},
-        {"name": "erdos", "p": 0.45},
-        {"name": "erdos", "p": 0.6},
+        {"name": "ring", "p": None},
         {"name": "fully", "p": None},
-        {"name": "ring", "p": None}
+        {"name": "erdos", "p": 0.6},
+        {"name": "erdos", "p": 0.45},
+        {"name": "erdos", "p": 0.2},
     ]
 
 def get_aggregation_methods():
     """Get all aggregation methods."""
-    return ["balance", "coarse", "ubar", "krum", "d-fedavg"]
+    return ["d-fedavg", "krum", "ubar", "coarse", "balance"]
 
 def get_attack_percentages():
     """Get all attack percentages."""
-    return [0.1, 0.4, 0.6, 0.7]
+    return [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
 
 def get_attack_types():
     """Get all attack types."""
