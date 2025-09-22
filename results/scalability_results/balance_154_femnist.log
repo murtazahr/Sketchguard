@@ -1,0 +1,394 @@
+# Experiment: balance k=154 dataset=femnist
+# Timestamp: 2025-09-20T16:10:29.395792
+# Device: CPU (forced for consistent performance)
+# Command: python decentralized_fl_sim.py --dataset femnist --rounds 3 --local-epochs 1 --seed 987654321 --batch-size 64 --lr 0.01 --max-samples 10000 --agg balance --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155
+================================================================================
+
+Device: cpu
+Seed: 987654321
+Loading 36 LEAF FEMNIST train files...
+LEAF FEMNIST train: 3597 users, 734463 samples
+Loading 36 LEAF FEMNIST test files...
+LEAF FEMNIST test: 3597 users, 83388 samples
+Found 3597 train users, 3597 test users, 3597 common users
+User sample counts range: 525 (max) to 17 (min)
+Distributed ALL 3597 users across 155 clients
+Users per client: 23 (with 32 clients getting +1 user)
+Train partition sizes: [5012, 4663, 5230, 4772, 5166, 4912, 4471, 4962, 5375, 5077, 5317, 4706, 5072, 5445, 5194, 4552, 4773, 5132, 5136, 4426, 4501, 5364, 5025, 4734, 5451, 4358, 5225, 5392, 4655, 4577, 5292, 4518, 5111, 4022, 4758, 4423, 5146, 3902, 5438, 4300, 5416, 4549, 4629, 4389, 4546, 5064, 4985, 4450, 5167, 4796, 3974, 5320, 4500, 4377, 4982, 4999, 4688, 4140, 3848, 4564, 4739, 5082, 4692, 4712, 4967, 4707, 5047, 4959, 5167, 4001, 4977, 5225, 4380, 4747, 4921, 4674, 4667, 4633, 5108, 4473, 4250, 4372, 4438, 4513, 4654, 4954, 4499, 4818, 4291, 4375, 4187, 4117, 4722, 4337, 4974, 4206, 4151, 4474, 4361, 4876, 4772, 5349, 4877, 5310, 4401, 5336, 4272, 4778, 5023, 4263, 5006, 4887, 4482, 5150, 5141, 4458, 4737, 4525, 5307, 4935, 4454, 4421, 4594, 4382, 4738, 4580, 4897, 5362, 4882, 4462, 5017, 4773, 4969, 4887, 5124, 4999, 4530, 4854, 5004, 4349, 4256, 4454, 4719, 3871, 4766, 4182, 4637, 4578, 4823, 4311, 4478, 4966, 4694, 4861, 4165]
+Test partition sizes: [571, 529, 592, 541, 585, 558, 512, 562, 608, 577, 601, 533, 578, 616, 589, 518, 543, 583, 583, 505, 515, 610, 572, 535, 618, 495, 593, 611, 532, 522, 603, 512, 580, 460, 540, 504, 584, 446, 616, 490, 612, 517, 527, 498, 516, 573, 564, 507, 586, 543, 452, 605, 511, 497, 565, 566, 535, 469, 441, 517, 540, 578, 536, 535, 564, 536, 574, 564, 584, 455, 562, 592, 498, 541, 559, 531, 527, 527, 581, 508, 483, 495, 503, 512, 530, 562, 509, 548, 488, 495, 475, 466, 537, 493, 563, 477, 472, 508, 496, 552, 543, 604, 553, 601, 502, 603, 486, 542, 569, 488, 567, 557, 509, 580, 583, 506, 539, 511, 603, 560, 507, 501, 519, 498, 538, 520, 554, 607, 554, 505, 570, 543, 564, 553, 581, 568, 516, 553, 565, 495, 485, 502, 537, 442, 540, 474, 525, 520, 545, 490, 510, 565, 532, 552, 473]
+  Client 0: 5012 train samples, 62 unique classes
+  Client 1: 4663 train samples, 62 unique classes
+  Client 2: 5230 train samples, 62 unique classes
+  Client 3: 4772 train samples, 62 unique classes
+  Client 4: 5166 train samples, 62 unique classes
+  Client 5: 4912 train samples, 62 unique classes
+  Client 6: 4471 train samples, 62 unique classes
+  Client 7: 4962 train samples, 62 unique classes
+  Client 8: 5375 train samples, 62 unique classes
+  Client 9: 5077 train samples, 62 unique classes
+  Client 10: 5317 train samples, 62 unique classes
+  Client 11: 4706 train samples, 62 unique classes
+  Client 12: 5072 train samples, 62 unique classes
+  Client 13: 5445 train samples, 62 unique classes
+  Client 14: 5194 train samples, 62 unique classes
+  Client 15: 4552 train samples, 62 unique classes
+  Client 16: 4773 train samples, 62 unique classes
+  Client 17: 5132 train samples, 62 unique classes
+  Client 18: 5136 train samples, 62 unique classes
+  Client 19: 4426 train samples, 62 unique classes
+  Client 20: 4501 train samples, 62 unique classes
+  Client 21: 5364 train samples, 62 unique classes
+  Client 22: 5025 train samples, 62 unique classes
+  Client 23: 4734 train samples, 62 unique classes
+  Client 24: 5451 train samples, 62 unique classes
+  Client 25: 4358 train samples, 62 unique classes
+  Client 26: 5225 train samples, 62 unique classes
+  Client 27: 5392 train samples, 62 unique classes
+  Client 28: 4655 train samples, 62 unique classes
+  Client 29: 4577 train samples, 62 unique classes
+  Client 30: 5292 train samples, 62 unique classes
+  Client 31: 4518 train samples, 62 unique classes
+  Client 32: 5111 train samples, 62 unique classes
+  Client 33: 4022 train samples, 62 unique classes
+  Client 34: 4758 train samples, 62 unique classes
+  Client 35: 4423 train samples, 62 unique classes
+  Client 36: 5146 train samples, 62 unique classes
+  Client 37: 3902 train samples, 62 unique classes
+  Client 38: 5438 train samples, 62 unique classes
+  Client 39: 4300 train samples, 62 unique classes
+  Client 40: 5416 train samples, 62 unique classes
+  Client 41: 4549 train samples, 62 unique classes
+  Client 42: 4629 train samples, 62 unique classes
+  Client 43: 4389 train samples, 62 unique classes
+  Client 44: 4546 train samples, 62 unique classes
+  Client 45: 5064 train samples, 62 unique classes
+  Client 46: 4985 train samples, 62 unique classes
+  Client 47: 4450 train samples, 62 unique classes
+  Client 48: 5167 train samples, 62 unique classes
+  Client 49: 4796 train samples, 62 unique classes
+  Client 50: 3974 train samples, 62 unique classes
+  Client 51: 5320 train samples, 62 unique classes
+  Client 52: 4500 train samples, 62 unique classes
+  Client 53: 4377 train samples, 62 unique classes
+  Client 54: 4982 train samples, 62 unique classes
+  Client 55: 4999 train samples, 62 unique classes
+  Client 56: 4688 train samples, 62 unique classes
+  Client 57: 4140 train samples, 62 unique classes
+  Client 58: 3848 train samples, 62 unique classes
+  Client 59: 4564 train samples, 62 unique classes
+  Client 60: 4739 train samples, 62 unique classes
+  Client 61: 5082 train samples, 62 unique classes
+  Client 62: 4692 train samples, 62 unique classes
+  Client 63: 4712 train samples, 62 unique classes
+  Client 64: 4967 train samples, 62 unique classes
+  Client 65: 4707 train samples, 62 unique classes
+  Client 66: 5047 train samples, 62 unique classes
+  Client 67: 4959 train samples, 62 unique classes
+  Client 68: 5167 train samples, 62 unique classes
+  Client 69: 4001 train samples, 62 unique classes
+  Client 70: 4977 train samples, 62 unique classes
+  Client 71: 5225 train samples, 62 unique classes
+  Client 72: 4380 train samples, 62 unique classes
+  Client 73: 4747 train samples, 62 unique classes
+  Client 74: 4921 train samples, 62 unique classes
+  Client 75: 4674 train samples, 62 unique classes
+  Client 76: 4667 train samples, 62 unique classes
+  Client 77: 4633 train samples, 62 unique classes
+  Client 78: 5108 train samples, 62 unique classes
+  Client 79: 4473 train samples, 62 unique classes
+  Client 80: 4250 train samples, 62 unique classes
+  Client 81: 4372 train samples, 62 unique classes
+  Client 82: 4438 train samples, 62 unique classes
+  Client 83: 4513 train samples, 62 unique classes
+  Client 84: 4654 train samples, 62 unique classes
+  Client 85: 4954 train samples, 62 unique classes
+  Client 86: 4499 train samples, 62 unique classes
+  Client 87: 4818 train samples, 62 unique classes
+  Client 88: 4291 train samples, 62 unique classes
+  Client 89: 4375 train samples, 62 unique classes
+  Client 90: 4187 train samples, 62 unique classes
+  Client 91: 4117 train samples, 62 unique classes
+  Client 92: 4722 train samples, 62 unique classes
+  Client 93: 4337 train samples, 62 unique classes
+  Client 94: 4974 train samples, 62 unique classes
+  Client 95: 4206 train samples, 62 unique classes
+  Client 96: 4151 train samples, 62 unique classes
+  Client 97: 4474 train samples, 62 unique classes
+  Client 98: 4361 train samples, 62 unique classes
+  Client 99: 4876 train samples, 62 unique classes
+  Client 100: 4772 train samples, 62 unique classes
+  Client 101: 5349 train samples, 62 unique classes
+  Client 102: 4877 train samples, 62 unique classes
+  Client 103: 5310 train samples, 62 unique classes
+  Client 104: 4401 train samples, 62 unique classes
+  Client 105: 5336 train samples, 62 unique classes
+  Client 106: 4272 train samples, 62 unique classes
+  Client 107: 4778 train samples, 62 unique classes
+  Client 108: 5023 train samples, 62 unique classes
+  Client 109: 4263 train samples, 62 unique classes
+  Client 110: 5006 train samples, 62 unique classes
+  Client 111: 4887 train samples, 62 unique classes
+  Client 112: 4482 train samples, 62 unique classes
+  Client 113: 5150 train samples, 62 unique classes
+  Client 114: 5141 train samples, 62 unique classes
+  Client 115: 4458 train samples, 62 unique classes
+  Client 116: 4737 train samples, 62 unique classes
+  Client 117: 4525 train samples, 62 unique classes
+  Client 118: 5307 train samples, 62 unique classes
+  Client 119: 4935 train samples, 62 unique classes
+  Client 120: 4454 train samples, 62 unique classes
+  Client 121: 4421 train samples, 62 unique classes
+  Client 122: 4594 train samples, 62 unique classes
+  Client 123: 4382 train samples, 62 unique classes
+  Client 124: 4738 train samples, 62 unique classes
+  Client 125: 4580 train samples, 62 unique classes
+  Client 126: 4897 train samples, 62 unique classes
+  Client 127: 5362 train samples, 62 unique classes
+  Client 128: 4882 train samples, 62 unique classes
+  Client 129: 4462 train samples, 62 unique classes
+  Client 130: 5017 train samples, 62 unique classes
+  Client 131: 4773 train samples, 62 unique classes
+  Client 132: 4969 train samples, 62 unique classes
+  Client 133: 4887 train samples, 62 unique classes
+  Client 134: 5124 train samples, 62 unique classes
+  Client 135: 4999 train samples, 62 unique classes
+  Client 136: 4530 train samples, 62 unique classes
+  Client 137: 4854 train samples, 62 unique classes
+  Client 138: 5004 train samples, 62 unique classes
+  Client 139: 4349 train samples, 62 unique classes
+  Client 140: 4256 train samples, 62 unique classes
+  Client 141: 4454 train samples, 62 unique classes
+  Client 142: 4719 train samples, 62 unique classes
+  Client 143: 3871 train samples, 62 unique classes
+  Client 144: 4766 train samples, 62 unique classes
+  Client 145: 4182 train samples, 62 unique classes
+  Client 146: 4637 train samples, 62 unique classes
+  Client 147: 4578 train samples, 62 unique classes
+  Client 148: 4823 train samples, 62 unique classes
+  Client 149: 4311 train samples, 62 unique classes
+  Client 150: 4478 train samples, 62 unique classes
+  Client 151: 4966 train samples, 62 unique classes
+  Client 152: 4694 train samples, 62 unique classes
+  Client 153: 4861 train samples, 62 unique classes
+  Client 154: 4165 train samples, 62 unique classes
+Will sample 10000 samples per client per epoch
+Graph: k-regular, nodes: 155, edges: 11935
+Degree statistics: avg=154.00, min=154, max=154
+k-regular with k=154 (each node has exactly 154 neighbors)
+Attack: Compromised 77/155 nodes: [0, 2, 4, 9, 10, 13, 17, 27, 29, 30, 32, 35, 37, 38, 40, 43, 44, 46, 47, 48, 49, 50, 54, 55, 59, 61, 62, 64, 66, 67, 68, 73, 74, 76, 77, 78, 81, 83, 84, 91, 92, 94, 97, 98, 100, 101, 103, 104, 106, 107, 112, 113, 114, 115, 116, 118, 119, 120, 122, 124, 125, 127, 128, 130, 131, 132, 133, 134, 138, 141, 143, 144, 147, 149, 150, 152, 154]
+Attack type: directed_deviation, lambda: 1.0
+BALANCE algorithm:
+  - Model dimension: 6,603,710 parameters
+  - Complexity: O(N×d) = O(155×6,603,710)
+Initial test acc across nodes: mean=0.0177 ± 0.0172
+Round 001: test acc mean=0.0523 ± 0.0130 | min=0.0313 max=0.1213
+         : test loss mean=4.0429 ± 0.0097
+         : individual accs = ['0.049037', '0.060491', '0.045608', '0.057301', '0.034188', '0.062724', '0.048828', '0.056940', '0.074013', '0.046794', '0.049917', '0.065666', '0.051903', '0.035714', '0.042445', '0.040541', '0.081031', '0.046312', '0.034305', '0.055446', '0.050485', '0.042623', '0.052448', '0.044860', '0.042071', '0.060606', '0.042159', '0.037643', '0.060150', '0.051724', '0.036484', '0.060547', '0.068966', '0.071739', '0.055556', '0.051587', '0.058219', '0.065022', '0.037338', '0.091837', '0.040850', '0.048356', '0.049336', '0.076305', '0.048450', '0.043630', '0.042553', '0.057199', '0.040956', '0.053407', '0.055310', '0.047934', '0.078278', '0.046278', '0.053097', '0.049470', '0.039252', '0.042644', '0.061224', '0.046422', '0.037037', '0.057093', '0.035448', '0.063551', '0.046099', '0.083955', '0.043554', '0.047872', '0.054795', '0.065934', '0.046263', '0.042230', '0.044177', '0.048059', '0.037567', '0.050847', '0.037951', '0.041746', '0.056799', '0.059055', '0.074534', '0.054545', '0.121272', '0.062500', '0.045283', '0.042705', '0.056974', '0.043796', '0.061475', '0.066667', '0.054737', '0.047210', '0.057728', '0.042596', '0.031972', '0.085954', '0.044492', '0.064961', '0.052419', '0.059783', '0.049724', '0.034768', '0.050633', '0.034942', '0.045817', '0.074627', '0.047325', '0.047970', '0.047452', '0.057377', '0.063492', '0.075404', '0.058939', '0.050000', '0.036021', '0.049407', '0.081633', '0.046967', '0.041459', '0.044643', '0.043393', '0.049900', '0.055877', '0.056225', '0.042751', '0.048077', '0.048736', '0.031301', '0.043321', '0.059406', '0.054386', '0.036832', '0.060284', '0.059675', '0.058520', '0.033451', '0.048450', '0.066908', '0.040708', '0.050505', '0.049485', '0.039841', '0.067039', '0.052036', '0.046296', '0.061181', '0.053333', '0.040385', '0.062385', '0.051020', '0.054902', '0.033628', '0.046992', '0.043478', '0.063425']
+         : correct/total = [(28, 571), (32, 529), (27, 592), (31, 541), (20, 585), (35, 558), (25, 512), (32, 562), (45, 608), (27, 577), (30, 601), (35, 533), (30, 578), (22, 616), (25, 589), (21, 518), (44, 543), (27, 583), (20, 583), (28, 505), (26, 515), (26, 610), (30, 572), (24, 535), (26, 618), (30, 495), (25, 593), (23, 611), (32, 532), (27, 522), (22, 603), (31, 512), (40, 580), (33, 460), (30, 540), (26, 504), (34, 584), (29, 446), (23, 616), (45, 490), (25, 612), (25, 517), (26, 527), (38, 498), (25, 516), (25, 573), (24, 564), (29, 507), (24, 586), (29, 543), (25, 452), (29, 605), (40, 511), (23, 497), (30, 565), (28, 566), (21, 535), (20, 469), (27, 441), (24, 517), (20, 540), (33, 578), (19, 536), (34, 535), (26, 564), (45, 536), (25, 574), (27, 564), (32, 584), (30, 455), (26, 562), (25, 592), (22, 498), (26, 541), (21, 559), (27, 531), (20, 527), (22, 527), (33, 581), (30, 508), (36, 483), (27, 495), (61, 503), (32, 512), (24, 530), (24, 562), (29, 509), (24, 548), (30, 488), (33, 495), (26, 475), (22, 466), (31, 537), (21, 493), (18, 563), (41, 477), (21, 472), (33, 508), (26, 496), (33, 552), (27, 543), (21, 604), (28, 553), (21, 601), (23, 502), (45, 603), (23, 486), (26, 542), (27, 569), (28, 488), (36, 567), (42, 557), (30, 509), (29, 580), (21, 583), (25, 506), (44, 539), (24, 511), (25, 603), (25, 560), (22, 507), (25, 501), (29, 519), (28, 498), (23, 538), (25, 520), (27, 554), (19, 607), (24, 554), (30, 505), (31, 570), (20, 543), (34, 564), (33, 553), (34, 581), (19, 568), (25, 516), (37, 553), (23, 565), (25, 495), (24, 485), (20, 502), (36, 537), (23, 442), (25, 540), (29, 474), (28, 525), (21, 520), (34, 545), (25, 490), (28, 510), (19, 565), (25, 532), (24, 552), (30, 473)]
+         : compromised: 0.0485, honest: 0.0560
+Round 002: test acc mean=0.0512 ± 0.0104 | min=0.0291 max=0.0806
+         : test loss mean=3.9178 ± 0.0283
+         : individual accs = ['0.040280', '0.056711', '0.040541', '0.049908', '0.034188', '0.037634', '0.058594', '0.037367', '0.052632', '0.039861', '0.056572', '0.048780', '0.048443', '0.056818', '0.042445', '0.055985', '0.055249', '0.053173', '0.063465', '0.055446', '0.038835', '0.044262', '0.052448', '0.033645', '0.042071', '0.046465', '0.042159', '0.034370', '0.050752', '0.057471', '0.061360', '0.058594', '0.043103', '0.071739', '0.037037', '0.071429', '0.049658', '0.053812', '0.043831', '0.040816', '0.040850', '0.048356', '0.049336', '0.062249', '0.048450', '0.043630', '0.046099', '0.045365', '0.042662', '0.055249', '0.075221', '0.046281', '0.060665', '0.058350', '0.053097', '0.037102', '0.039252', '0.076759', '0.072562', '0.065764', '0.037037', '0.050173', '0.050373', '0.063551', '0.047872', '0.061567', '0.040070', '0.031915', '0.032534', '0.057143', '0.039146', '0.038851', '0.064257', '0.046211', '0.037567', '0.047081', '0.047438', '0.060721', '0.030981', '0.057087', '0.074534', '0.068687', '0.055666', '0.062500', '0.054717', '0.053381', '0.056974', '0.056569', '0.057377', '0.048485', '0.054737', '0.049356', '0.054004', '0.042596', '0.046181', '0.060797', '0.046610', '0.064961', '0.054435', '0.043478', '0.049724', '0.048013', '0.050633', '0.048253', '0.053785', '0.054726', '0.047325', '0.046125', '0.054482', '0.059426', '0.044092', '0.075404', '0.080550', '0.046552', '0.044597', '0.047431', '0.046382', '0.037182', '0.053068', '0.058929', '0.063116', '0.039920', '0.053950', '0.040161', '0.042751', '0.057692', '0.048736', '0.046129', '0.037906', '0.053465', '0.049123', '0.038674', '0.044326', '0.066908', '0.058520', '0.042254', '0.029070', '0.063291', '0.047788', '0.050505', '0.068041', '0.059761', '0.072626', '0.072398', '0.046296', '0.042194', '0.053333', '0.055769', '0.053211', '0.046939', '0.058824', '0.056637', '0.043233', '0.045290', '0.063425']
+         : correct/total = [(23, 571), (30, 529), (24, 592), (27, 541), (20, 585), (21, 558), (30, 512), (21, 562), (32, 608), (23, 577), (34, 601), (26, 533), (28, 578), (35, 616), (25, 589), (29, 518), (30, 543), (31, 583), (37, 583), (28, 505), (20, 515), (27, 610), (30, 572), (18, 535), (26, 618), (23, 495), (25, 593), (21, 611), (27, 532), (30, 522), (37, 603), (30, 512), (25, 580), (33, 460), (20, 540), (36, 504), (29, 584), (24, 446), (27, 616), (20, 490), (25, 612), (25, 517), (26, 527), (31, 498), (25, 516), (25, 573), (26, 564), (23, 507), (25, 586), (30, 543), (34, 452), (28, 605), (31, 511), (29, 497), (30, 565), (21, 566), (21, 535), (36, 469), (32, 441), (34, 517), (20, 540), (29, 578), (27, 536), (34, 535), (27, 564), (33, 536), (23, 574), (18, 564), (19, 584), (26, 455), (22, 562), (23, 592), (32, 498), (25, 541), (21, 559), (25, 531), (25, 527), (32, 527), (18, 581), (29, 508), (36, 483), (34, 495), (28, 503), (32, 512), (29, 530), (30, 562), (29, 509), (31, 548), (28, 488), (24, 495), (26, 475), (23, 466), (29, 537), (21, 493), (26, 563), (29, 477), (22, 472), (33, 508), (27, 496), (24, 552), (27, 543), (29, 604), (28, 553), (29, 601), (27, 502), (33, 603), (23, 486), (25, 542), (31, 569), (29, 488), (25, 567), (42, 557), (41, 509), (27, 580), (26, 583), (24, 506), (25, 539), (19, 511), (32, 603), (33, 560), (32, 507), (20, 501), (28, 519), (20, 498), (23, 538), (30, 520), (27, 554), (28, 607), (21, 554), (27, 505), (28, 570), (21, 543), (25, 564), (37, 553), (34, 581), (24, 568), (15, 516), (35, 553), (27, 565), (25, 495), (33, 485), (30, 502), (39, 537), (32, 442), (25, 540), (20, 474), (28, 525), (29, 520), (29, 545), (23, 490), (30, 510), (32, 565), (23, 532), (25, 552), (30, 473)]
+         : compromised: 0.0508, honest: 0.0515
+Round 003: test acc mean=0.0511 ± 0.0101 | min=0.0317 max=0.0888
+         : test loss mean=3.7470 ± 0.0365
+         : individual accs = ['0.038529', '0.060491', '0.043919', '0.057301', '0.051282', '0.057348', '0.058594', '0.056940', '0.039474', '0.051993', '0.051581', '0.052533', '0.048443', '0.035714', '0.042445', '0.069498', '0.055249', '0.039451', '0.068611', '0.055446', '0.044660', '0.062295', '0.071678', '0.063551', '0.055016', '0.048485', '0.057336', '0.058920', '0.048872', '0.051724', '0.043118', '0.060547', '0.034483', '0.071739', '0.066667', '0.055556', '0.054795', '0.051570', '0.060065', '0.061224', '0.040850', '0.048356', '0.049336', '0.060241', '0.048450', '0.045375', '0.042553', '0.057199', '0.049488', '0.051565', '0.055310', '0.046281', '0.064579', '0.058350', '0.047788', '0.033569', '0.039252', '0.076759', '0.047619', '0.050290', '0.050000', '0.050173', '0.065299', '0.039252', '0.042553', '0.054104', '0.040070', '0.058511', '0.044521', '0.065934', '0.039146', '0.038851', '0.064257', '0.049908', '0.037567', '0.052731', '0.049336', '0.060721', '0.060241', '0.053150', '0.041408', '0.056566', '0.047714', '0.046875', '0.045283', '0.064057', '0.066798', '0.056569', '0.051230', '0.052525', '0.048421', '0.075107', '0.048417', '0.050710', '0.047957', '0.060797', '0.057203', '0.055118', '0.054435', '0.059783', '0.058932', '0.046358', '0.039783', '0.034942', '0.053785', '0.038143', '0.055556', '0.047970', '0.043937', '0.065574', '0.031746', '0.034111', '0.033399', '0.032759', '0.065180', '0.047431', '0.055659', '0.052838', '0.033167', '0.044643', '0.043393', '0.037924', '0.053950', '0.036145', '0.066914', '0.044231', '0.037906', '0.046129', '0.057762', '0.059406', '0.049123', '0.038674', '0.053191', '0.041591', '0.041308', '0.052817', '0.063953', '0.039783', '0.046018', '0.050505', '0.053608', '0.051793', '0.040968', '0.052036', '0.046296', '0.061181', '0.036190', '0.048077', '0.051376', '0.046939', '0.047059', '0.047788', '0.039474', '0.088768', '0.063425']
+         : correct/total = [(22, 571), (32, 529), (26, 592), (31, 541), (30, 585), (32, 558), (30, 512), (32, 562), (24, 608), (30, 577), (31, 601), (28, 533), (28, 578), (22, 616), (25, 589), (36, 518), (30, 543), (23, 583), (40, 583), (28, 505), (23, 515), (38, 610), (41, 572), (34, 535), (34, 618), (24, 495), (34, 593), (36, 611), (26, 532), (27, 522), (26, 603), (31, 512), (20, 580), (33, 460), (36, 540), (28, 504), (32, 584), (23, 446), (37, 616), (30, 490), (25, 612), (25, 517), (26, 527), (30, 498), (25, 516), (26, 573), (24, 564), (29, 507), (29, 586), (28, 543), (25, 452), (28, 605), (33, 511), (29, 497), (27, 565), (19, 566), (21, 535), (36, 469), (21, 441), (26, 517), (27, 540), (29, 578), (35, 536), (21, 535), (24, 564), (29, 536), (23, 574), (33, 564), (26, 584), (30, 455), (22, 562), (23, 592), (32, 498), (27, 541), (21, 559), (28, 531), (26, 527), (32, 527), (35, 581), (27, 508), (20, 483), (28, 495), (24, 503), (24, 512), (24, 530), (36, 562), (34, 509), (31, 548), (25, 488), (26, 495), (23, 475), (35, 466), (26, 537), (25, 493), (27, 563), (29, 477), (27, 472), (28, 508), (27, 496), (33, 552), (32, 543), (28, 604), (22, 553), (21, 601), (27, 502), (23, 603), (27, 486), (26, 542), (25, 569), (32, 488), (18, 567), (19, 557), (17, 509), (19, 580), (38, 583), (24, 506), (30, 539), (27, 511), (20, 603), (25, 560), (22, 507), (19, 501), (28, 519), (18, 498), (36, 538), (23, 520), (21, 554), (28, 607), (32, 554), (30, 505), (28, 570), (21, 543), (30, 564), (23, 553), (24, 581), (30, 568), (33, 516), (22, 553), (26, 565), (25, 495), (26, 485), (26, 502), (22, 537), (23, 442), (25, 540), (29, 474), (19, 525), (25, 520), (28, 545), (23, 490), (24, 510), (27, 565), (21, 532), (49, 552), (30, 473)]
+         : compromised: 0.0491, honest: 0.0531
+
+=== FINAL RESULTS ===
+Dataset: femnist, Nodes: 155, Graph: k-regular, Aggregation: balance
+Attack: directed_deviation, 50.0% compromised
+Final accuracy - Compromised: 0.0491, Honest: 0.0531
+Overall test accuracy: mean=0.0511 ± 0.0101
+
+=== BALANCE SUMMARY ===
+Node 0: acceptance=0.169
+Node 1: acceptance=0.167
+Node 2: acceptance=0.169
+Node 3: acceptance=0.167
+Node 4: acceptance=0.169
+Node 5: acceptance=0.167
+Node 6: acceptance=0.167
+Node 7: acceptance=0.169
+Node 8: acceptance=0.169
+Node 9: acceptance=0.169
+Node 10: acceptance=0.169
+Node 11: acceptance=0.167
+Node 12: acceptance=0.167
+Node 13: acceptance=0.169
+Node 14: acceptance=0.167
+Node 15: acceptance=0.167
+Node 16: acceptance=0.167
+Node 17: acceptance=0.169
+Node 18: acceptance=0.169
+Node 19: acceptance=0.167
+Node 20: acceptance=0.167
+Node 21: acceptance=0.167
+Node 22: acceptance=0.167
+Node 23: acceptance=0.167
+Node 24: acceptance=0.169
+Node 25: acceptance=0.167
+Node 26: acceptance=0.167
+Node 27: acceptance=0.169
+Node 28: acceptance=0.167
+Node 29: acceptance=0.169
+Node 30: acceptance=0.169
+Node 31: acceptance=0.167
+Node 32: acceptance=0.169
+Node 33: acceptance=0.167
+Node 34: acceptance=0.167
+Node 35: acceptance=0.169
+Node 36: acceptance=0.167
+Node 37: acceptance=0.169
+Node 38: acceptance=0.169
+Node 39: acceptance=0.167
+Node 40: acceptance=0.169
+Node 41: acceptance=0.167
+Node 42: acceptance=0.167
+Node 43: acceptance=0.169
+Node 44: acceptance=0.169
+Node 45: acceptance=0.169
+Node 46: acceptance=0.169
+Node 47: acceptance=0.169
+Node 48: acceptance=0.169
+Node 49: acceptance=0.169
+Node 50: acceptance=0.169
+Node 51: acceptance=0.169
+Node 52: acceptance=0.167
+Node 53: acceptance=0.167
+Node 54: acceptance=0.169
+Node 55: acceptance=0.169
+Node 56: acceptance=0.167
+Node 57: acceptance=0.167
+Node 58: acceptance=0.167
+Node 59: acceptance=0.169
+Node 60: acceptance=0.167
+Node 61: acceptance=0.169
+Node 62: acceptance=0.169
+Node 63: acceptance=0.167
+Node 64: acceptance=0.169
+Node 65: acceptance=0.167
+Node 66: acceptance=0.169
+Node 67: acceptance=0.169
+Node 68: acceptance=0.169
+Node 69: acceptance=0.167
+Node 70: acceptance=0.169
+Node 71: acceptance=0.167
+Node 72: acceptance=0.167
+Node 73: acceptance=0.169
+Node 74: acceptance=0.169
+Node 75: acceptance=0.167
+Node 76: acceptance=0.169
+Node 77: acceptance=0.169
+Node 78: acceptance=0.169
+Node 79: acceptance=0.167
+Node 80: acceptance=0.167
+Node 81: acceptance=0.169
+Node 82: acceptance=0.167
+Node 83: acceptance=0.169
+Node 84: acceptance=0.169
+Node 85: acceptance=0.167
+Node 86: acceptance=0.167
+Node 87: acceptance=0.167
+Node 88: acceptance=0.167
+Node 89: acceptance=0.167
+Node 90: acceptance=0.167
+Node 91: acceptance=0.169
+Node 92: acceptance=0.169
+Node 93: acceptance=0.167
+Node 94: acceptance=0.169
+Node 95: acceptance=0.167
+Node 96: acceptance=0.167
+Node 97: acceptance=0.169
+Node 98: acceptance=0.169
+Node 99: acceptance=0.167
+Node 100: acceptance=0.169
+Node 101: acceptance=0.169
+Node 102: acceptance=0.167
+Node 103: acceptance=0.169
+Node 104: acceptance=0.169
+Node 105: acceptance=0.169
+Node 106: acceptance=0.169
+Node 107: acceptance=0.169
+Node 108: acceptance=0.167
+Node 109: acceptance=0.167
+Node 110: acceptance=0.167
+Node 111: acceptance=0.167
+Node 112: acceptance=0.169
+Node 113: acceptance=0.169
+Node 114: acceptance=0.169
+Node 115: acceptance=0.169
+Node 116: acceptance=0.169
+Node 117: acceptance=0.167
+Node 118: acceptance=0.169
+Node 119: acceptance=0.169
+Node 120: acceptance=0.169
+Node 121: acceptance=0.167
+Node 122: acceptance=0.169
+Node 123: acceptance=0.167
+Node 124: acceptance=0.169
+Node 125: acceptance=0.169
+Node 126: acceptance=0.167
+Node 127: acceptance=0.169
+Node 128: acceptance=0.169
+Node 129: acceptance=0.167
+Node 130: acceptance=0.169
+Node 131: acceptance=0.169
+Node 132: acceptance=0.169
+Node 133: acceptance=0.169
+Node 134: acceptance=0.169
+Node 135: acceptance=0.167
+Node 136: acceptance=0.167
+Node 137: acceptance=0.167
+Node 138: acceptance=0.169
+Node 139: acceptance=0.167
+Node 140: acceptance=0.167
+Node 141: acceptance=0.169
+Node 142: acceptance=0.167
+Node 143: acceptance=0.169
+Node 144: acceptance=0.169
+Node 145: acceptance=0.167
+Node 146: acceptance=0.167
+Node 147: acceptance=0.169
+Node 148: acceptance=0.167
+Node 149: acceptance=0.169
+Node 150: acceptance=0.169
+Node 151: acceptance=0.167
+Node 152: acceptance=0.169
+Node 153: acceptance=0.167
+Node 154: acceptance=0.169
+
+=== PARALLEL EXECUTION TIME (realistic for distributed system) ===
+  COMMUNICATION (max across nodes):
+    - Full model transfer: 0.000s (0.0%)
+  COMPUTATION (max across nodes):
+    - Filtering: 0.744s (77.9%)
+    - Aggregation: 0.211s (22.1%)
+  TOTALS:
+    - Total computation: 0.954s (100.0%)
+    - Total communication: 0.000s (0.0%)
+    - Total parallel time: 0.954s
+
+=== PER-NODE AVERAGE TIME ===
+  - Filtering: 0.472s
+  - Aggregation: 0.037s
+  - Model transfer: 0.000s
+  - Total per node: 0.509s
+
+=== TOTAL COMPUTATIONAL WORK (sum across all nodes) ===
+  - Total filtering: 73.128s
+  - Total aggregation: 5.731s
+  - Total model transfer: 0.000s
+  - Grand total: 78.859s
+  - Mean acceptance rate: 0.168
+
+BALANCE Algorithm Properties:
+  - Model dimension: 6,603,710
+  - No compression: Full parameter comparison
+  - Theoretical complexity: O(deg(i)×d)
+  - Approach: Full parameter filtering + averaging
+
+
+# Experiment completed successfully

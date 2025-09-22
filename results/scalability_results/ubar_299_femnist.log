@@ -1,0 +1,700 @@
+# Experiment: ubar k=299 dataset=femnist
+# Timestamp: 2025-09-20T22:35:43.664080
+# Device: CPU (forced for consistent performance)
+# Command: python decentralized_fl_sim.py --dataset femnist --rounds 3 --local-epochs 1 --seed 987654321 --batch-size 64 --lr 0.01 --max-samples 10000 --agg ubar --ubar-rho 0.5 --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 299 --num-nodes 300
+================================================================================
+
+Device: cpu
+Seed: 987654321
+Loading 36 LEAF FEMNIST train files...
+LEAF FEMNIST train: 3597 users, 734463 samples
+Loading 36 LEAF FEMNIST test files...
+LEAF FEMNIST test: 3597 users, 83388 samples
+Found 3597 train users, 3597 test users, 3597 common users
+User sample counts range: 525 (max) to 17 (min)
+Distributed ALL 3597 users across 300 clients
+Users per client: 11 (with 297 clients getting +1 user)
+Train partition sizes: [2592, 2357, 2911, 2396, 2567, 2635, 2134, 2761, 2160, 2801, 2026, 2161, 2331, 2101, 2498, 1771, 2610, 2519, 2353, 2656, 2438, 2194, 2794, 2400, 2532, 2567, 2368, 2757, 2450, 2783, 2809, 2488, 3043, 2583, 2483, 2117, 2692, 3114, 2946, 2517, 2278, 2547, 2243, 2560, 2486, 2495, 2621, 2648, 2760, 2999, 2797, 2347, 2065, 2420, 2087, 2679, 2221, 2281, 2556, 2476, 2047, 2445, 2212, 2930, 2745, 2510, 2429, 2799, 2215, 2141, 2312, 1983, 2268, 2009, 2139, 2659, 2702, 2179, 2072, 2190, 2610, 2539, 2684, 2438, 2068, 2710, 2581, 2060, 2496, 2293, 2984, 2852, 2115, 2595, 2568, 2438, 2750, 2724, 1924, 2560, 2838, 2365, 2477, 2541, 2724, 2084, 2538, 2681, 2487, 2289, 2198, 2614, 2616, 2210, 2535, 2637, 2093, 2355, 2228, 1942, 2114, 2517, 2185, 2838, 2382, 2447, 2332, 2607, 2290, 2644, 2545, 2726, 2459, 2489, 2816, 2152, 2359, 2165, 2772, 2523, 2694, 2673, 2037, 2701, 2198, 2833, 2521, 1837, 2548, 2144, 2572, 2590, 2339, 2380, 2781, 2253, 2704, 2680, 2641, 2501, 2147, 2175, 2449, 2245, 2089, 2107, 2386, 2490, 2706, 2473, 2462, 2489, 1722, 2414, 2715, 2174, 2526, 2641, 2294, 2693, 1990, 3005, 2024, 2412, 2310, 2495, 2133, 2523, 2411, 2182, 2080, 2087, 2263, 2714, 2419, 2614, 2439, 2056, 2588, 2514, 2626, 2523, 2246, 2122, 2189, 2112, 2736, 2712, 2714, 2380, 2022, 2048, 2754, 2488, 2142, 2971, 2488, 2492, 2248, 2650, 2369, 2007, 2214, 2791, 2845, 2598, 2727, 2399, 2150, 2739, 2403, 2484, 2589, 2600, 2001, 2377, 2135, 2664, 2446, 2431, 2724, 2576, 2752, 2798, 2487, 2935, 2171, 2467, 2587, 2477, 2136, 2473, 2565, 2507, 2152, 2234, 2304, 2462, 2543, 2321, 2472, 2553, 2258, 2484, 1824, 2393, 2361, 2927, 2410, 2513, 2698, 2719, 2766, 2534, 1983, 2241, 2378, 2348, 2238, 1703, 2421, 2594, 2471, 2606, 2578, 2811, 2883, 2660, 2483, 2825, 2463, 2854, 2112, 2957, 2362, 2136, 2184, 2121, 2115, 2668]
+Test partition sizes: [295, 269, 330, 272, 291, 299, 245, 312, 245, 318, 230, 246, 263, 240, 283, 200, 297, 285, 267, 302, 277, 248, 316, 271, 289, 292, 269, 312, 278, 317, 317, 282, 344, 292, 282, 240, 302, 353, 332, 286, 261, 289, 256, 289, 281, 284, 296, 300, 313, 340, 316, 267, 235, 276, 238, 303, 254, 259, 288, 282, 233, 276, 251, 330, 311, 287, 276, 318, 252, 245, 263, 225, 260, 228, 243, 303, 306, 249, 237, 250, 298, 289, 304, 277, 235, 306, 294, 233, 284, 260, 338, 323, 241, 293, 291, 278, 312, 311, 221, 290, 322, 269, 281, 288, 309, 237, 289, 303, 284, 259, 250, 296, 296, 251, 288, 300, 237, 268, 256, 221, 241, 286, 249, 321, 270, 279, 265, 295, 261, 301, 290, 309, 280, 282, 318, 245, 266, 246, 312, 287, 304, 302, 230, 305, 251, 320, 285, 209, 291, 243, 288, 294, 266, 270, 315, 258, 307, 304, 298, 283, 242, 248, 279, 257, 239, 239, 270, 284, 305, 279, 281, 282, 198, 275, 308, 248, 288, 300, 261, 305, 227, 339, 229, 273, 264, 284, 242, 287, 275, 249, 239, 238, 259, 306, 275, 296, 276, 235, 296, 287, 296, 286, 257, 242, 250, 240, 310, 309, 308, 270, 231, 234, 313, 283, 243, 335, 284, 283, 255, 299, 269, 228, 253, 317, 322, 295, 311, 272, 246, 311, 273, 282, 294, 295, 227, 270, 243, 301, 277, 276, 309, 292, 310, 315, 281, 332, 247, 281, 292, 280, 245, 282, 290, 283, 246, 255, 262, 280, 289, 265, 279, 289, 257, 282, 207, 273, 268, 332, 274, 285, 305, 311, 313, 289, 226, 255, 271, 267, 254, 192, 275, 293, 279, 294, 291, 320, 326, 302, 283, 320, 277, 322, 241, 334, 269, 243, 248, 242, 241, 303]
+  Client 0: 2592 train samples, 62 unique classes
+  Client 1: 2357 train samples, 62 unique classes
+  Client 2: 2911 train samples, 62 unique classes
+  Client 3: 2396 train samples, 62 unique classes
+  Client 4: 2567 train samples, 62 unique classes
+  Client 5: 2635 train samples, 62 unique classes
+  Client 6: 2134 train samples, 62 unique classes
+  Client 7: 2761 train samples, 62 unique classes
+  Client 8: 2160 train samples, 62 unique classes
+  Client 9: 2801 train samples, 62 unique classes
+  Client 10: 2026 train samples, 62 unique classes
+  Client 11: 2161 train samples, 62 unique classes
+  Client 12: 2331 train samples, 62 unique classes
+  Client 13: 2101 train samples, 62 unique classes
+  Client 14: 2498 train samples, 62 unique classes
+  Client 15: 1771 train samples, 62 unique classes
+  Client 16: 2610 train samples, 62 unique classes
+  Client 17: 2519 train samples, 62 unique classes
+  Client 18: 2353 train samples, 62 unique classes
+  Client 19: 2656 train samples, 62 unique classes
+  Client 20: 2438 train samples, 62 unique classes
+  Client 21: 2194 train samples, 62 unique classes
+  Client 22: 2794 train samples, 62 unique classes
+  Client 23: 2400 train samples, 62 unique classes
+  Client 24: 2532 train samples, 62 unique classes
+  Client 25: 2567 train samples, 62 unique classes
+  Client 26: 2368 train samples, 62 unique classes
+  Client 27: 2757 train samples, 62 unique classes
+  Client 28: 2450 train samples, 62 unique classes
+  Client 29: 2783 train samples, 62 unique classes
+  Client 30: 2809 train samples, 62 unique classes
+  Client 31: 2488 train samples, 62 unique classes
+  Client 32: 3043 train samples, 62 unique classes
+  Client 33: 2583 train samples, 62 unique classes
+  Client 34: 2483 train samples, 62 unique classes
+  Client 35: 2117 train samples, 62 unique classes
+  Client 36: 2692 train samples, 62 unique classes
+  Client 37: 3114 train samples, 62 unique classes
+  Client 38: 2946 train samples, 62 unique classes
+  Client 39: 2517 train samples, 62 unique classes
+  Client 40: 2278 train samples, 62 unique classes
+  Client 41: 2547 train samples, 62 unique classes
+  Client 42: 2243 train samples, 62 unique classes
+  Client 43: 2560 train samples, 62 unique classes
+  Client 44: 2486 train samples, 62 unique classes
+  Client 45: 2495 train samples, 62 unique classes
+  Client 46: 2621 train samples, 62 unique classes
+  Client 47: 2648 train samples, 62 unique classes
+  Client 48: 2760 train samples, 62 unique classes
+  Client 49: 2999 train samples, 62 unique classes
+  Client 50: 2797 train samples, 62 unique classes
+  Client 51: 2347 train samples, 62 unique classes
+  Client 52: 2065 train samples, 62 unique classes
+  Client 53: 2420 train samples, 62 unique classes
+  Client 54: 2087 train samples, 62 unique classes
+  Client 55: 2679 train samples, 62 unique classes
+  Client 56: 2221 train samples, 62 unique classes
+  Client 57: 2281 train samples, 62 unique classes
+  Client 58: 2556 train samples, 62 unique classes
+  Client 59: 2476 train samples, 62 unique classes
+  Client 60: 2047 train samples, 62 unique classes
+  Client 61: 2445 train samples, 62 unique classes
+  Client 62: 2212 train samples, 62 unique classes
+  Client 63: 2930 train samples, 62 unique classes
+  Client 64: 2745 train samples, 62 unique classes
+  Client 65: 2510 train samples, 62 unique classes
+  Client 66: 2429 train samples, 62 unique classes
+  Client 67: 2799 train samples, 62 unique classes
+  Client 68: 2215 train samples, 62 unique classes
+  Client 69: 2141 train samples, 62 unique classes
+  Client 70: 2312 train samples, 62 unique classes
+  Client 71: 1983 train samples, 62 unique classes
+  Client 72: 2268 train samples, 62 unique classes
+  Client 73: 2009 train samples, 62 unique classes
+  Client 74: 2139 train samples, 62 unique classes
+  Client 75: 2659 train samples, 62 unique classes
+  Client 76: 2702 train samples, 62 unique classes
+  Client 77: 2179 train samples, 62 unique classes
+  Client 78: 2072 train samples, 62 unique classes
+  Client 79: 2190 train samples, 62 unique classes
+  Client 80: 2610 train samples, 62 unique classes
+  Client 81: 2539 train samples, 62 unique classes
+  Client 82: 2684 train samples, 62 unique classes
+  Client 83: 2438 train samples, 62 unique classes
+  Client 84: 2068 train samples, 62 unique classes
+  Client 85: 2710 train samples, 62 unique classes
+  Client 86: 2581 train samples, 62 unique classes
+  Client 87: 2060 train samples, 62 unique classes
+  Client 88: 2496 train samples, 62 unique classes
+  Client 89: 2293 train samples, 62 unique classes
+  Client 90: 2984 train samples, 62 unique classes
+  Client 91: 2852 train samples, 62 unique classes
+  Client 92: 2115 train samples, 62 unique classes
+  Client 93: 2595 train samples, 62 unique classes
+  Client 94: 2568 train samples, 62 unique classes
+  Client 95: 2438 train samples, 62 unique classes
+  Client 96: 2750 train samples, 62 unique classes
+  Client 97: 2724 train samples, 62 unique classes
+  Client 98: 1924 train samples, 62 unique classes
+  Client 99: 2560 train samples, 62 unique classes
+  Client 100: 2838 train samples, 62 unique classes
+  Client 101: 2365 train samples, 62 unique classes
+  Client 102: 2477 train samples, 62 unique classes
+  Client 103: 2541 train samples, 62 unique classes
+  Client 104: 2724 train samples, 62 unique classes
+  Client 105: 2084 train samples, 62 unique classes
+  Client 106: 2538 train samples, 62 unique classes
+  Client 107: 2681 train samples, 62 unique classes
+  Client 108: 2487 train samples, 62 unique classes
+  Client 109: 2289 train samples, 62 unique classes
+  Client 110: 2198 train samples, 62 unique classes
+  Client 111: 2614 train samples, 62 unique classes
+  Client 112: 2616 train samples, 62 unique classes
+  Client 113: 2210 train samples, 62 unique classes
+  Client 114: 2535 train samples, 62 unique classes
+  Client 115: 2637 train samples, 62 unique classes
+  Client 116: 2093 train samples, 62 unique classes
+  Client 117: 2355 train samples, 62 unique classes
+  Client 118: 2228 train samples, 62 unique classes
+  Client 119: 1942 train samples, 62 unique classes
+  Client 120: 2114 train samples, 62 unique classes
+  Client 121: 2517 train samples, 62 unique classes
+  Client 122: 2185 train samples, 62 unique classes
+  Client 123: 2838 train samples, 62 unique classes
+  Client 124: 2382 train samples, 62 unique classes
+  Client 125: 2447 train samples, 62 unique classes
+  Client 126: 2332 train samples, 62 unique classes
+  Client 127: 2607 train samples, 62 unique classes
+  Client 128: 2290 train samples, 62 unique classes
+  Client 129: 2644 train samples, 62 unique classes
+  Client 130: 2545 train samples, 62 unique classes
+  Client 131: 2726 train samples, 62 unique classes
+  Client 132: 2459 train samples, 62 unique classes
+  Client 133: 2489 train samples, 62 unique classes
+  Client 134: 2816 train samples, 62 unique classes
+  Client 135: 2152 train samples, 62 unique classes
+  Client 136: 2359 train samples, 62 unique classes
+  Client 137: 2165 train samples, 62 unique classes
+  Client 138: 2772 train samples, 62 unique classes
+  Client 139: 2523 train samples, 62 unique classes
+  Client 140: 2694 train samples, 62 unique classes
+  Client 141: 2673 train samples, 62 unique classes
+  Client 142: 2037 train samples, 62 unique classes
+  Client 143: 2701 train samples, 62 unique classes
+  Client 144: 2198 train samples, 62 unique classes
+  Client 145: 2833 train samples, 62 unique classes
+  Client 146: 2521 train samples, 62 unique classes
+  Client 147: 1837 train samples, 62 unique classes
+  Client 148: 2548 train samples, 62 unique classes
+  Client 149: 2144 train samples, 62 unique classes
+  Client 150: 2572 train samples, 62 unique classes
+  Client 151: 2590 train samples, 62 unique classes
+  Client 152: 2339 train samples, 62 unique classes
+  Client 153: 2380 train samples, 62 unique classes
+  Client 154: 2781 train samples, 62 unique classes
+  Client 155: 2253 train samples, 62 unique classes
+  Client 156: 2704 train samples, 62 unique classes
+  Client 157: 2680 train samples, 62 unique classes
+  Client 158: 2641 train samples, 62 unique classes
+  Client 159: 2501 train samples, 62 unique classes
+  Client 160: 2147 train samples, 62 unique classes
+  Client 161: 2175 train samples, 62 unique classes
+  Client 162: 2449 train samples, 62 unique classes
+  Client 163: 2245 train samples, 62 unique classes
+  Client 164: 2089 train samples, 62 unique classes
+  Client 165: 2107 train samples, 62 unique classes
+  Client 166: 2386 train samples, 62 unique classes
+  Client 167: 2490 train samples, 62 unique classes
+  Client 168: 2706 train samples, 62 unique classes
+  Client 169: 2473 train samples, 62 unique classes
+  Client 170: 2462 train samples, 62 unique classes
+  Client 171: 2489 train samples, 62 unique classes
+  Client 172: 1722 train samples, 62 unique classes
+  Client 173: 2414 train samples, 62 unique classes
+  Client 174: 2715 train samples, 62 unique classes
+  Client 175: 2174 train samples, 62 unique classes
+  Client 176: 2526 train samples, 62 unique classes
+  Client 177: 2641 train samples, 62 unique classes
+  Client 178: 2294 train samples, 62 unique classes
+  Client 179: 2693 train samples, 62 unique classes
+  Client 180: 1990 train samples, 62 unique classes
+  Client 181: 3005 train samples, 62 unique classes
+  Client 182: 2024 train samples, 62 unique classes
+  Client 183: 2412 train samples, 62 unique classes
+  Client 184: 2310 train samples, 62 unique classes
+  Client 185: 2495 train samples, 62 unique classes
+  Client 186: 2133 train samples, 62 unique classes
+  Client 187: 2523 train samples, 62 unique classes
+  Client 188: 2411 train samples, 62 unique classes
+  Client 189: 2182 train samples, 62 unique classes
+  Client 190: 2080 train samples, 62 unique classes
+  Client 191: 2087 train samples, 62 unique classes
+  Client 192: 2263 train samples, 62 unique classes
+  Client 193: 2714 train samples, 62 unique classes
+  Client 194: 2419 train samples, 62 unique classes
+  Client 195: 2614 train samples, 62 unique classes
+  Client 196: 2439 train samples, 62 unique classes
+  Client 197: 2056 train samples, 62 unique classes
+  Client 198: 2588 train samples, 62 unique classes
+  Client 199: 2514 train samples, 62 unique classes
+  Client 200: 2626 train samples, 62 unique classes
+  Client 201: 2523 train samples, 62 unique classes
+  Client 202: 2246 train samples, 62 unique classes
+  Client 203: 2122 train samples, 62 unique classes
+  Client 204: 2189 train samples, 62 unique classes
+  Client 205: 2112 train samples, 62 unique classes
+  Client 206: 2736 train samples, 62 unique classes
+  Client 207: 2712 train samples, 62 unique classes
+  Client 208: 2714 train samples, 62 unique classes
+  Client 209: 2380 train samples, 62 unique classes
+  Client 210: 2022 train samples, 62 unique classes
+  Client 211: 2048 train samples, 62 unique classes
+  Client 212: 2754 train samples, 62 unique classes
+  Client 213: 2488 train samples, 62 unique classes
+  Client 214: 2142 train samples, 62 unique classes
+  Client 215: 2971 train samples, 62 unique classes
+  Client 216: 2488 train samples, 62 unique classes
+  Client 217: 2492 train samples, 62 unique classes
+  Client 218: 2248 train samples, 62 unique classes
+  Client 219: 2650 train samples, 62 unique classes
+  Client 220: 2369 train samples, 62 unique classes
+  Client 221: 2007 train samples, 62 unique classes
+  Client 222: 2214 train samples, 62 unique classes
+  Client 223: 2791 train samples, 62 unique classes
+  Client 224: 2845 train samples, 62 unique classes
+  Client 225: 2598 train samples, 62 unique classes
+  Client 226: 2727 train samples, 62 unique classes
+  Client 227: 2399 train samples, 62 unique classes
+  Client 228: 2150 train samples, 62 unique classes
+  Client 229: 2739 train samples, 62 unique classes
+  Client 230: 2403 train samples, 62 unique classes
+  Client 231: 2484 train samples, 62 unique classes
+  Client 232: 2589 train samples, 62 unique classes
+  Client 233: 2600 train samples, 62 unique classes
+  Client 234: 2001 train samples, 62 unique classes
+  Client 235: 2377 train samples, 62 unique classes
+  Client 236: 2135 train samples, 62 unique classes
+  Client 237: 2664 train samples, 62 unique classes
+  Client 238: 2446 train samples, 62 unique classes
+  Client 239: 2431 train samples, 62 unique classes
+  Client 240: 2724 train samples, 62 unique classes
+  Client 241: 2576 train samples, 62 unique classes
+  Client 242: 2752 train samples, 62 unique classes
+  Client 243: 2798 train samples, 62 unique classes
+  Client 244: 2487 train samples, 62 unique classes
+  Client 245: 2935 train samples, 62 unique classes
+  Client 246: 2171 train samples, 62 unique classes
+  Client 247: 2467 train samples, 62 unique classes
+  Client 248: 2587 train samples, 62 unique classes
+  Client 249: 2477 train samples, 62 unique classes
+  Client 250: 2136 train samples, 62 unique classes
+  Client 251: 2473 train samples, 62 unique classes
+  Client 252: 2565 train samples, 62 unique classes
+  Client 253: 2507 train samples, 62 unique classes
+  Client 254: 2152 train samples, 62 unique classes
+  Client 255: 2234 train samples, 62 unique classes
+  Client 256: 2304 train samples, 62 unique classes
+  Client 257: 2462 train samples, 62 unique classes
+  Client 258: 2543 train samples, 62 unique classes
+  Client 259: 2321 train samples, 62 unique classes
+  Client 260: 2472 train samples, 62 unique classes
+  Client 261: 2553 train samples, 62 unique classes
+  Client 262: 2258 train samples, 62 unique classes
+  Client 263: 2484 train samples, 62 unique classes
+  Client 264: 1824 train samples, 62 unique classes
+  Client 265: 2393 train samples, 62 unique classes
+  Client 266: 2361 train samples, 62 unique classes
+  Client 267: 2927 train samples, 62 unique classes
+  Client 268: 2410 train samples, 62 unique classes
+  Client 269: 2513 train samples, 62 unique classes
+  Client 270: 2698 train samples, 62 unique classes
+  Client 271: 2719 train samples, 62 unique classes
+  Client 272: 2766 train samples, 62 unique classes
+  Client 273: 2534 train samples, 62 unique classes
+  Client 274: 1983 train samples, 62 unique classes
+  Client 275: 2241 train samples, 62 unique classes
+  Client 276: 2378 train samples, 62 unique classes
+  Client 277: 2348 train samples, 62 unique classes
+  Client 278: 2238 train samples, 62 unique classes
+  Client 279: 1703 train samples, 62 unique classes
+  Client 280: 2421 train samples, 62 unique classes
+  Client 281: 2594 train samples, 62 unique classes
+  Client 282: 2471 train samples, 62 unique classes
+  Client 283: 2606 train samples, 62 unique classes
+  Client 284: 2578 train samples, 62 unique classes
+  Client 285: 2811 train samples, 62 unique classes
+  Client 286: 2883 train samples, 62 unique classes
+  Client 287: 2660 train samples, 62 unique classes
+  Client 288: 2483 train samples, 62 unique classes
+  Client 289: 2825 train samples, 62 unique classes
+  Client 290: 2463 train samples, 62 unique classes
+  Client 291: 2854 train samples, 62 unique classes
+  Client 292: 2112 train samples, 62 unique classes
+  Client 293: 2957 train samples, 62 unique classes
+  Client 294: 2362 train samples, 62 unique classes
+  Client 295: 2136 train samples, 62 unique classes
+  Client 296: 2184 train samples, 62 unique classes
+  Client 297: 2121 train samples, 62 unique classes
+  Client 298: 2115 train samples, 62 unique classes
+  Client 299: 2668 train samples, 62 unique classes
+Will sample 10000 samples per client per epoch
+Warning: k=299 is odd, using k=300 for regular ring lattice
+Warning: k=300 >= n=300, creating fully connected graph
+Graph: k-regular, nodes: 300, edges: 44850
+Degree statistics: avg=299.00, min=299, max=299
+k-regular with k=299 (each node has exactly 299 neighbors)
+Attack: Compromised 150/300 nodes: [0, 1, 2, 3, 4, 5, 9, 10, 17, 18, 19, 21, 23, 27, 31, 32, 33, 34, 35, 36, 37, 41, 45, 46, 47, 54, 55, 58, 59, 60, 61, 72, 74, 76, 77, 78, 80, 85, 86, 87, 88, 89, 92, 94, 96, 98, 100, 101, 102, 108, 109, 110, 111, 115, 119, 122, 124, 126, 129, 132, 135, 136, 137, 138, 140, 141, 142, 143, 145, 151, 152, 155, 156, 157, 160, 162, 163, 165, 166, 167, 169, 170, 172, 173, 181, 185, 186, 187, 188, 189, 191, 192, 195, 196, 197, 198, 199, 200, 201, 202, 207, 209, 214, 216, 219, 220, 221, 223, 224, 225, 226, 229, 231, 234, 236, 237, 238, 239, 240, 242, 243, 244, 245, 246, 247, 253, 254, 255, 256, 260, 261, 262, 265, 268, 270, 271, 279, 280, 282, 283, 286, 287, 288, 289, 290, 291, 292, 294, 298, 299]
+Attack type: directed_deviation, lambda: 1.0
+UBAR ALGORITHM (Two-Stage Byzantine-resilient)
+  - Model dimension: 6,603,710 parameters
+  - Rho parameter: 0.5
+  - Stage 1: Distance-based filtering (select 50% closest neighbors)
+  - Stage 2: Performance-based selection (loss comparison)
+  - Complexity: O(deg(i)×d + deg(i)×inference)
+Initial test acc across nodes: mean=0.0156 ± 0.0165
+Round 001: test acc mean=0.0498 ± 0.0148 | min=0.0071 max=0.0966
+         : test loss mean=4.0416 ± 0.0225
+         : individual accs = ['0.050847', '0.044610', '0.039394', '0.066176', '0.061856', '0.030100', '0.044898', '0.044872', '0.057143', '0.047170', '0.043478', '0.060976', '0.060837', '0.058333', '0.035336', '0.080000', '0.023569', '0.038596', '0.033708', '0.046358', '0.054152', '0.048387', '0.041139', '0.051661', '0.062284', '0.054795', '0.059480', '0.051282', '0.050360', '0.063091', '0.037855', '0.042553', '0.034884', '0.034247', '0.056738', '0.037500', '0.036424', '0.065156', '0.039157', '0.031469', '0.038314', '0.048443', '0.062500', '0.017301', '0.042705', '0.063380', '0.023649', '0.043333', '0.054313', '0.029412', '0.056962', '0.041199', '0.046809', '0.050725', '0.079832', '0.026403', '0.047244', '0.057915', '0.048611', '0.046099', '0.047210', '0.032609', '0.059761', '0.045455', '0.022508', '0.062718', '0.050725', '0.050314', '0.091270', '0.061224', '0.079848', '0.062222', '0.061538', '0.039474', '0.049383', '0.039604', '0.032680', '0.060241', '0.063291', '0.072000', '0.046980', '0.048443', '0.039474', '0.043321', '0.055319', '0.065359', '0.064626', '0.060086', '0.063380', '0.050000', '0.047337', '0.040248', '0.053942', '0.047782', '0.058419', '0.068345', '0.054487', '0.041801', '0.049774', '0.096552', '0.046584', '0.044610', '0.056940', '0.055556', '0.038835', '0.046414', '0.044983', '0.033003', '0.066901', '0.061776', '0.048000', '0.047297', '0.060811', '0.043825', '0.038194', '0.056667', '0.063291', '0.055970', '0.054688', '0.063348', '0.053942', '0.041958', '0.084337', '0.037383', '0.055556', '0.053763', '0.041509', '0.057627', '0.042146', '0.049834', '0.041379', '0.051780', '0.028571', '0.056738', '0.053459', '0.085714', '0.052632', '0.032520', '0.028846', '0.034843', '0.036184', '0.036424', '0.073913', '0.055738', '0.035857', '0.031250', '0.077193', '0.047847', '0.044674', '0.065844', '0.052083', '0.037415', '0.045113', '0.044444', '0.031746', '0.046512', '0.061889', '0.055921', '0.060403', '0.053004', '0.057851', '0.080645', '0.046595', '0.042802', '0.046025', '0.087866', '0.040741', '0.056338', '0.052459', '0.035842', '0.007117', '0.046099', '0.090909', '0.043636', '0.029221', '0.028226', '0.059028', '0.050000', '0.057471', '0.049180', '0.070485', '0.056047', '0.052402', '0.036630', '0.060606', '0.059859', '0.070248', '0.062718', '0.065455', '0.092369', '0.062762', '0.071429', '0.042471', '0.022876', '0.061818', '0.047297', '0.043478', '0.042553', '0.037162', '0.024390', '0.023649', '0.038462', '0.058366', '0.057851', '0.064000', '0.045833', '0.058065', '0.048544', '0.061688', '0.048148', '0.051948', '0.038462', '0.044728', '0.053004', '0.061728', '0.029851', '0.031690', '0.053004', '0.094118', '0.046823', '0.033457', '0.096491', '0.043478', '0.037855', '0.015528', '0.047458', '0.041801', '0.058824', '0.052846', '0.048232', '0.069597', '0.078014', '0.061224', '0.027119', '0.052863', '0.040741', '0.065844', '0.039867', '0.039711', '0.050725', '0.051780', '0.071918', '0.032258', '0.034921', '0.049822', '0.039157', '0.040486', '0.039146', '0.051370', '0.046429', '0.044898', '0.028369', '0.024138', '0.067138', '0.077236', '0.054902', '0.030534', '0.060714', '0.038062', '0.049057', '0.053763', '0.024221', '0.019455', '0.046099', '0.043478', '0.043956', '0.037313', '0.021084', '0.047445', '0.063158', '0.042623', '0.057878', '0.019169', '0.038062', '0.048673', '0.066667', '0.062731', '0.052434', '0.039370', '0.062500', '0.050909', '0.047782', '0.043011', '0.071429', '0.051546', '0.028125', '0.042945', '0.033113', '0.045936', '0.043750', '0.039711', '0.043478', '0.062241', '0.032934', '0.066914', '0.065844', '0.076613', '0.061983', '0.045643', '0.039604']
+         : correct/total = [(15, 295), (12, 269), (13, 330), (18, 272), (18, 291), (9, 299), (11, 245), (14, 312), (14, 245), (15, 318), (10, 230), (15, 246), (16, 263), (14, 240), (10, 283), (16, 200), (7, 297), (11, 285), (9, 267), (14, 302), (15, 277), (12, 248), (13, 316), (14, 271), (18, 289), (16, 292), (16, 269), (16, 312), (14, 278), (20, 317), (12, 317), (12, 282), (12, 344), (10, 292), (16, 282), (9, 240), (11, 302), (23, 353), (13, 332), (9, 286), (10, 261), (14, 289), (16, 256), (5, 289), (12, 281), (18, 284), (7, 296), (13, 300), (17, 313), (10, 340), (18, 316), (11, 267), (11, 235), (14, 276), (19, 238), (8, 303), (12, 254), (15, 259), (14, 288), (13, 282), (11, 233), (9, 276), (15, 251), (15, 330), (7, 311), (18, 287), (14, 276), (16, 318), (23, 252), (15, 245), (21, 263), (14, 225), (16, 260), (9, 228), (12, 243), (12, 303), (10, 306), (15, 249), (15, 237), (18, 250), (14, 298), (14, 289), (12, 304), (12, 277), (13, 235), (20, 306), (19, 294), (14, 233), (18, 284), (13, 260), (16, 338), (13, 323), (13, 241), (14, 293), (17, 291), (19, 278), (17, 312), (13, 311), (11, 221), (28, 290), (15, 322), (12, 269), (16, 281), (16, 288), (12, 309), (11, 237), (13, 289), (10, 303), (19, 284), (16, 259), (12, 250), (14, 296), (18, 296), (11, 251), (11, 288), (17, 300), (15, 237), (15, 268), (14, 256), (14, 221), (13, 241), (12, 286), (21, 249), (12, 321), (15, 270), (15, 279), (11, 265), (17, 295), (11, 261), (15, 301), (12, 290), (16, 309), (8, 280), (16, 282), (17, 318), (21, 245), (14, 266), (8, 246), (9, 312), (10, 287), (11, 304), (11, 302), (17, 230), (17, 305), (9, 251), (10, 320), (22, 285), (10, 209), (13, 291), (16, 243), (15, 288), (11, 294), (12, 266), (12, 270), (10, 315), (12, 258), (19, 307), (17, 304), (18, 298), (15, 283), (14, 242), (20, 248), (13, 279), (11, 257), (11, 239), (21, 239), (11, 270), (16, 284), (16, 305), (10, 279), (2, 281), (13, 282), (18, 198), (12, 275), (9, 308), (7, 248), (17, 288), (15, 300), (15, 261), (15, 305), (16, 227), (19, 339), (12, 229), (10, 273), (16, 264), (17, 284), (17, 242), (18, 287), (18, 275), (23, 249), (15, 239), (17, 238), (11, 259), (7, 306), (17, 275), (14, 296), (12, 276), (10, 235), (11, 296), (7, 287), (7, 296), (11, 286), (15, 257), (14, 242), (16, 250), (11, 240), (18, 310), (15, 309), (19, 308), (13, 270), (12, 231), (9, 234), (14, 313), (15, 283), (15, 243), (10, 335), (9, 284), (15, 283), (24, 255), (14, 299), (9, 269), (22, 228), (11, 253), (12, 317), (5, 322), (14, 295), (13, 311), (16, 272), (13, 246), (15, 311), (19, 273), (22, 282), (18, 294), (8, 295), (12, 227), (11, 270), (16, 243), (12, 301), (11, 277), (14, 276), (16, 309), (21, 292), (10, 310), (11, 315), (14, 281), (13, 332), (10, 247), (11, 281), (15, 292), (13, 280), (11, 245), (8, 282), (7, 290), (19, 283), (19, 246), (14, 255), (8, 262), (17, 280), (11, 289), (13, 265), (15, 279), (7, 289), (5, 257), (13, 282), (9, 207), (12, 273), (10, 268), (7, 332), (13, 274), (18, 285), (13, 305), (18, 311), (6, 313), (11, 289), (11, 226), (17, 255), (17, 271), (14, 267), (10, 254), (12, 192), (14, 275), (14, 293), (12, 279), (21, 294), (15, 291), (9, 320), (14, 326), (10, 302), (13, 283), (14, 320), (11, 277), (14, 322), (15, 241), (11, 334), (18, 269), (16, 243), (19, 248), (15, 242), (11, 241), (12, 303)]
+         : compromised: 0.0494, honest: 0.0502
+         : ubar stats = ['Node 0: s1=0.498, s2=0.309', 'Node 1: s1=0.498, s2=0.638', 'Node 2: s1=0.498, s2=0.027']...
+Round 002: test acc mean=0.0501 ± 0.0145 | min=0.0155 max=0.0965
+         : test loss mean=3.9971 ± 0.0287
+         : individual accs = ['0.030508', '0.052045', '0.078788', '0.044118', '0.048110', '0.070234', '0.044898', '0.044872', '0.048980', '0.028302', '0.065217', '0.065041', '0.045627', '0.058333', '0.053004', '0.095000', '0.037037', '0.042105', '0.037453', '0.046358', '0.054152', '0.032258', '0.075949', '0.062731', '0.062284', '0.041096', '0.037175', '0.044872', '0.064748', '0.063091', '0.037855', '0.063830', '0.037791', '0.034247', '0.053191', '0.062500', '0.026490', '0.031161', '0.039157', '0.045455', '0.038314', '0.048443', '0.085938', '0.044983', '0.056940', '0.035211', '0.023649', '0.063333', '0.041534', '0.047059', '0.031646', '0.044944', '0.046809', '0.054348', '0.046218', '0.029703', '0.031496', '0.050193', '0.024306', '0.049645', '0.047210', '0.043478', '0.079681', '0.018182', '0.048232', '0.027875', '0.032609', '0.044025', '0.071429', '0.061224', '0.060837', '0.057778', '0.061538', '0.039474', '0.037037', '0.062706', '0.045752', '0.072289', '0.042194', '0.060000', '0.043624', '0.048443', '0.039474', '0.039711', '0.034043', '0.065359', '0.044218', '0.060086', '0.031690', '0.061538', '0.035503', '0.034056', '0.070539', '0.047782', '0.034364', '0.039568', '0.032051', '0.041801', '0.058824', '0.031034', '0.037267', '0.044610', '0.060498', '0.059028', '0.045307', '0.059072', '0.044983', '0.039604', '0.066901', '0.069498', '0.064000', '0.047297', '0.060811', '0.063745', '0.059028', '0.066667', '0.063291', '0.055970', '0.042969', '0.076923', '0.074689', '0.048951', '0.084337', '0.040498', '0.037037', '0.057348', '0.041509', '0.057627', '0.045977', '0.053156', '0.048276', '0.051780', '0.028571', '0.056738', '0.025157', '0.085714', '0.030075', '0.081301', '0.028846', '0.062718', '0.069079', '0.049669', '0.060870', '0.052459', '0.035857', '0.034375', '0.049123', '0.086124', '0.065292', '0.057613', '0.052083', '0.034014', '0.052632', '0.070370', '0.041270', '0.046512', '0.052117', '0.046053', '0.050336', '0.056537', '0.057851', '0.080645', '0.050179', '0.042802', '0.046025', '0.046025', '0.040741', '0.045775', '0.045902', '0.035842', '0.067616', '0.042553', '0.060606', '0.043636', '0.038961', '0.028226', '0.041667', '0.056667', '0.057471', '0.045902', '0.057269', '0.067847', '0.052402', '0.065934', '0.034091', '0.059859', '0.053719', '0.087108', '0.058182', '0.068273', '0.062762', '0.037815', '0.046332', '0.016340', '0.040000', '0.040541', '0.032609', '0.034043', '0.047297', '0.069686', '0.064189', '0.034965', '0.019455', '0.049587', '0.068000', '0.087500', '0.045161', '0.055016', '0.042208', '0.048148', '0.025974', '0.051282', '0.038339', '0.049470', '0.053498', '0.044776', '0.031690', '0.053004', '0.078431', '0.046823', '0.055762', '0.096491', '0.043478', '0.034700', '0.015528', '0.050847', '0.067524', '0.058824', '0.052846', '0.054662', '0.040293', '0.056738', '0.061224', '0.047458', '0.061674', '0.040741', '0.065844', '0.049834', '0.054152', '0.065217', '0.051780', '0.071918', '0.054839', '0.060317', '0.042705', '0.057229', '0.040486', '0.064057', '0.068493', '0.046429', '0.044898', '0.035461', '0.034483', '0.067138', '0.052846', '0.031373', '0.061069', '0.050000', '0.027682', '0.041509', '0.050179', '0.048443', '0.019455', '0.039007', '0.067633', '0.051282', '0.041045', '0.036145', '0.062044', '0.049123', '0.049180', '0.045016', '0.047923', '0.038062', '0.048673', '0.066667', '0.059041', '0.048689', '0.047244', '0.046875', '0.043636', '0.040956', '0.075269', '0.044218', '0.054983', '0.071875', '0.046012', '0.046358', '0.024735', '0.028125', '0.068592', '0.040373', '0.062241', '0.035928', '0.059480', '0.053498', '0.036290', '0.033058', '0.045643', '0.039604']
+         : correct/total = [(9, 295), (14, 269), (26, 330), (12, 272), (14, 291), (21, 299), (11, 245), (14, 312), (12, 245), (9, 318), (15, 230), (16, 246), (12, 263), (14, 240), (15, 283), (19, 200), (11, 297), (12, 285), (10, 267), (14, 302), (15, 277), (8, 248), (24, 316), (17, 271), (18, 289), (12, 292), (10, 269), (14, 312), (18, 278), (20, 317), (12, 317), (18, 282), (13, 344), (10, 292), (15, 282), (15, 240), (8, 302), (11, 353), (13, 332), (13, 286), (10, 261), (14, 289), (22, 256), (13, 289), (16, 281), (10, 284), (7, 296), (19, 300), (13, 313), (16, 340), (10, 316), (12, 267), (11, 235), (15, 276), (11, 238), (9, 303), (8, 254), (13, 259), (7, 288), (14, 282), (11, 233), (12, 276), (20, 251), (6, 330), (15, 311), (8, 287), (9, 276), (14, 318), (18, 252), (15, 245), (16, 263), (13, 225), (16, 260), (9, 228), (9, 243), (19, 303), (14, 306), (18, 249), (10, 237), (15, 250), (13, 298), (14, 289), (12, 304), (11, 277), (8, 235), (20, 306), (13, 294), (14, 233), (9, 284), (16, 260), (12, 338), (11, 323), (17, 241), (14, 293), (10, 291), (11, 278), (10, 312), (13, 311), (13, 221), (9, 290), (12, 322), (12, 269), (17, 281), (17, 288), (14, 309), (14, 237), (13, 289), (12, 303), (19, 284), (18, 259), (16, 250), (14, 296), (18, 296), (16, 251), (17, 288), (20, 300), (15, 237), (15, 268), (11, 256), (17, 221), (18, 241), (14, 286), (21, 249), (13, 321), (10, 270), (16, 279), (11, 265), (17, 295), (12, 261), (16, 301), (14, 290), (16, 309), (8, 280), (16, 282), (8, 318), (21, 245), (8, 266), (20, 246), (9, 312), (18, 287), (21, 304), (15, 302), (14, 230), (16, 305), (9, 251), (11, 320), (14, 285), (18, 209), (19, 291), (14, 243), (15, 288), (10, 294), (14, 266), (19, 270), (13, 315), (12, 258), (16, 307), (14, 304), (15, 298), (16, 283), (14, 242), (20, 248), (14, 279), (11, 257), (11, 239), (11, 239), (11, 270), (13, 284), (14, 305), (10, 279), (19, 281), (12, 282), (12, 198), (12, 275), (12, 308), (7, 248), (12, 288), (17, 300), (15, 261), (14, 305), (13, 227), (23, 339), (12, 229), (18, 273), (9, 264), (17, 284), (13, 242), (25, 287), (16, 275), (17, 249), (15, 239), (9, 238), (12, 259), (5, 306), (11, 275), (12, 296), (9, 276), (8, 235), (14, 296), (20, 287), (19, 296), (10, 286), (5, 257), (12, 242), (17, 250), (21, 240), (14, 310), (17, 309), (13, 308), (13, 270), (6, 231), (12, 234), (12, 313), (14, 283), (13, 243), (15, 335), (9, 284), (15, 283), (20, 255), (14, 299), (15, 269), (22, 228), (11, 253), (11, 317), (5, 322), (15, 295), (21, 311), (16, 272), (13, 246), (17, 311), (11, 273), (16, 282), (18, 294), (14, 295), (14, 227), (11, 270), (16, 243), (15, 301), (15, 277), (18, 276), (16, 309), (21, 292), (17, 310), (19, 315), (12, 281), (19, 332), (10, 247), (18, 281), (20, 292), (13, 280), (11, 245), (10, 282), (10, 290), (19, 283), (13, 246), (8, 255), (16, 262), (14, 280), (8, 289), (11, 265), (14, 279), (14, 289), (5, 257), (11, 282), (14, 207), (14, 273), (11, 268), (12, 332), (17, 274), (14, 285), (15, 305), (14, 311), (15, 313), (11, 289), (11, 226), (17, 255), (16, 271), (13, 267), (12, 254), (9, 192), (12, 275), (12, 293), (21, 279), (13, 294), (16, 291), (23, 320), (15, 326), (14, 302), (7, 283), (9, 320), (19, 277), (13, 322), (15, 241), (12, 334), (16, 269), (13, 243), (9, 248), (8, 242), (11, 241), (12, 303)]
+         : compromised: 0.0502, honest: 0.0500
+         : ubar stats = ['Node 0: s1=0.498, s2=0.188', 'Node 1: s1=0.498, s2=0.322', 'Node 2: s1=0.498, s2=0.114']...
+Round 003: test acc mean=0.0507 ± 0.0150 | min=0.0000 max=0.0965
+         : test loss mean=3.9255 ± 0.0373
+         : individual accs = ['0.050847', '0.044610', '0.045455', '0.058824', '0.061856', '0.046823', '0.065306', '0.060897', '0.057143', '0.028302', '0.065217', '0.065041', '0.045627', '0.041667', '0.060071', '0.095000', '0.063973', '0.049123', '0.071161', '0.046358', '0.036101', '0.060484', '0.050633', '0.051661', '0.038062', '0.023973', '0.059480', '0.044872', '0.061151', '0.063091', '0.056782', '0.053191', '0.037791', '0.030822', '0.042553', '0.066667', '0.039735', '0.031161', '0.069277', '0.045455', '0.030651', '0.048443', '0.085938', '0.044983', '0.042705', '0.059859', '0.023649', '0.050000', '0.051118', '0.047059', '0.037975', '0.059925', '0.093617', '0.054348', '0.046218', '0.026403', '0.047244', '0.034749', '0.038194', '0.046099', '0.051502', '0.057971', '0.047809', '0.021212', '0.035370', '0.027875', '0.025362', '0.044025', '0.055556', '0.044898', '0.049430', '0.057778', '0.061538', '0.039474', '0.045267', '0.062706', '0.039216', '0.072289', '0.042194', '0.072000', '0.040268', '0.048443', '0.039474', '0.050542', '0.038298', '0.045752', '0.037415', '0.060086', '0.052817', '0.076923', '0.023669', '0.040248', '0.082988', '0.047782', '0.079038', '0.043165', '0.035256', '0.051447', '0.045249', '0.037931', '0.052795', '0.044610', '0.056940', '0.052083', '0.064725', '0.059072', '0.051903', '0.029703', '0.066901', '0.069498', '0.036000', '0.000000', '0.033784', '0.035857', '0.059028', '0.060000', '0.054852', '0.055970', '0.062500', '0.090498', '0.087137', '0.041958', '0.084337', '0.049844', '0.048148', '0.046595', '0.060377', '0.057627', '0.061303', '0.013289', '0.034483', '0.051780', '0.053571', '0.056738', '0.040881', '0.065306', '0.037594', '0.040650', '0.076923', '0.045296', '0.036184', '0.049669', '0.073913', '0.052459', '0.043825', '0.031250', '0.049123', '0.086124', '0.048110', '0.041152', '0.045139', '0.037415', '0.052632', '0.048148', '0.057143', '0.046512', '0.061889', '0.055921', '0.046980', '0.031802', '0.037190', '0.044355', '0.046595', '0.058366', '0.046025', '0.054393', '0.040741', '0.049296', '0.042623', '0.078853', '0.067616', '0.070922', '0.065657', '0.061818', '0.071429', '0.072581', '0.038194', '0.040000', '0.057471', '0.029508', '0.052863', '0.056047', '0.052402', '0.065934', '0.060606', '0.049296', '0.053719', '0.052265', '0.058182', '0.068273', '0.062762', '0.025210', '0.092664', '0.039216', '0.047273', '0.057432', '0.054348', '0.042553', '0.047297', '0.020906', '0.037162', '0.027972', '0.050584', '0.086777', '0.068000', '0.087500', '0.038710', '0.055016', '0.042208', '0.048148', '0.051948', '0.038462', '0.073482', '0.063604', '0.053498', '0.029851', '0.031690', '0.024735', '0.078431', '0.046823', '0.033457', '0.096491', '0.051383', '0.044164', '0.052795', '0.037288', '0.070740', '0.051471', '0.052846', '0.041801', '0.084249', '0.056738', '0.051020', '0.047458', '0.061674', '0.040741', '0.057613', '0.043189', '0.054152', '0.047101', '0.051780', '0.037671', '0.054839', '0.060317', '0.042705', '0.033133', '0.064777', '0.064057', '0.041096', '0.046429', '0.040816', '0.053191', '0.058621', '0.038869', '0.056911', '0.043137', '0.061069', '0.053571', '0.027682', '0.060377', '0.053763', '0.048443', '0.019455', '0.042553', '0.067633', '0.043956', '0.052239', '0.027108', '0.054745', '0.056140', '0.049180', '0.054662', '0.054313', '0.038062', '0.048673', '0.062745', '0.040590', '0.056180', '0.066929', '0.046875', '0.043636', '0.040956', '0.053763', '0.047619', '0.030928', '0.031250', '0.042945', '0.049669', '0.045936', '0.043750', '0.039711', '0.043478', '0.062241', '0.035928', '0.040892', '0.086420', '0.056452', '0.061983', '0.012448', '0.036304']
+         : correct/total = [(15, 295), (12, 269), (15, 330), (16, 272), (18, 291), (14, 299), (16, 245), (19, 312), (14, 245), (9, 318), (15, 230), (16, 246), (12, 263), (10, 240), (17, 283), (19, 200), (19, 297), (14, 285), (19, 267), (14, 302), (10, 277), (15, 248), (16, 316), (14, 271), (11, 289), (7, 292), (16, 269), (14, 312), (17, 278), (20, 317), (18, 317), (15, 282), (13, 344), (9, 292), (12, 282), (16, 240), (12, 302), (11, 353), (23, 332), (13, 286), (8, 261), (14, 289), (22, 256), (13, 289), (12, 281), (17, 284), (7, 296), (15, 300), (16, 313), (16, 340), (12, 316), (16, 267), (22, 235), (15, 276), (11, 238), (8, 303), (12, 254), (9, 259), (11, 288), (13, 282), (12, 233), (16, 276), (12, 251), (7, 330), (11, 311), (8, 287), (7, 276), (14, 318), (14, 252), (11, 245), (13, 263), (13, 225), (16, 260), (9, 228), (11, 243), (19, 303), (12, 306), (18, 249), (10, 237), (18, 250), (12, 298), (14, 289), (12, 304), (14, 277), (9, 235), (14, 306), (11, 294), (14, 233), (15, 284), (20, 260), (8, 338), (13, 323), (20, 241), (14, 293), (23, 291), (12, 278), (11, 312), (16, 311), (10, 221), (11, 290), (17, 322), (12, 269), (16, 281), (15, 288), (20, 309), (14, 237), (15, 289), (9, 303), (19, 284), (18, 259), (9, 250), (0, 296), (10, 296), (9, 251), (17, 288), (18, 300), (13, 237), (15, 268), (16, 256), (20, 221), (21, 241), (12, 286), (21, 249), (16, 321), (13, 270), (13, 279), (16, 265), (17, 295), (16, 261), (4, 301), (10, 290), (16, 309), (15, 280), (16, 282), (13, 318), (16, 245), (10, 266), (10, 246), (24, 312), (13, 287), (11, 304), (15, 302), (17, 230), (16, 305), (11, 251), (10, 320), (14, 285), (18, 209), (14, 291), (10, 243), (13, 288), (11, 294), (14, 266), (13, 270), (18, 315), (12, 258), (19, 307), (17, 304), (14, 298), (9, 283), (9, 242), (11, 248), (13, 279), (15, 257), (11, 239), (13, 239), (11, 270), (14, 284), (13, 305), (22, 279), (19, 281), (20, 282), (13, 198), (17, 275), (22, 308), (18, 248), (11, 288), (12, 300), (15, 261), (9, 305), (12, 227), (19, 339), (12, 229), (18, 273), (16, 264), (14, 284), (13, 242), (15, 287), (16, 275), (17, 249), (15, 239), (6, 238), (24, 259), (12, 306), (13, 275), (17, 296), (15, 276), (10, 235), (14, 296), (6, 287), (11, 296), (8, 286), (13, 257), (21, 242), (17, 250), (21, 240), (12, 310), (17, 309), (13, 308), (13, 270), (12, 231), (9, 234), (23, 313), (18, 283), (13, 243), (10, 335), (9, 284), (7, 283), (20, 255), (14, 299), (9, 269), (22, 228), (13, 253), (14, 317), (17, 322), (11, 295), (22, 311), (14, 272), (13, 246), (13, 311), (23, 273), (16, 282), (15, 294), (14, 295), (14, 227), (11, 270), (14, 243), (13, 301), (15, 277), (13, 276), (16, 309), (11, 292), (17, 310), (19, 315), (12, 281), (11, 332), (16, 247), (18, 281), (12, 292), (13, 280), (10, 245), (15, 282), (17, 290), (11, 283), (14, 246), (11, 255), (16, 262), (15, 280), (8, 289), (16, 265), (15, 279), (14, 289), (5, 257), (12, 282), (14, 207), (12, 273), (14, 268), (9, 332), (15, 274), (16, 285), (15, 305), (17, 311), (17, 313), (11, 289), (11, 226), (16, 255), (11, 271), (15, 267), (17, 254), (9, 192), (12, 275), (12, 293), (15, 279), (14, 294), (9, 291), (10, 320), (14, 326), (15, 302), (13, 283), (14, 320), (11, 277), (14, 322), (15, 241), (12, 334), (11, 269), (21, 243), (14, 248), (15, 242), (3, 241), (11, 303)]
+         : compromised: 0.0503, honest: 0.0511
+         : ubar stats = ['Node 0: s1=0.498, s2=0.174', 'Node 1: s1=0.498, s2=0.260', 'Node 2: s1=0.498, s2=0.309']...
+
+=== FINAL RESULTS ===
+Dataset: femnist, Nodes: 300, Graph: k-regular, Aggregation: ubar
+Attack: directed_deviation, 50.0% compromised
+Final accuracy - Compromised: 0.0503, Honest: 0.0511
+Overall test accuracy: mean=0.0507 ± 0.0150
+
+=== UBAR SUMMARY ===
+Node 0: stage1=0.498, stage2=0.174, overall=0.087
+Node 1: stage1=0.498, stage2=0.260, overall=0.129
+Node 2: stage1=0.498, stage2=0.309, overall=0.154
+Node 3: stage1=0.498, stage2=0.617, overall=0.308
+Node 4: stage1=0.498, stage2=0.479, overall=0.239
+Node 5: stage1=0.498, stage2=0.210, overall=0.105
+Node 6: stage1=0.498, stage2=0.199, overall=0.099
+Node 7: stage1=0.498, stage2=0.349, overall=0.174
+Node 8: stage1=0.498, stage2=0.313, overall=0.156
+Node 9: stage1=0.498, stage2=0.477, overall=0.237
+Node 10: stage1=0.498, stage2=0.233, overall=0.116
+Node 11: stage1=0.498, stage2=0.423, overall=0.211
+Node 12: stage1=0.498, stage2=0.412, overall=0.205
+Node 13: stage1=0.498, stage2=0.186, overall=0.093
+Node 14: stage1=0.498, stage2=0.521, overall=0.260
+Node 15: stage1=0.498, stage2=0.107, overall=0.054
+Node 16: stage1=0.498, stage2=0.186, overall=0.093
+Node 17: stage1=0.498, stage2=0.846, overall=0.421
+Node 18: stage1=0.498, stage2=0.291, overall=0.145
+Node 19: stage1=0.498, stage2=0.260, overall=0.129
+Node 20: stage1=0.498, stage2=0.246, overall=0.123
+Node 21: stage1=0.498, stage2=0.244, overall=0.122
+Node 22: stage1=0.498, stage2=0.208, overall=0.104
+Node 23: stage1=0.498, stage2=0.083, overall=0.041
+Node 24: stage1=0.498, stage2=0.172, overall=0.086
+Node 25: stage1=0.498, stage2=0.385, overall=0.192
+Node 26: stage1=0.498, stage2=0.324, overall=0.162
+Node 27: stage1=0.498, stage2=0.510, overall=0.254
+Node 28: stage1=0.498, stage2=0.338, overall=0.168
+Node 29: stage1=0.498, stage2=0.177, overall=0.088
+Node 30: stage1=0.498, stage2=0.277, overall=0.138
+Node 31: stage1=0.498, stage2=0.481, overall=0.240
+Node 32: stage1=0.498, stage2=0.145, overall=0.072
+Node 33: stage1=0.498, stage2=0.510, overall=0.254
+Node 34: stage1=0.498, stage2=0.224, overall=0.111
+Node 35: stage1=0.498, stage2=0.183, overall=0.091
+Node 36: stage1=0.498, stage2=0.286, overall=0.143
+Node 37: stage1=0.498, stage2=0.300, overall=0.149
+Node 38: stage1=0.498, stage2=0.038, overall=0.019
+Node 39: stage1=0.498, stage2=0.018, overall=0.009
+Node 40: stage1=0.498, stage2=0.512, overall=0.255
+Node 41: stage1=0.498, stage2=0.266, overall=0.133
+Node 42: stage1=0.498, stage2=0.107, overall=0.054
+Node 43: stage1=0.498, stage2=0.123, overall=0.061
+Node 44: stage1=0.498, stage2=0.530, overall=0.264
+Node 45: stage1=0.498, stage2=0.349, overall=0.174
+Node 46: stage1=0.498, stage2=0.441, overall=0.220
+Node 47: stage1=0.498, stage2=0.315, overall=0.157
+Node 48: stage1=0.498, stage2=0.192, overall=0.096
+Node 49: stage1=0.498, stage2=0.150, overall=0.075
+Node 50: stage1=0.498, stage2=0.074, overall=0.037
+Node 51: stage1=0.498, stage2=0.246, overall=0.123
+Node 52: stage1=0.498, stage2=0.049, overall=0.025
+Node 53: stage1=0.498, stage2=0.506, overall=0.252
+Node 54: stage1=0.498, stage2=0.298, overall=0.148
+Node 55: stage1=0.498, stage2=0.054, overall=0.027
+Node 56: stage1=0.498, stage2=0.396, overall=0.197
+Node 57: stage1=0.498, stage2=0.069, overall=0.035
+Node 58: stage1=0.498, stage2=0.604, overall=0.301
+Node 59: stage1=0.498, stage2=0.221, overall=0.110
+Node 60: stage1=0.498, stage2=0.239, overall=0.119
+Node 61: stage1=0.498, stage2=0.521, overall=0.260
+Node 62: stage1=0.498, stage2=0.112, overall=0.056
+Node 63: stage1=0.498, stage2=0.204, overall=0.101
+Node 64: stage1=0.498, stage2=0.248, overall=0.124
+Node 65: stage1=0.498, stage2=0.557, overall=0.278
+Node 66: stage1=0.498, stage2=0.492, overall=0.245
+Node 67: stage1=0.498, stage2=0.468, overall=0.233
+Node 68: stage1=0.498, stage2=0.356, overall=0.177
+Node 69: stage1=0.498, stage2=0.351, overall=0.175
+Node 70: stage1=0.498, stage2=0.497, overall=0.247
+Node 71: stage1=0.498, stage2=0.114, overall=0.057
+Node 72: stage1=0.498, stage2=0.528, overall=0.263
+Node 73: stage1=0.498, stage2=0.040, overall=0.020
+Node 74: stage1=0.498, stage2=0.606, overall=0.302
+Node 75: stage1=0.498, stage2=0.510, overall=0.254
+Node 76: stage1=0.498, stage2=0.490, overall=0.244
+Node 77: stage1=0.498, stage2=0.230, overall=0.115
+Node 78: stage1=0.498, stage2=0.192, overall=0.096
+Node 79: stage1=0.498, stage2=0.277, overall=0.138
+Node 80: stage1=0.498, stage2=0.371, overall=0.185
+Node 81: stage1=0.498, stage2=0.188, overall=0.094
+Node 82: stage1=0.498, stage2=0.027, overall=0.013
+Node 83: stage1=0.498, stage2=0.244, overall=0.122
+Node 84: stage1=0.498, stage2=0.642, overall=0.320
+Node 85: stage1=0.498, stage2=0.076, overall=0.038
+Node 86: stage1=0.498, stage2=0.172, overall=0.086
+Node 87: stage1=0.498, stage2=0.121, overall=0.060
+Node 88: stage1=0.498, stage2=0.074, overall=0.037
+Node 89: stage1=0.498, stage2=0.224, overall=0.111
+Node 90: stage1=0.498, stage2=0.065, overall=0.032
+Node 91: stage1=0.498, stage2=0.188, overall=0.094
+Node 92: stage1=0.498, stage2=0.602, overall=0.300
+Node 93: stage1=0.498, stage2=0.387, overall=0.193
+Node 94: stage1=0.498, stage2=0.322, overall=0.161
+Node 95: stage1=0.498, stage2=0.609, overall=0.303
+Node 96: stage1=0.498, stage2=0.559, overall=0.279
+Node 97: stage1=0.498, stage2=0.244, overall=0.122
+Node 98: stage1=0.498, stage2=0.723, overall=0.360
+Node 99: stage1=0.498, stage2=0.154, overall=0.077
+Node 100: stage1=0.498, stage2=0.336, overall=0.167
+Node 101: stage1=0.498, stage2=0.152, overall=0.076
+Node 102: stage1=0.498, stage2=0.653, overall=0.326
+Node 103: stage1=0.498, stage2=0.141, overall=0.070
+Node 104: stage1=0.498, stage2=0.418, overall=0.208
+Node 105: stage1=0.498, stage2=0.242, overall=0.120
+Node 106: stage1=0.498, stage2=0.655, overall=0.327
+Node 107: stage1=0.498, stage2=0.304, overall=0.152
+Node 108: stage1=0.498, stage2=0.206, overall=0.103
+Node 109: stage1=0.498, stage2=0.195, overall=0.097
+Node 110: stage1=0.498, stage2=0.110, overall=0.055
+Node 111: stage1=0.498, stage2=0.396, overall=0.197
+Node 112: stage1=0.498, stage2=0.315, overall=0.157
+Node 113: stage1=0.498, stage2=0.280, overall=0.139
+Node 114: stage1=0.498, stage2=0.271, overall=0.135
+Node 115: stage1=0.498, stage2=0.239, overall=0.119
+Node 116: stage1=0.498, stage2=0.300, overall=0.149
+Node 117: stage1=0.498, stage2=0.503, overall=0.251
+Node 118: stage1=0.498, stage2=0.262, overall=0.130
+Node 119: stage1=0.498, stage2=0.163, overall=0.081
+Node 120: stage1=0.498, stage2=0.544, overall=0.271
+Node 121: stage1=0.498, stage2=0.213, overall=0.106
+Node 122: stage1=0.498, stage2=0.085, overall=0.042
+Node 123: stage1=0.498, stage2=0.022, overall=0.011
+Node 124: stage1=0.498, stage2=0.313, overall=0.156
+Node 125: stage1=0.498, stage2=0.468, overall=0.233
+Node 126: stage1=0.498, stage2=0.611, overall=0.304
+Node 127: stage1=0.498, stage2=0.078, overall=0.039
+Node 128: stage1=0.498, stage2=0.239, overall=0.119
+Node 129: stage1=0.498, stage2=0.557, overall=0.278
+Node 130: stage1=0.498, stage2=0.669, overall=0.333
+Node 131: stage1=0.498, stage2=0.526, overall=0.262
+Node 132: stage1=0.498, stage2=0.497, overall=0.247
+Node 133: stage1=0.498, stage2=0.481, overall=0.240
+Node 134: stage1=0.498, stage2=0.597, overall=0.298
+Node 135: stage1=0.498, stage2=0.020, overall=0.010
+Node 136: stage1=0.498, stage2=0.148, overall=0.074
+Node 137: stage1=0.498, stage2=0.380, overall=0.190
+Node 138: stage1=0.498, stage2=0.541, overall=0.270
+Node 139: stage1=0.498, stage2=0.199, overall=0.099
+Node 140: stage1=0.498, stage2=0.662, overall=0.330
+Node 141: stage1=0.498, stage2=0.430, overall=0.214
+Node 142: stage1=0.498, stage2=0.452, overall=0.225
+Node 143: stage1=0.498, stage2=0.604, overall=0.301
+Node 144: stage1=0.498, stage2=0.365, overall=0.182
+Node 145: stage1=0.498, stage2=0.506, overall=0.252
+Node 146: stage1=0.498, stage2=0.179, overall=0.089
+Node 147: stage1=0.498, stage2=0.309, overall=0.154
+Node 148: stage1=0.498, stage2=0.257, overall=0.128
+Node 149: stage1=0.498, stage2=0.526, overall=0.262
+Node 150: stage1=0.498, stage2=0.544, overall=0.271
+Node 151: stage1=0.498, stage2=0.221, overall=0.110
+Node 152: stage1=0.498, stage2=0.246, overall=0.123
+Node 153: stage1=0.498, stage2=0.302, overall=0.151
+Node 154: stage1=0.498, stage2=0.340, overall=0.169
+Node 155: stage1=0.498, stage2=0.463, overall=0.231
+Node 156: stage1=0.498, stage2=0.658, overall=0.328
+Node 157: stage1=0.498, stage2=0.582, overall=0.290
+Node 158: stage1=0.498, stage2=0.400, overall=0.200
+Node 159: stage1=0.498, stage2=0.067, overall=0.033
+Node 160: stage1=0.498, stage2=0.123, overall=0.061
+Node 161: stage1=0.498, stage2=0.546, overall=0.272
+Node 162: stage1=0.498, stage2=0.521, overall=0.260
+Node 163: stage1=0.498, stage2=0.034, overall=0.017
+Node 164: stage1=0.498, stage2=0.682, overall=0.340
+Node 165: stage1=0.498, stage2=0.385, overall=0.192
+Node 166: stage1=0.498, stage2=0.219, overall=0.109
+Node 167: stage1=0.498, stage2=0.387, overall=0.193
+Node 168: stage1=0.498, stage2=0.177, overall=0.088
+Node 169: stage1=0.498, stage2=0.121, overall=0.060
+Node 170: stage1=0.498, stage2=0.166, overall=0.082
+Node 171: stage1=0.498, stage2=0.309, overall=0.154
+Node 172: stage1=0.498, stage2=0.949, overall=0.473
+Node 173: stage1=0.498, stage2=0.452, overall=0.225
+Node 174: stage1=0.498, stage2=0.025, overall=0.012
+Node 175: stage1=0.498, stage2=0.568, overall=0.283
+Node 176: stage1=0.498, stage2=0.463, overall=0.231
+Node 177: stage1=0.498, stage2=0.336, overall=0.167
+Node 178: stage1=0.498, stage2=0.510, overall=0.254
+Node 179: stage1=0.498, stage2=0.275, overall=0.137
+Node 180: stage1=0.498, stage2=0.557, overall=0.278
+Node 181: stage1=0.498, stage2=0.389, overall=0.194
+Node 182: stage1=0.498, stage2=0.430, overall=0.214
+Node 183: stage1=0.498, stage2=0.224, overall=0.111
+Node 184: stage1=0.498, stage2=0.304, overall=0.152
+Node 185: stage1=0.498, stage2=0.351, overall=0.175
+Node 186: stage1=0.498, stage2=0.242, overall=0.120
+Node 187: stage1=0.498, stage2=0.284, overall=0.142
+Node 188: stage1=0.498, stage2=0.432, overall=0.215
+Node 189: stage1=0.498, stage2=0.116, overall=0.058
+Node 190: stage1=0.498, stage2=0.237, overall=0.118
+Node 191: stage1=0.498, stage2=0.365, overall=0.182
+Node 192: stage1=0.498, stage2=0.029, overall=0.014
+Node 193: stage1=0.498, stage2=0.215, overall=0.107
+Node 194: stage1=0.498, stage2=0.181, overall=0.090
+Node 195: stage1=0.498, stage2=0.537, overall=0.268
+Node 196: stage1=0.498, stage2=0.432, overall=0.215
+Node 197: stage1=0.498, stage2=0.438, overall=0.219
+Node 198: stage1=0.498, stage2=0.412, overall=0.205
+Node 199: stage1=0.498, stage2=0.423, overall=0.211
+Node 200: stage1=0.498, stage2=0.358, overall=0.178
+Node 201: stage1=0.498, stage2=0.047, overall=0.023
+Node 202: stage1=0.498, stage2=0.515, overall=0.256
+Node 203: stage1=0.498, stage2=0.400, overall=0.200
+Node 204: stage1=0.498, stage2=0.327, overall=0.163
+Node 205: stage1=0.498, stage2=0.302, overall=0.151
+Node 206: stage1=0.498, stage2=0.121, overall=0.060
+Node 207: stage1=0.498, stage2=0.322, overall=0.161
+Node 208: stage1=0.498, stage2=0.221, overall=0.110
+Node 209: stage1=0.498, stage2=0.309, overall=0.154
+Node 210: stage1=0.498, stage2=0.367, overall=0.183
+Node 211: stage1=0.498, stage2=0.031, overall=0.016
+Node 212: stage1=0.498, stage2=0.412, overall=0.205
+Node 213: stage1=0.498, stage2=0.349, overall=0.174
+Node 214: stage1=0.498, stage2=0.217, overall=0.108
+Node 215: stage1=0.498, stage2=0.031, overall=0.016
+Node 216: stage1=0.498, stage2=0.510, overall=0.254
+Node 217: stage1=0.498, stage2=0.257, overall=0.128
+Node 218: stage1=0.498, stage2=0.130, overall=0.065
+Node 219: stage1=0.498, stage2=0.302, overall=0.151
+Node 220: stage1=0.498, stage2=0.877, overall=0.437
+Node 221: stage1=0.498, stage2=0.255, overall=0.127
+Node 222: stage1=0.498, stage2=0.237, overall=0.118
+Node 223: stage1=0.498, stage2=0.776, overall=0.387
+Node 224: stage1=0.498, stage2=0.389, overall=0.194
+Node 225: stage1=0.498, stage2=0.038, overall=0.019
+Node 226: stage1=0.498, stage2=0.573, overall=0.285
+Node 227: stage1=0.498, stage2=0.201, overall=0.100
+Node 228: stage1=0.498, stage2=0.163, overall=0.081
+Node 229: stage1=0.498, stage2=0.141, overall=0.070
+Node 230: stage1=0.498, stage2=0.808, overall=0.402
+Node 231: stage1=0.498, stage2=0.501, overall=0.250
+Node 232: stage1=0.498, stage2=0.081, overall=0.040
+Node 233: stage1=0.498, stage2=0.045, overall=0.022
+Node 234: stage1=0.498, stage2=0.257, overall=0.128
+Node 235: stage1=0.498, stage2=0.311, overall=0.155
+Node 236: stage1=0.498, stage2=0.407, overall=0.203
+Node 237: stage1=0.498, stage2=0.421, overall=0.210
+Node 238: stage1=0.498, stage2=0.141, overall=0.070
+Node 239: stage1=0.498, stage2=0.123, overall=0.061
+Node 240: stage1=0.498, stage2=0.664, overall=0.331
+Node 241: stage1=0.498, stage2=0.530, overall=0.264
+Node 242: stage1=0.498, stage2=0.340, overall=0.169
+Node 243: stage1=0.498, stage2=0.338, overall=0.168
+Node 244: stage1=0.498, stage2=0.237, overall=0.118
+Node 245: stage1=0.498, stage2=0.434, overall=0.216
+Node 246: stage1=0.498, stage2=0.615, overall=0.307
+Node 247: stage1=0.498, stage2=0.539, overall=0.269
+Node 248: stage1=0.498, stage2=0.284, overall=0.142
+Node 249: stage1=0.498, stage2=0.465, overall=0.232
+Node 250: stage1=0.498, stage2=0.557, overall=0.278
+Node 251: stage1=0.498, stage2=0.432, overall=0.215
+Node 252: stage1=0.498, stage2=0.154, overall=0.077
+Node 253: stage1=0.498, stage2=0.468, overall=0.233
+Node 254: stage1=0.498, stage2=0.477, overall=0.237
+Node 255: stage1=0.498, stage2=0.253, overall=0.126
+Node 256: stage1=0.498, stage2=0.253, overall=0.126
+Node 257: stage1=0.498, stage2=0.322, overall=0.161
+Node 258: stage1=0.498, stage2=0.298, overall=0.148
+Node 259: stage1=0.498, stage2=0.470, overall=0.234
+Node 260: stage1=0.498, stage2=0.660, overall=0.329
+Node 261: stage1=0.498, stage2=0.141, overall=0.070
+Node 262: stage1=0.498, stage2=0.210, overall=0.105
+Node 263: stage1=0.498, stage2=0.324, overall=0.162
+Node 264: stage1=0.498, stage2=0.387, overall=0.193
+Node 265: stage1=0.498, stage2=0.438, overall=0.219
+Node 266: stage1=0.498, stage2=0.367, overall=0.183
+Node 267: stage1=0.498, stage2=0.132, overall=0.066
+Node 268: stage1=0.498, stage2=0.219, overall=0.109
+Node 269: stage1=0.498, stage2=0.251, overall=0.125
+Node 270: stage1=0.498, stage2=0.159, overall=0.079
+Node 271: stage1=0.498, stage2=0.136, overall=0.068
+Node 272: stage1=0.498, stage2=0.300, overall=0.149
+Node 273: stage1=0.498, stage2=0.083, overall=0.041
+Node 274: stage1=0.498, stage2=0.213, overall=0.106
+Node 275: stage1=0.498, stage2=0.568, overall=0.283
+Node 276: stage1=0.498, stage2=0.356, overall=0.177
+Node 277: stage1=0.498, stage2=0.110, overall=0.055
+Node 278: stage1=0.498, stage2=0.409, overall=0.204
+Node 279: stage1=0.498, stage2=0.340, overall=0.169
+Node 280: stage1=0.498, stage2=0.233, overall=0.116
+Node 281: stage1=0.498, stage2=0.351, overall=0.175
+Node 282: stage1=0.498, stage2=0.391, overall=0.195
+Node 283: stage1=0.498, stage2=0.365, overall=0.182
+Node 284: stage1=0.498, stage2=0.649, overall=0.323
+Node 285: stage1=0.498, stage2=0.177, overall=0.088
+Node 286: stage1=0.498, stage2=0.282, overall=0.140
+Node 287: stage1=0.498, stage2=0.512, overall=0.255
+Node 288: stage1=0.498, stage2=0.749, overall=0.373
+Node 289: stage1=0.498, stage2=0.398, overall=0.198
+Node 290: stage1=0.498, stage2=0.322, overall=0.161
+Node 291: stage1=0.498, stage2=0.251, overall=0.125
+Node 292: stage1=0.498, stage2=0.134, overall=0.067
+Node 293: stage1=0.498, stage2=0.235, overall=0.117
+Node 294: stage1=0.498, stage2=0.385, overall=0.192
+Node 295: stage1=0.498, stage2=0.244, overall=0.122
+Node 296: stage1=0.498, stage2=0.553, overall=0.275
+Node 297: stage1=0.498, stage2=0.262, overall=0.130
+Node 298: stage1=0.498, stage2=0.378, overall=0.188
+Node 299: stage1=0.498, stage2=0.289, overall=0.144
+
+=== PARALLEL EXECUTION TIME (realistic for distributed system) ===
+  COMMUNICATION (max across nodes):
+    - Full model transfer: 0.000s (0.0%)
+  COMPUTATION (max across nodes):
+    - Distance computation: 1.198s (39.3%)
+    - Loss computation: 1.462s (48.0%)
+    - Aggregation: 0.387s (12.7%)
+  TOTALS:
+    - Total computation: 3.048s (100.0%)
+    - Total communication: 0.000s (0.0%)
+    - Total parallel time: 3.048s
+
+=== PER-NODE AVERAGE TIME ===
+  - Distance computation: 0.917s
+  - Loss computation: 1.096s
+  - Aggregation: 0.126s
+  - Model transfer: 0.000s
+  - Total per node: 2.139s
+
+=== TOTAL COMPUTATIONAL WORK (sum across all nodes) ===
+  - Total distance computation: 274.976s
+  - Total loss computation: 328.800s
+  - Total aggregation: 37.926s
+  - Total model transfer: 0.001s
+  - Grand total: 641.702s
+  - Mean Stage 1 acceptance rate: 0.498
+  - Mean Stage 2 acceptance rate: 0.331
+  - Overall acceptance rate: 0.165
+
+UBAR Algorithm Properties:
+  - Model dimension: 6,603,710
+  - Rho parameter: 0.5
+  - Two-stage approach: Distance filtering + loss evaluation
+  - Stage 1 selects: 50% of neighbors
+  - Stage 2 uses: Training sample loss comparison
+  - Theoretical complexity: O(deg(i)×d + deg(i)×inference)
+  - Approach: UBAR paper implementation
+
+
+# Experiment completed successfully

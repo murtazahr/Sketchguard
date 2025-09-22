@@ -1,7 +1,10 @@
-(edgedrift) mrangwala@rs-l-rhatop:~/Projects/Trust-Monitor$ ls
-decentralized_fl_sim.py  leaf  leaf_datasets.py  main_runner.log  __pycache__  results  run_experiments.py  scripts
-(edgedrift) mrangwala@rs-l-rhatop:~/Projects/Trust-Monitor$ python decentralized_fl_sim.py --dataset femnist --rounds 5 --local-epochs 1 --seed 987654321 --batch-size 64 --lr 0.01 --max-samples 10000 --agg coarse --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 16 --num-nodes 20
-Device: cuda
+# Experiment: coarse k=16 dataset=femnist
+# Timestamp: 2025-09-20T12:24:52.375655
+# Device: CPU (forced for consistent performance)
+# Command: python decentralized_fl_sim.py --dataset femnist --rounds 3 --local-epochs 1 --seed 987654321 --batch-size 64 --lr 0.01 --max-samples 10000 --agg coarse --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 16 --num-nodes 20
+================================================================================
+
+Device: cpu
 Seed: 987654321
 Loading 36 LEAF FEMNIST train files...
 LEAF FEMNIST train: 3597 users, 734463 samples
@@ -126,94 +129,82 @@ COARSE ALGORITHM (Sketch-based Filtering + State Aggregation)
   - Complexity: O(d + N×k) = O(6,603,710 + 20×1000)
   - Theoretical speedup vs BALANCE: 19.9x
 Initial test acc across nodes: mean=0.0162 ± 0.0138
-Round 001: test acc mean=0.0610 ± 0.0151 | min=0.0433 max=0.0969
-         : test loss mean=4.0357 ± 0.0095
-         : individual accs = ['0.049661', '0.052819', '0.061505', '0.049850', '0.052066', '0.066947', '0.053422', '0.066222', '0.057266', '0.043255', '0.051895', '0.059146', '0.048131', '0.053371', '0.086130', '0.084388', '0.051047', '0.086780', '0.048482', '0.096899']
-         : correct/total = [(205, 4128), (222, 4203), (251, 4081), (216, 4333), (213, 4091), (287, 4287), (224, 4193), (288, 4349), (240, 4191), (185, 4277), (215, 4143), (248, 4193), (197, 4093), (224, 4197), (349, 4052), (340, 4029), (212, 4153), (363, 4183), (198, 4084), (400, 4128)]
-         : compromised: 0.0648, honest: 0.0572
-         : coarse stats = ['Node 0: acc_rate=0.438', 'Node 1: acc_rate=0.562', 'Node 2: acc_rate=0.625']...
-Round 002: test acc mean=0.0547 ± 0.0131 | min=0.0428 max=0.1086
-         : test loss mean=3.9440 ± 0.0157
-         : individual accs = ['0.049661', '0.052819', '0.108552', '0.050081', '0.046443', '0.052018', '0.053422', '0.052656', '0.057266', '0.042787', '0.051895', '0.046983', '0.048375', '0.049083', '0.055281', '0.055845', '0.060920', '0.051159', '0.060235', '0.047965']
-         : correct/total = [(205, 4128), (222, 4203), (443, 4081), (217, 4333), (190, 4091), (223, 4287), (224, 4193), (229, 4349), (240, 4191), (183, 4277), (215, 4143), (197, 4193), (198, 4093), (206, 4197), (224, 4052), (225, 4029), (253, 4153), (214, 4183), (246, 4084), (198, 4128)]
-         : compromised: 0.0580, honest: 0.0513
-         : coarse stats = ['Node 0: acc_rate=0.438', 'Node 1: acc_rate=0.562', 'Node 2: acc_rate=0.625']...
-Round 003: test acc mean=0.0564 ± 0.0106 | min=0.0476 max=0.0891
-         : test loss mean=3.8113 ± 0.0168
-         : individual accs = ['0.049661', '0.048775', '0.049743', '0.089084', '0.052066', '0.048519', '0.053422', '0.052656', '0.057266', '0.055413', '0.051895', '0.051514', '0.062301', '0.082202', '0.055281', '0.061554', '0.048158', '0.047574', '0.054358', '0.057413']
-         : correct/total = [(205, 4128), (205, 4203), (203, 4081), (386, 4333), (213, 4091), (208, 4287), (224, 4193), (229, 4349), (240, 4191), (237, 4277), (215, 4143), (216, 4193), (255, 4093), (345, 4197), (224, 4052), (248, 4029), (200, 4153), (199, 4183), (222, 4084), (237, 4128)]
-         : compromised: 0.0562, honest: 0.0567
-         : coarse stats = ['Node 0: acc_rate=0.438', 'Node 1: acc_rate=0.562', 'Node 2: acc_rate=0.625']...
-Round 004: test acc mean=0.0525 ± 0.0045 | min=0.0453 max=0.0615
-         : test loss mean=3.7128 ± 0.0171
-         : individual accs = ['0.059109', '0.058292', '0.061505', '0.049850', '0.045710', '0.052484', '0.051753', '0.049897', '0.045335', '0.050736', '0.048033', '0.054853', '0.052284', '0.049083', '0.050099', '0.051874', '0.050566', '0.057853', '0.060235', '0.050388']
-         : correct/total = [(244, 4128), (245, 4203), (251, 4081), (216, 4333), (187, 4091), (225, 4287), (217, 4193), (217, 4349), (190, 4191), (217, 4277), (199, 4143), (230, 4193), (214, 4093), (206, 4197), (203, 4052), (209, 4029), (210, 4153), (242, 4183), (246, 4084), (208, 4128)]
-         : compromised: 0.0549, honest: 0.0501
-         : coarse stats = ['Node 0: acc_rate=0.438', 'Node 1: acc_rate=0.562', 'Node 2: acc_rate=0.625']...
-Round 005: test acc mean=0.0548 ± 0.0066 | min=0.0486 max=0.0773
-         : test loss mean=3.6858 ± 0.0141
-         : individual accs = ['0.049661', '0.050916', '0.061505', '0.049850', '0.052066', '0.052018', '0.048891', '0.052656', '0.077309', '0.048632', '0.051895', '0.051037', '0.062301', '0.050274', '0.055281', '0.055845', '0.050566', '0.057853', '0.060235', '0.057413']
-         : correct/total = [(205, 4128), (214, 4203), (251, 4081), (216, 4333), (213, 4091), (223, 4287), (205, 4193), (229, 4349), (324, 4191), (208, 4277), (215, 4143), (214, 4193), (255, 4093), (211, 4197), (224, 4052), (225, 4029), (210, 4153), (242, 4183), (246, 4084), (237, 4128)]
-         : compromised: 0.0557, honest: 0.0539
-         : coarse stats = ['Node 0: acc_rate=0.438', 'Node 1: acc_rate=0.562', 'Node 2: acc_rate=0.625']...
+Round 001: test acc mean=0.0569 ± 0.0138 | min=0.0433 max=0.1038
+         : test loss mean=4.0317 ± 0.0118
+         : individual accs = ['0.049661', '0.052819', '0.061505', '0.049850', '0.052066', '0.057150', '0.053422', '0.055875', '0.057266', '0.043255', '0.051895', '0.064155', '0.048131', '0.052895', '0.086130', '0.046662', '0.053937', '0.103753', '0.048482', '0.049903']
+         : correct/total = [(205, 4128), (222, 4203), (251, 4081), (216, 4333), (213, 4091), (245, 4287), (224, 4193), (243, 4349), (240, 4191), (185, 4277), (215, 4143), (269, 4193), (197, 4093), (222, 4197), (349, 4052), (188, 4029), (224, 4153), (434, 4183), (198, 4084), (206, 4128)]
+         : compromised: 0.0622, honest: 0.0517
+         : coarse stats = ['Node 0: acc_rate=0.062', 'Node 1: acc_rate=0.562', 'Node 2: acc_rate=0.562']...
+Round 002: test acc mean=0.0580 ± 0.0176 | min=0.0428 max=0.1104
+         : test loss mean=3.8541 ± 0.0500
+         : individual accs = ['0.084302', '0.052819', '0.046802', '0.049850', '0.046443', '0.058782', '0.053422', '0.046907', '0.050823', '0.042787', '0.048274', '0.046983', '0.048375', '0.049083', '0.050099', '0.055845', '0.083072', '0.110447', '0.086190', '0.047965']
+         : correct/total = [(348, 4128), (222, 4203), (191, 4081), (216, 4333), (190, 4091), (252, 4287), (224, 4193), (204, 4349), (213, 4191), (183, 4277), (200, 4143), (197, 4193), (198, 4093), (206, 4197), (203, 4052), (225, 4029), (345, 4153), (462, 4183), (352, 4084), (198, 4128)]
+         : compromised: 0.0605, honest: 0.0554
+         : coarse stats = ['Node 0: acc_rate=0.062', 'Node 1: acc_rate=0.281', 'Node 2: acc_rate=0.281']...
+Round 003: test acc mean=0.0758 ± 0.0503 | min=0.0455 max=0.2255
+         : test loss mean=3.6890 ± 0.0938
+         : individual accs = ['0.225533', '0.057340', '0.049743', '0.049850', '0.052066', '0.045486', '0.053422', '0.052656', '0.057266', '0.072715', '0.051895', '0.051514', '0.062301', '0.054801', '0.055281', '0.073964', '0.209487', '0.128855', '0.054358', '0.057413']
+         : correct/total = [(931, 4128), (241, 4203), (203, 4081), (216, 4333), (213, 4091), (195, 4287), (224, 4193), (229, 4349), (240, 4191), (311, 4277), (215, 4143), (216, 4193), (255, 4093), (230, 4197), (224, 4052), (298, 4029), (870, 4153), (539, 4183), (222, 4084), (237, 4128)]
+         : compromised: 0.0634, honest: 0.0882
+         : coarse stats = ['Node 0: acc_rate=0.062', 'Node 1: acc_rate=0.188', 'Node 2: acc_rate=0.188']...
 
 === FINAL RESULTS ===
 Dataset: femnist, Nodes: 20, Graph: k-regular, Aggregation: coarse
 Attack: directed_deviation, 50.0% compromised
-Final accuracy - Compromised: 0.0557, Honest: 0.0539
-Overall test accuracy: mean=0.0548 ± 0.0066
+Final accuracy - Compromised: 0.0634, Honest: 0.0882
+Overall test accuracy: mean=0.0758 ± 0.0503
 
 === COARSE SUMMARY ===
-Node 0: acceptance=0.438
-Node 1: acceptance=0.562
-Node 2: acceptance=0.625
-Node 3: acceptance=0.562
-Node 4: acceptance=0.562
-Node 5: acceptance=0.550
-Node 6: acceptance=0.500
-Node 7: acceptance=0.500
-Node 8: acceptance=0.500
-Node 9: acceptance=0.438
-Node 10: acceptance=0.438
-Node 11: acceptance=0.550
-Node 12: acceptance=0.562
-Node 13: acceptance=0.500
-Node 14: acceptance=0.500
-Node 15: acceptance=0.500
-Node 16: acceptance=0.438
-Node 17: acceptance=0.438
-Node 18: acceptance=0.438
-Node 19: acceptance=0.375
+Node 0: acceptance=0.062
+Node 1: acceptance=0.188
+Node 2: acceptance=0.188
+Node 3: acceptance=0.188
+Node 4: acceptance=0.229
+Node 5: acceptance=0.125
+Node 6: acceptance=0.208
+Node 7: acceptance=0.229
+Node 8: acceptance=0.125
+Node 9: acceptance=0.146
+Node 10: acceptance=0.146
+Node 11: acceptance=0.146
+Node 12: acceptance=0.188
+Node 13: acceptance=0.167
+Node 14: acceptance=0.167
+Node 15: acceptance=0.062
+Node 16: acceptance=0.146
+Node 17: acceptance=0.083
+Node 18: acceptance=0.146
+Node 19: acceptance=0.146
 
 === PARALLEL EXECUTION TIME (realistic for distributed system) ===
   COMMUNICATION (max across nodes):
     - Sketch transfer: 0.000s (0.0%)
     - Model fetch (accepted): 0.000s (0.0%)
   COMPUTATION (max across nodes):
-    - Sketching: 0.524s (97.3%)
-    - Filtering: 0.002s (0.3%)
-    - Aggregation: 0.013s (2.4%)
+    - Sketching: 0.317s (88.2%)
+    - Filtering: 0.001s (0.2%)
+    - Aggregation: 0.042s (11.7%)
   TOTALS:
-    - Total computation: 0.539s (100.0%)
+    - Total computation: 0.360s (100.0%)
     - Total communication: 0.000s (0.0%)
-    - Total parallel time: 0.539s
+    - Total parallel time: 0.360s
 
 === PER-NODE AVERAGE TIME ===
-  - Sketching: 0.431s
-  - Filtering: 0.001s
-  - Aggregation: 0.010s
+  - Sketching: 0.253s
+  - Filtering: 0.000s
+  - Aggregation: 0.027s
   - Sketch transfer: 0.000s
   - Model fetch: 0.000s
-  - Total per node: 0.441s
+  - Total per node: 0.280s
 
 === TOTAL COMPUTATIONAL WORK (sum across all nodes) ===
-  - Total sketching: 8.618s
-  - Total filtering: 0.015s
-  - Total aggregation: 0.192s
+  - Total sketching: 5.064s
+  - Total filtering: 0.008s
+  - Total aggregation: 0.537s
   - Total sketch transfer: 0.000s
   - Total model fetch: 0.000s
-  - Grand total: 8.825s
-  - Mean acceptance rate: 0.499
+  - Grand total: 5.609s
+  - Mean acceptance rate: 0.154
 
 COARSE Algorithm Properties:
   - Original dimension: 6,603,710
@@ -222,4 +213,6 @@ COARSE Algorithm Properties:
   - Single repetition: No repetitions needed
   - Theoretical complexity: O(d + N×k)
   - Approach: Sketch filtering + state aggregation
-(edgedrift) mrangwala@rs-l-rhatop:~/Projects/Trust-Monitor$
+
+
+# Experiment completed successfully
