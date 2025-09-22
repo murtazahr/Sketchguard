@@ -26,7 +26,7 @@ def get_aggregation_methods():
 
 def get_attack_percentages():
     """Get all attack percentages."""
-    return [0.0, 0.2, 0.3, 0.5, 0.8]
+    return [0.1, 0.4, 0.6, 0.7]
 
 def get_attack_types():
     """Get all attack types."""
