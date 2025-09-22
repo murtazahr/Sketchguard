@@ -156,8 +156,8 @@ def make_graph(n: int, kind: str, p: float = 0.3, k: int = 4) -> Graph:
 @dataclass
 class BALANCEConfig:
     """Configuration for BALANCE algorithm."""
-    gamma: float = 2.0          # Base similarity threshold multiplier
-    kappa: float = 1.0          # Exponential decay rate for threshold tightening
+    gamma: float = 0.5          # Base similarity threshold multiplier (optimized for CelebA)
+    kappa: float = 0.5          # Exponential decay rate for threshold tightening (optimized for CelebA)
     alpha: float = 0.5          # Weight for own update vs neighbors (0.5 = equal weight)
     min_neighbors: int = 1      # Minimum neighbors to accept before fallback
 

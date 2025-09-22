@@ -42,25 +42,25 @@ def load_and_prepare_data(csv_file='extracted_accuracies.csv'):
     df['compromised_error_rate'] = 1 - df['final_compromised_accuracy']
     return df
 
-def create_topology_figure(df, save_prefix=''):
+def create_topology_figure(df, dataset_name, save_prefix=''):
     """Create a multi-panel figure separated by graph topology."""
-    
+
     # Get all topology combinations
     topology_combinations = [
         ('erdos', '02', 'Erdos p=0.2'),
         ('erdos', '045', 'Erdos p=0.45'),
-        ('erdos', '06', 'Erdos p=0.6'), 
+        ('erdos', '06', 'Erdos p=0.6'),
         ('ring', 'NA', 'Ring'),
         ('fully', 'NA', 'Fully Connected')
     ]
-    
+
     # Create figure with 5 subplots (2 rows, 3 columns)
     fig, axes = plt.subplots(2, 3, figsize=(12, 6))
     axes = axes.flatten()  # Flatten for easier indexing
-    
+
     node_type = 'honest'  # Focus on honest nodes
     attack_type = 'directed_deviation'  # Use directed deviation as the attack type
-    
+
     # Define algorithms and their visual properties
     algorithms = ['d-fedavg', 'krum', 'balance', 'ubar', 'coarse']
 
@@ -87,30 +87,30 @@ def create_topology_figure(df, save_prefix=''):
         'ubar': '^',
         'coarse': 'D'
     }
-    
+
     # Create legend handles once for the entire figure
     legend_handles = []
     legend_labels = []
-    
+
     for idx, (graph_type, graph_param, display_name) in enumerate(topology_combinations):
         ax = axes[idx]
-        
+
         # Filter data for this specific topology
         if graph_param == 'NA':
             # For fully and ring topologies, graph_param is NaN
             df_filtered = df[
-                (df['graph_type'] == graph_type) & 
+                (df['graph_type'] == graph_type) &
                 (df['graph_param'].isna()) &
                 (df['attack_type'] == attack_type) &
-                (df['dataset'] == 'femnist')
+                (df['dataset'] == dataset_name)
             ].copy()
         else:
             # For erdos topology, graph_param has specific values
             df_filtered = df[
-                (df['graph_type'] == graph_type) & 
+                (df['graph_type'] == graph_type) &
                 (df['graph_param'] == int(graph_param)) &
                 (df['attack_type'] == attack_type) &
-                (df['dataset'] == 'femnist')
+                (df['dataset'] == dataset_name)
             ].copy()
         
         error_col = f'{node_type}_error_rate'
@@ -284,28 +284,36 @@ def create_topology_figure(df, save_prefix=''):
 def main():
     print("Loading data from extracted_accuracies.csv...")
     df = load_and_prepare_data()
-    
+
     print(f"Loaded {len(df)} experiments")
-    
-    # Filter for FEMNIST data
-    df_femnist = df[df['dataset'] == 'femnist']
-    
-    # Check available topologies
-    print("\nAvailable topology combinations:")
-    topology_counts = df_femnist.groupby(['graph_type', 'graph_param']).size().reset_index(name='count')
-    for _, row in topology_counts.iterrows():
-        print(f"  {row['graph_type']} (param={row['graph_param']}): {row['count']} experiments")
-    
-    print(f"\nGenerating topology comparison figure...")
-    create_topology_figure(df_femnist, 'femnist_')
-    
-    print("\n✅ Topology comparison figure generated!")
+
+    # Check available datasets
+    datasets = df['dataset'].unique()
+    print(f"Available datasets: {', '.join(datasets)}")
+
+    for dataset in datasets:
+        dataset_data = df[df['dataset'] == dataset]
+        print(f"\n{dataset.upper()}: {len(dataset_data)} experiments")
+
+        # Check available topologies for this dataset
+        print(f"Available topology combinations for {dataset.upper()}:")
+        topology_counts = dataset_data.groupby(['graph_type', 'graph_param']).size().reset_index(name='count')
+        for _, row in topology_counts.iterrows():
+            print(f"  {row['graph_type']} (param={row['graph_param']}): {row['count']} experiments")
+
+        print(f"\nGenerating topology comparison figure for {dataset.upper()}...")
+        create_topology_figure(dataset_data, dataset, f'{dataset}_')
+
+        print(f"✅ {dataset.upper()} topology comparison figure generated!")
+
+    print("\n✅ All topology comparison figures generated!")
     print("Features:")
     print("  - Separate panel for each graph topology")
     print("  - Directed deviation attack type")
     print("  - Honest node error rates")
     print("  - Inset zoom for overlapping algorithms")
     print("  - Single legend for all panels")
+    print("  - Generated for all available datasets")
 
 if __name__ == "__main__":
     main()

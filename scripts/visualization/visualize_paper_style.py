@@ -263,21 +263,29 @@ def create_combined_figure(df, save_prefix=''):
 def main():
     print("Loading data from extracted_accuracies.csv...")
     df = load_and_prepare_data()
-    
+
     print(f"Loaded {len(df)} experiments")
-    
-    # Filter for FEMNIST data
-    df_femnist = df[df['dataset'] == 'femnist']
-    
-    print(f"\nGenerating paper-style combined figure...")
-    create_combined_figure(df_femnist, 'femnist_')
-    
-    print("\n✅ Paper-style figure generated!")
+
+    # Check available datasets
+    datasets = df['dataset'].unique()
+    print(f"Available datasets: {', '.join(datasets)}")
+
+    for dataset in datasets:
+        dataset_data = df[df['dataset'] == dataset]
+        print(f"{dataset.upper()}: {len(dataset_data)} experiments")
+
+        print(f"\nGenerating paper-style combined figure for {dataset.upper()}...")
+        create_combined_figure(dataset_data, f'{dataset}_')
+
+        print(f"✅ {dataset.upper()} figure generated!")
+
+    print("\n✅ All paper-style figures generated!")
     print("Features:")
     print("  - Single legend at the top for both panels")
     print("  - Inset zoom from 10-80% on x-axis")
     print("  - Matching publication style from reference")
     print("  - Two panels: (a) Directed Deviation, (b) Gaussian")
+    print("  - Generated for all available datasets")
 
 if __name__ == "__main__":
     main()
