@@ -233,44 +233,105 @@ class LEAFFEMNISTModel(nn.Module):
 
 
 class LEAFCelebAModel(nn.Module):
-    """LEAF CelebA CNN Model - PyTorch version of LEAF's TensorFlow model."""
-    
+    """Improved CelebA CNN Model with higher capacity for better performance."""
+
     def __init__(self, num_classes: int = 2, image_size: int = 84):
         super().__init__()
         self.num_classes = num_classes
         self.image_size = image_size
-        
-        # 4 conv blocks as in LEAF's TensorFlow implementation
-        self.conv_blocks = nn.ModuleList()
-        in_channels = 3
-        for _ in range(4):
-            block = nn.Sequential(
-                nn.Conv2d(in_channels, 32, kernel_size=3, padding=1),
-                nn.BatchNorm2d(32),
-                nn.MaxPool2d(2, 2),
-                nn.ReLU()
-            )
-            self.conv_blocks.append(block)
-            in_channels = 32
-        
+
+        # Modern CNN architecture with progressive channel expansion
+        # Total params will be ~500K-1M instead of ~30K
+
+        # Block 1: 3 -> 64 channels
+        self.block1 = nn.Sequential(
+            nn.Conv2d(3, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(64, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(2, 2)
+        )
+
+        # Block 2: 64 -> 128 channels
+        self.block2 = nn.Sequential(
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(128, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(2, 2)
+        )
+
+        # Block 3: 128 -> 256 channels
+        self.block3 = nn.Sequential(
+            nn.Conv2d(128, 256, kernel_size=3, padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(256, 256, kernel_size=3, padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(2, 2)
+        )
+
+        # Block 4: 256 -> 512 channels
+        self.block4 = nn.Sequential(
+            nn.Conv2d(256, 512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(512, 512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(2, 2)
+        )
+
         # Calculate the size after 4 max pooling layers
         # 84 -> 42 -> 21 -> 10 -> 5
         final_size = image_size // (2**4)
-        
-        # Fully connected layer
-        self.fc = nn.Linear(32 * final_size * final_size, num_classes)
-        
+
+        # Fully connected layers with dropout for regularization
+        self.classifier = nn.Sequential(
+            nn.Dropout(0.5),
+            nn.Linear(512 * final_size * final_size, 512),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.5),
+            nn.Linear(512, 256),
+            nn.ReLU(inplace=True),
+            nn.Linear(256, num_classes)
+        )
+
+        # Initialize weights properly
+        self._initialize_weights()
+
+    def _initialize_weights(self):
+        """Initialize model weights using He initialization for ReLU networks."""
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.normal_(m.weight, 0, 0.01)
+                nn.init.constant_(m.bias, 0)
+
     def forward(self, x):
         # Input: (batch, 3, image_size, image_size)
-        for block in self.conv_blocks:
-            x = block(x)
-        
+        x = self.block1(x)  # -> (batch, 64, 42, 42)
+        x = self.block2(x)  # -> (batch, 128, 21, 21)
+        x = self.block3(x)  # -> (batch, 256, 10, 10)
+        x = self.block4(x)  # -> (batch, 512, 5, 5)
+
         # Flatten
         x = x.view(x.size(0), -1)
-        
-        # Final classification layer
-        x = self.fc(x)
-        
+
+        # Classifier with dropout
+        x = self.classifier(x)
+
         return x
 
 
