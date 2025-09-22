@@ -22,11 +22,11 @@ def get_graph_configs():
 
 def get_aggregation_methods():
     """Get all aggregation methods."""
-    return ["balance", "coarse"]
+    return ["balance", "coarse", "ubar", "krum", "d-fedavg"]
 
 def get_attack_percentages():
     """Get all attack percentages."""
-    return [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+    return [0.0, 0.2, 0.3, 0.5, 0.8]
 
 def get_attack_types():
     """Get all attack types."""
@@ -65,8 +65,8 @@ def build_command(dataset, graph_config, agg_method, attack_pct, attack_type="di
         "--seed", "987654321",
         "--graph", graph_config["name"],
         "--batch-size", "64",
-        "--lr", "0.01",
-        "--max-samples", "10000",
+        "--lr", "0.001",
+        "--max-samples", "4500",
         "--agg", agg_method,
         "--attack-percentage", str(attack_pct),
         "--attack-type", attack_type,
