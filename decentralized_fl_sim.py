@@ -156,8 +156,8 @@ def make_graph(n: int, kind: str, p: float = 0.3, k: int = 4) -> Graph:
 @dataclass
 class BALANCEConfig:
     """Configuration for BALANCE algorithm."""
-    gamma: float = 0.5          # Base similarity threshold multiplier (optimized for CelebA)
-    kappa: float = 0.5          # Exponential decay rate for threshold tightening (optimized for CelebA)
+    gamma: float = 0.3          # Base similarity threshold multiplier (optimized for CelebA)
+    kappa: float = 1          # Exponential decay rate for threshold tightening (optimized for CelebA)
     alpha: float = 0.5          # Weight for own update vs neighbors (0.5 = equal weight)
     min_neighbors: int = 1      # Minimum neighbors to accept before fallback
 
@@ -1881,8 +1881,8 @@ def parse_args():
     p.add_argument("--pct-compromised", type=float, default=0.0)
 
     # BALANCE algorithm parameters
-    p.add_argument("--balance-gamma", type=float, default=0.5)
-    p.add_argument("--balance-kappa", type=float, default=0.5)
+    p.add_argument("--balance-gamma", type=float, default=0.3)
+    p.add_argument("--balance-kappa", type=float, default=1)
     p.add_argument("--balance-alpha", type=float, default=0.5)
 
     # COARSE specific parameters
