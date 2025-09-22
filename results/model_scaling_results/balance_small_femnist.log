@@ -1,0 +1,127 @@
+# Model Scaling Experiment
+# Algorithm: balance
+# Model variant: small
+# Dataset: femnist
+# Timestamp: 2025-09-22T17:27:54.508678
+# Device: CPU (forced for consistent performance)
+# Command: python decentralized_fl_sim.py --dataset femnist --model-variant small --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg balance --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph ring --num-nodes 20
+================================================================================
+
+Device: cpu
+Seed: 42
+Loading 36 LEAF FEMNIST train files...
+LEAF FEMNIST train: 3597 users, 734463 samples
+Loading 36 LEAF FEMNIST test files...
+LEAF FEMNIST test: 3597 users, 83388 samples
+Found 3597 train users, 3597 test users, 3597 common users
+User sample counts range: 525 (max) to 17 (min)
+Distributed ALL 3597 users across 20 clients
+Users per client: 179 (with 17 clients getting +1 user)
+Train partition sizes: [37676, 37670, 37261, 34625, 36810, 35667, 37466, 36404, 36175, 36710, 37122, 37538, 35969, 37590, 36705, 36474, 36699, 37182, 36951, 35769]
+Test partition sizes: [4275, 4276, 4227, 3941, 4171, 4051, 4253, 4138, 4112, 4169, 4218, 4252, 4082, 4263, 4169, 4143, 4173, 4221, 4187, 4067]
+  Client 0: 37676 train samples, 62 unique classes
+  Client 1: 37670 train samples, 62 unique classes
+  Client 2: 37261 train samples, 62 unique classes
+  Client 3: 34625 train samples, 62 unique classes
+  Client 4: 36810 train samples, 62 unique classes
+  Client 5: 35667 train samples, 62 unique classes
+  Client 6: 37466 train samples, 62 unique classes
+  Client 7: 36404 train samples, 62 unique classes
+  Client 8: 36175 train samples, 62 unique classes
+  Client 9: 36710 train samples, 62 unique classes
+  Client 10: 37122 train samples, 62 unique classes
+  Client 11: 37538 train samples, 62 unique classes
+  Client 12: 35969 train samples, 62 unique classes
+  Client 13: 37590 train samples, 62 unique classes
+  Client 14: 36705 train samples, 62 unique classes
+  Client 15: 36474 train samples, 62 unique classes
+  Client 16: 36699 train samples, 62 unique classes
+  Client 17: 37182 train samples, 62 unique classes
+  Client 18: 36951 train samples, 62 unique classes
+  Client 19: 35769 train samples, 62 unique classes
+Graph: ring, nodes: 20, edges: 20
+Degree statistics: avg=2.00, min=2, max=2
+Attack: Compromised 10/20 nodes: [0, 1, 2, 3, 7, 8, 10, 11, 16, 17]
+Attack type: directed_deviation, lambda: 1.0
+Model variant: small
+Model parameters: 848,382
+BALANCE algorithm:
+  - Model dimension: 848,382 parameters
+  - Complexity: O(N×d) = O(20×848,382)
+Initial test acc across nodes: mean=0.0194 ± 0.0148
+Round 001: test acc mean=0.4554 ± 0.1868 | min=0.0131 max=0.6296
+         : test loss mean=564.1264 ± 1347.9625
+         : individual accs = ['0.512749', '0.013096', '0.020109', '0.567622', '0.629585', '0.596396', '0.431225', '0.455776', '0.589251', '0.051571', '0.608345', '0.549389', '0.514699', '0.468684', '0.512593', '0.465605', '0.508986', '0.574508', '0.533079', '0.505532']
+         : correct/total = [(2192, 4275), (56, 4276), (85, 4227), (2237, 3941), (2626, 4171), (2416, 4051), (1834, 4253), (1886, 4138), (2423, 4112), (215, 4169), (2566, 4218), (2336, 4252), (2101, 4082), (1998, 4263), (2137, 4169), (1929, 4143), (2124, 4173), (2425, 4221), (2232, 4187), (2056, 4067)]
+         : compromised: 0.4400, honest: 0.4709
+Round 002: test acc mean=0.5863 ± 0.3148 | min=0.0367 max=0.8080
+         : test loss mean=11924170.0355 ± 35767400.7060
+         : individual accs = ['0.753216', '0.045136', '0.048261', '0.774423', '0.807960', '0.794372', '0.784623', '0.715321', '0.038911', '0.036699', '0.043860', '0.768579', '0.781235', '0.766831', '0.730391', '0.753802', '0.760604', '0.721156', '0.802723', '0.797394']
+         : correct/total = [(3220, 4275), (193, 4276), (204, 4227), (3052, 3941), (3370, 4171), (3218, 4051), (3337, 4253), (2960, 4138), (160, 4112), (153, 4169), (185, 4218), (3268, 4252), (3189, 4082), (3269, 4263), (3045, 4169), (3123, 4143), (3174, 4173), (3044, 4221), (3361, 4187), (3243, 4067)]
+         : compromised: 0.4669, honest: 0.7056
+Round 003: test acc mean=0.6231 ± 0.3310 | min=0.0341 max=0.8420
+         : test loss mean=1411.1580 ± 4309.5180
+         : individual accs = ['0.815673', '0.034144', '0.051337', '0.804618', '0.842004', '0.823500', '0.810016', '0.793378', '0.053016', '0.051571', '0.060929', '0.810207', '0.808917', '0.821018', '0.805709', '0.799421', '0.790558', '0.825871', '0.828995', '0.830834']
+         : correct/total = [(3487, 4275), (146, 4276), (217, 4227), (3171, 3941), (3512, 4171), (3336, 4051), (3445, 4253), (3283, 4138), (218, 4112), (215, 4169), (257, 4218), (3445, 4252), (3302, 4082), (3500, 4263), (3359, 4169), (3312, 4143), (3299, 4173), (3486, 4221), (3471, 4187), (3379, 4067)]
+         : compromised: 0.5040, honest: 0.7422
+
+=== FINAL RESULTS ===
+Dataset: femnist, Nodes: 20, Graph: ring, Aggregation: balance
+Attack: directed_deviation, 50.0% compromised
+Final accuracy - Compromised: 0.5040, Honest: 0.7422
+Overall test accuracy: mean=0.6231 ± 0.3310
+
+=== BALANCE SUMMARY ===
+Node 0: acceptance=0.333
+Node 1: acceptance=0.333
+Node 2: acceptance=0.333
+Node 3: acceptance=0.333
+Node 4: acceptance=0.500
+Node 5: acceptance=1.000
+Node 6: acceptance=0.500
+Node 7: acceptance=0.167
+Node 8: acceptance=0.167
+Node 9: acceptance=0.333
+Node 10: acceptance=0.167
+Node 11: acceptance=0.167
+Node 12: acceptance=0.500
+Node 13: acceptance=0.833
+Node 14: acceptance=0.833
+Node 15: acceptance=0.500
+Node 16: acceptance=0.167
+Node 17: acceptance=0.333
+Node 18: acceptance=0.500
+Node 19: acceptance=0.500
+
+=== PARALLEL EXECUTION TIME (realistic for distributed system) ===
+  COMMUNICATION (max across nodes):
+    - Full model transfer: 0.000s (0.4%)
+  COMPUTATION (max across nodes):
+    - Filtering: 0.003s (59.9%)
+    - Aggregation: 0.002s (39.7%)
+  TOTALS:
+    - Total computation: 0.005s (99.6%)
+    - Total communication: 0.000s (0.4%)
+    - Total parallel time: 0.005s
+
+=== PER-NODE AVERAGE TIME ===
+  - Filtering: 0.002s
+  - Aggregation: 0.001s
+  - Model transfer: 0.000s
+  - Total per node: 0.003s
+
+=== TOTAL COMPUTATIONAL WORK (sum across all nodes) ===
+  - Total filtering: 0.033s
+  - Total aggregation: 0.027s
+  - Total model transfer: 0.000s
+  - Grand total: 0.061s
+  - Mean acceptance rate: 0.425
+
+BALANCE Algorithm Properties:
+  - Model dimension: 848,382
+  - No compression: Full parameter comparison
+  - Theoretical complexity: O(deg(i)×d)
+  - Approach: Full parameter filtering + averaging
+
+
+# Experiment completed successfully
