@@ -151,21 +151,156 @@ def create_scalability_plot(df):
     plt.show()
     plt.close()
 
+def load_model_scalability_data(csv_file='extracted_time_model_scaling.csv'):
+    """Load model dimension timing data and prepare for scalability visualization."""
+    script_dir = os.path.dirname(__file__)
+    csv_path = os.path.join(script_dir, '..', '..', csv_file)
+    df = pd.read_csv(csv_path)
+
+    # Rename 'coarse' to 'sketchguard' for display
+    df['algorithm'] = df['aggregation-algorithm'].replace('coarse', 'sketchguard')
+
+    return df
+
+def create_model_scalability_plot(df):
+    """Create model dimension scalability comparison plot."""
+
+    # Create figure with paper-style dimensions
+    fig, ax = plt.subplots(1, 1, figsize=(8, 3))
+
+    # Define algorithms and their visual properties matching paper style
+    algorithms = ['balance', 'ubar', 'sketchguard']
+
+    # Define colors and styles exactly matching the paper figures
+    colors = {
+        'balance': '#0000FF',    # Blue
+        'ubar': '#FF8C00',       # Orange
+        'sketchguard': '#FF00FF' # Magenta/Pink
+    }
+
+    line_styles = {
+        'balance': '-.',             # Dash-dot
+        'ubar': '-',                 # Solid
+        'sketchguard': (0, (1, 1))   # More dotted
+    }
+
+    markers = {
+        'balance': 's',      # Square
+        'ubar': '^',         # Triangle up
+        'sketchguard': 'D'   # Diamond
+    }
+
+    # Create legend handles
+    legend_handles = []
+    legend_labels = []
+
+    # Plot lines for each algorithm
+    for algo in algorithms:
+        algo_data = df[df['algorithm'] == algo]
+
+        if len(algo_data) > 0:
+            # Sort by model dimension for proper line plotting
+            algo_data = algo_data.sort_values('model_dimension')
+
+            display_name = algo.upper()
+
+            line, = ax.plot(algo_data['model_dimension'],
+                           algo_data['compute-time'],
+                           label=display_name,
+                           linestyle=line_styles[algo],
+                           color=colors[algo],
+                           marker=markers[algo],
+                           markersize=4,
+                           linewidth=1.8,
+                           markeredgewidth=0.5,
+                           markeredgecolor=colors[algo],
+                           markevery=1)
+
+            legend_handles.append(line)
+            legend_labels.append(display_name)
+
+    # Customize plot - no title to match paper style
+    ax.set_xlabel('Model Dimension')
+    ax.set_ylabel('Compute Time (s)')
+
+    # Use log scale for x-axis due to large range of model dimensions
+    ax.set_xscale('log')
+
+    # Set axis limits
+    ax.set_xlim(min(df['model_dimension']) * 0.8, max(df['model_dimension']) * 1.2)
+    ax.set_ylim(0, max(df['compute-time']) * 1.1)
+
+    # Format y-axis to show more precision
+    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda y, _: f'{y:.3f}'))
+
+    # Grid and styling to match paper
+    ax.grid(True, alpha=0.4, linewidth=0.5)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    # Add legend at the top matching paper style
+    fig.legend(legend_handles, legend_labels,
+               loc='upper center',
+               bbox_to_anchor=(0.5, 1.05),
+               ncol=3,
+               frameon=True,
+               fancybox=False,
+               shadow=False,
+               borderpad=0.3,
+               columnspacing=2.0,
+               handlelength=2.0,
+               handletextpad=0.5,
+               edgecolor='black',
+               facecolor='white')
+
+    # Adjust layout to prevent overlap
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.85)
+
+    # Ensure figures directory exists
+    os.makedirs(os.path.dirname(get_output_path('model_scalability.pdf')), exist_ok=True)
+
+    # Save figure
+    pdf_filename = get_output_path('model_scalability.pdf')
+    plt.savefig(pdf_filename, bbox_inches='tight', pad_inches=0.02)
+    print(f"Saved: {pdf_filename}")
+
+    png_filename = get_output_path('model_scalability.png')
+    plt.savefig(png_filename, bbox_inches='tight', pad_inches=0.02, dpi=300)
+    print(f"Saved: {png_filename}")
+
+    plt.show()
+    plt.close()
+
 def main():
-    print("Loading scalability data from extracted_time_network_scaling.csv...")
-    df = load_scalability_data()
+    # Network scalability plot
+    print("Loading network scalability data from extracted_time_network_scaling.csv...")
+    df_network = load_scalability_data()
 
-    print(f"Loaded {len(df)} timing measurements")
-    print(f"Algorithms: {', '.join(df['algorithm'].unique())}")
-    print(f"Node degrees: {', '.join(map(str, sorted(df['node-degree'].unique())))}")
+    print(f"Loaded {len(df_network)} network timing measurements")
+    print(f"Algorithms: {', '.join(df_network['algorithm'].unique())}")
+    print(f"Node degrees: {', '.join(map(str, sorted(df_network['node-degree'].unique())))}")
 
-    print("\nGenerating scalability comparison plot...")
-    create_scalability_plot(df)
+    print("\nGenerating network scalability comparison plot...")
+    create_scalability_plot(df_network)
 
-    print("\n✅ Scalability plot generated!")
+    # Model scalability plot
+    print("\n" + "="*50)
+    print("\nLoading model scalability data from extracted_time_model_scaling.csv...")
+    df_model = load_model_scalability_data()
+
+    print(f"Loaded {len(df_model)} model timing measurements")
+    print(f"Algorithms: {', '.join(df_model['algorithm'].unique())}")
+    print(f"Model dimensions: {', '.join(map(str, sorted(df_model['model_dimension'].unique())))}")
+
+    print("\nGenerating model scalability comparison plot...")
+    create_model_scalability_plot(df_model)
+
+    print("\n✅ Both scalability plots generated!")
     print("Features:")
-    print("  - Compute time vs node degree comparison")
-    print("  - SKETCHGUARD vs BALANCE vs UBAR")
+    print("  - Network scalability: Compute time vs node degree")
+    print("  - Model scalability: Compute time vs model dimension")
+    print("  - SKETCHGUARD vs BALANCE vs UBAR comparison")
     print("  - Publication-quality styling")
     print("  - Saved as both PDF and PNG in figures/ directory")
 
