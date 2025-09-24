@@ -11,8 +11,9 @@ import os
 from datetime import datetime
 
 # List of experiments to run - testing model scaling with 50% malicious nodes
+# Reordered to run all aggregation algorithms with tiny model, then small, then large, then xlarge
 experiments = [
-    # BALANCE with different model sizes
+    # TINY model with all three aggregation algorithms
     {
         "agg": "balance",
         "model_variant": "tiny",
@@ -20,30 +21,24 @@ experiments = [
         "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant tiny --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg balance --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
     },
     {
-        "agg": "balance",
-        "model_variant": "small",
-        "dataset": "femnist",
-        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant small --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg balance --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
-    },
-    {
-        "agg": "balance",
-        "model_variant": "large",
-        "dataset": "femnist",
-        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant large --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg balance --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
-    },
-    {
-        "agg": "balance",
-        "model_variant": "xlarge",
-        "dataset": "femnist",
-        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant xlarge --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg balance --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
-    },
-
-    # COARSE with different model sizes
-    {
         "agg": "coarse",
         "model_variant": "tiny",
         "dataset": "femnist",
         "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant tiny --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg coarse --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
+    },
+    {
+        "agg": "ubar",
+        "model_variant": "tiny",
+        "dataset": "femnist",
+        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant tiny --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg ubar --ubar-rho 0.4 --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
+    },
+
+    # SMALL model with all three aggregation algorithms
+    {
+        "agg": "balance",
+        "model_variant": "small",
+        "dataset": "femnist",
+        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant small --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg balance --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
     },
     {
         "agg": "coarse",
@@ -52,36 +47,44 @@ experiments = [
         "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant small --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg coarse --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
     },
     {
+        "agg": "ubar",
+        "model_variant": "small",
+        "dataset": "femnist",
+        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant small --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg ubar --ubar-rho 0.4 --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
+    },
+
+    # LARGE model with all three aggregation algorithms
+    {
+        "agg": "balance",
+        "model_variant": "large",
+        "dataset": "femnist",
+        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant large --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg balance --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
+    },
+    {
         "agg": "coarse",
         "model_variant": "large",
         "dataset": "femnist",
         "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant large --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg coarse --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
     },
     {
-        "agg": "coarse",
-        "model_variant": "xlarge",
-        "dataset": "femnist",
-        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant xlarge --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg coarse --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
-    },
-
-    # UBAR with different model sizes
-    {
-        "agg": "ubar",
-        "model_variant": "tiny",
-        "dataset": "femnist",
-        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant tiny --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg ubar --ubar-rho 0.4 --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
-    },
-    {
-        "agg": "ubar",
-        "model_variant": "small",
-        "dataset": "femnist",
-        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant small --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg ubar --ubar-rho 0.4 --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
-    },
-    {
         "agg": "ubar",
         "model_variant": "large",
         "dataset": "femnist",
         "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant large --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg ubar --ubar-rho 0.4 --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
+    },
+
+    # XLARGE model with all three aggregation algorithms
+    {
+        "agg": "balance",
+        "model_variant": "xlarge",
+        "dataset": "femnist",
+        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant xlarge --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg balance --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
+    },
+    {
+        "agg": "coarse",
+        "model_variant": "xlarge",
+        "dataset": "femnist",
+        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant xlarge --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg coarse --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
     },
     {
         "agg": "ubar",
@@ -163,8 +166,9 @@ def main():
     print("Starting model scaling experiments (CPU Mode)...")
     print(f"Total experiments to run: {len(experiments)}")
     print("\n⚠️  All experiments will run on CPU for consistent performance")
-    print("🎯 Testing model scaling: tiny -> small -> baseline -> large -> xlarge")
-    print("🚨 50% malicious nodes, 20-node ring network")
+    print("🎯 Testing model scaling: all algorithms with tiny, then small, then large, then xlarge")
+    print("🔄 New order: tiny (balance, coarse, ubar) → small (balance, coarse, ubar) → large (balance, coarse, ubar) → xlarge (balance, coarse, ubar)")
+    print("🚨 50% malicious nodes, k-regular network")
 
     successful = 0
     failed = 0
