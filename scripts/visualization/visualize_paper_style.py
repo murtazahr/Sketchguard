@@ -48,7 +48,7 @@ def load_and_prepare_data(csv_file='extracted_accuracies.csv'):
     
     return df
 
-def create_combined_figure(df, save_prefix=''):
+def create_combined_figure(df, dataset, save_prefix=''):
     """Create a two-panel figure with insets matching the paper style."""
     
     # Create figure with two subplots side by side
@@ -137,11 +137,17 @@ def create_combined_figure(df, save_prefix=''):
                     legend_handles.append(line)
                     legend_labels.append(display_name)
         
-        # Create inset axes (smaller size)
-        axins = inset_axes(ax, width="35%", height="35%", 
-                          loc='lower right',
-                          bbox_to_anchor=(0, 0.3, 1, 1),
-                          bbox_transform=ax.transAxes)
+        # Create inset axes (smaller size) - top right for CelebA
+        if dataset == 'celeba':
+            axins = inset_axes(ax, width="35%", height="35%",
+                              loc='upper right',
+                              bbox_to_anchor=(0, 0, 1, 1),
+                              bbox_transform=ax.transAxes)
+        else:
+            axins = inset_axes(ax, width="35%", height="35%",
+                              loc='lower right',
+                              bbox_to_anchor=(0, 0.3, 1, 1),
+                              bbox_transform=ax.transAxes)
         
         # Plot in inset - only the three overlapping algorithms
         inset_algorithms = ['balance', 'ubar', 'coarse']
@@ -275,7 +281,7 @@ def main():
         print(f"{dataset.upper()}: {len(dataset_data)} experiments")
 
         print(f"\nGenerating paper-style combined figure for {dataset.upper()}...")
-        create_combined_figure(dataset_data, f'{dataset}_')
+        create_combined_figure(dataset_data, dataset, f'{dataset}_')
 
         print(f"✅ {dataset.upper()} figure generated!")
 

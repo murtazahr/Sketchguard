@@ -163,10 +163,17 @@ def create_topology_figure(df, dataset_name, save_prefix=''):
         
         # Create inset for overlapping algorithms (if we have data)
         if len(df_filtered) > 0:
-            axins = inset_axes(ax, width="30%", height="30%", 
-                              loc='lower right',
-                              bbox_to_anchor=(0, 0.25, 1, 1),
-                              bbox_transform=ax.transAxes)
+            # Top right for CelebA, lower right for other datasets
+            if dataset_name == 'celeba':
+                axins = inset_axes(ax, width="30%", height="30%",
+                                  loc='upper right',
+                                  bbox_to_anchor=(0, 0, 1, 1),
+                                  bbox_transform=ax.transAxes)
+            else:
+                axins = inset_axes(ax, width="30%", height="30%",
+                                  loc='lower right',
+                                  bbox_to_anchor=(0, 0.25, 1, 1),
+                                  bbox_transform=ax.transAxes)
             
             inset_algorithms = ['balance', 'ubar', 'coarse']
             
