@@ -42,6 +42,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Subset, RandomSampler
+torch.multiprocessing.set_sharing_strategy('file_system')
 
 from leaf_datasets import (
     load_leaf_dataset,
