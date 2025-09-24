@@ -42,8 +42,8 @@ def load_and_prepare_data(csv_file='extracted_accuracies.csv'):
     df['compromised_error_rate'] = 1 - df['final_compromised_accuracy']
     return df
 
-def create_topology_figure(df, dataset_name, save_prefix=''):
-    """Create a multi-panel figure separated by graph topology."""
+def create_topology_figure(df, save_prefix=''):
+    """Create a multi-panel figure separated by graph topology, averaging across datasets."""
 
     # Get all topology combinations
     topology_combinations = [
@@ -54,8 +54,8 @@ def create_topology_figure(df, dataset_name, save_prefix=''):
         ('fully', 'NA', 'Fully Connected')
     ]
 
-    # Create figure with 5 subplots (2 rows, 3 columns)
-    fig, axes = plt.subplots(2, 3, figsize=(12, 6))
+    # Create figure with 5 subplots (1 row, 5 columns)
+    fig, axes = plt.subplots(1, 5, figsize=(15, 3))
     axes = axes.flatten()  # Flatten for easier indexing
 
     node_type = 'honest'  # Focus on honest nodes
@@ -95,22 +95,20 @@ def create_topology_figure(df, dataset_name, save_prefix=''):
     for idx, (graph_type, graph_param, display_name) in enumerate(topology_combinations):
         ax = axes[idx]
 
-        # Filter data for this specific topology
+        # Filter data for this specific topology (averaging across all datasets)
         if graph_param == 'NA':
             # For fully and ring topologies, graph_param is NaN
             df_filtered = df[
                 (df['graph_type'] == graph_type) &
                 (df['graph_param'].isna()) &
-                (df['attack_type'] == attack_type) &
-                (df['dataset'] == dataset_name)
+                (df['attack_type'] == attack_type)
             ].copy()
         else:
             # For erdos topology, graph_param has specific values
             df_filtered = df[
                 (df['graph_type'] == graph_type) &
                 (df['graph_param'] == int(graph_param)) &
-                (df['attack_type'] == attack_type) &
-                (df['dataset'] == dataset_name)
+                (df['attack_type'] == attack_type)
             ].copy()
         
         error_col = f'{node_type}_error_rate'
@@ -124,56 +122,83 @@ def create_topology_figure(df, dataset_name, save_prefix=''):
             ax.set_ylim(0, 1.0)
             continue
         
+        # First, find attack percentages that exist for BOTH datasets in this topology
+        celeba_data = df_filtered[df_filtered['dataset'] == 'celeba']
+        femnist_data = df_filtered[df_filtered['dataset'] == 'femnist']
+
+        if len(celeba_data) > 0 and len(femnist_data) > 0:
+            # Find attack percentage + algorithm combinations that exist in BOTH datasets
+            celeba_combos = set(zip(celeba_data['attack_percentage'], celeba_data['algorithm']))
+            femnist_combos = set(zip(femnist_data['attack_percentage'], femnist_data['algorithm']))
+            common_combos = celeba_combos.intersection(femnist_combos)
+
+            print(f"\n{display_name}:")
+            print(f"  CelebA combos: {len(celeba_combos)}")
+            print(f"  FEMNIST combos: {len(femnist_combos)}")
+            print(f"  Common combos: {len(common_combos)}")
+
+            # Extract just the attack percentages from common combinations
+            common_attack_percentages = {combo[0] for combo in common_combos}
+            print(f"  Common attack %: {sorted(common_attack_percentages)}")
+        else:
+            # If no CelebA data for this topology, skip it
+            ax.text(0.5, 0.5, f'No CelebA data for\n{display_name}',
+                   transform=ax.transAxes, ha='center', va='center',
+                   fontsize=8, style='italic')
+            ax.set_xlim(0, 80)
+            ax.set_ylim(0, 1.0)
+            continue
+
         # Plot lines for each algorithm
         for algo in algorithms:
             algo_data = df_filtered[df_filtered['algorithm'] == algo]
-            
-            if len(algo_data) > 0:
-                grouped = algo_data.groupby('attack_percentage')[error_col].mean().reset_index()
-                grouped = grouped.sort_values('attack_percentage')
-                
-                # Set z-order: coarse (top), balance (middle), ubar (bottom), krum (separate), fedavg (back)
-                z_orders = {'coarse': 5, 'balance': 4, 'ubar': 3, 'krum': 2, 'd-fedavg': 1}
 
-                # Map algorithm names for display
-                if algo == 'coarse':
-                    algo_display_name = 'SKETCHGUARD'
-                elif algo == 'd-fedavg':
-                    algo_display_name = 'FEDAVG'
-                else:
-                    algo_display_name = algo.upper()
-                
-                line, = ax.plot(grouped['attack_percentage'], 
-                               grouped[error_col],
-                               label=algo_display_name,
-                               linestyle=line_styles[algo],
-                               color=colors[algo],
-                               marker=markers[algo],
-                               markersize=3,
-                               linewidth=1.5,
-                               markeredgewidth=0.4,
-                               markeredgecolor=colors[algo],
-                               markevery=2,
-                               zorder=z_orders[algo])
-                
-                # Collect legend handles only once (from first subplot with data)
-                if len(legend_handles) < len(algorithms):
-                    legend_handles.append(line)
-                    legend_labels.append(algo_display_name)
+            if len(algo_data) > 0:
+                # Filter to only include (attack_percentage, algorithm) combinations that exist in BOTH datasets
+                algo_combos = [(row['attack_percentage'], row['algorithm']) for _, row in algo_data.iterrows()]
+                valid_rows = [combo in common_combos for combo in algo_combos]
+                algo_data = algo_data[valid_rows]
+
+                if len(algo_data) > 0:
+                    grouped = algo_data.groupby('attack_percentage')[error_col].mean().reset_index()
+                    grouped = grouped.sort_values('attack_percentage')
+
+                    # Set z-order: coarse (top), balance (middle), ubar (bottom), krum (separate), fedavg (back)
+                    z_orders = {'coarse': 5, 'balance': 4, 'ubar': 3, 'krum': 2, 'd-fedavg': 1}
+
+                    # Map algorithm names for display
+                    if algo == 'coarse':
+                        algo_display_name = 'SKETCHGUARD'
+                    elif algo == 'd-fedavg':
+                        algo_display_name = 'FEDAVG'
+                    else:
+                        algo_display_name = algo.upper()
+
+                    line, = ax.plot(grouped['attack_percentage'],
+                                   grouped[error_col],
+                                   label=algo_display_name,
+                                   linestyle=line_styles[algo],
+                                   color=colors[algo],
+                                   marker=markers[algo],
+                                   markersize=3,
+                                   linewidth=1.5,
+                                   markeredgewidth=0.4,
+                                   markeredgecolor=colors[algo],
+                                   markevery=2,
+                                   zorder=z_orders[algo])
+
+                    # Collect legend handles only once (from first subplot with data)
+                    if len(legend_handles) < len(algorithms):
+                        legend_handles.append(line)
+                        legend_labels.append(algo_display_name)
         
         # Create inset for overlapping algorithms (if we have data)
         if len(df_filtered) > 0:
-            # Top right for CelebA, lower right for other datasets
-            if dataset_name == 'celeba':
-                axins = inset_axes(ax, width="30%", height="30%",
-                                  loc='upper right',
-                                  bbox_to_anchor=(0, 0, 1, 1),
-                                  bbox_transform=ax.transAxes)
-            else:
-                axins = inset_axes(ax, width="30%", height="30%",
-                                  loc='lower right',
-                                  bbox_to_anchor=(0, 0.25, 1, 1),
-                                  bbox_transform=ax.transAxes)
+            # Place inset in lower right for better visibility
+            axins = inset_axes(ax, width="30%", height="30%",
+                              loc='lower right',
+                              bbox_to_anchor=(0, 0.25, 1, 1),
+                              bbox_transform=ax.transAxes)
             
             inset_algorithms = ['balance', 'ubar', 'coarse']
             
@@ -182,10 +207,15 @@ def create_topology_figure(df, dataset_name, save_prefix=''):
             for algo in inset_algorithms:
                 algo_data = df_filtered[df_filtered['algorithm'] == algo]
                 if len(algo_data) > 0:
-                    grouped = algo_data.groupby('attack_percentage')[error_col].mean().reset_index()
-                    zoom_data = grouped[(grouped['attack_percentage'] >= 10) & (grouped['attack_percentage'] <= 80)]
-                    if len(zoom_data) > 0:
-                        y_values.extend(zoom_data[error_col].values)
+                    # Filter to only include (attack_percentage, algorithm) combinations that exist in BOTH datasets
+                    algo_combos = [(row['attack_percentage'], row['algorithm']) for _, row in algo_data.iterrows()]
+                    valid_rows = [combo in common_combos for combo in algo_combos]
+                    algo_data = algo_data[valid_rows]
+                    if len(algo_data) > 0:
+                        grouped = algo_data.groupby('attack_percentage')[error_col].mean().reset_index()
+                        zoom_data = grouped[(grouped['attack_percentage'] >= 0) & (grouped['attack_percentage'] <= 80)]
+                        if len(zoom_data) > 0:
+                            y_values.extend(zoom_data[error_col].values)
             
             if y_values:
                 y_min = min(y_values) - 0.005
@@ -193,16 +223,21 @@ def create_topology_figure(df, dataset_name, save_prefix=''):
                 
                 for algo in inset_algorithms:
                     algo_data = df_filtered[df_filtered['algorithm'] == algo]
-                    
+
                     if len(algo_data) > 0:
-                        grouped = algo_data.groupby('attack_percentage')[error_col].mean().reset_index()
-                        grouped = grouped.sort_values('attack_percentage')
-                        
-                        zoom_data = grouped[(grouped['attack_percentage'] >= 10) & (grouped['attack_percentage'] <= 80)]
-                        
-                        if len(zoom_data) > 0:
-                            z_orders = {'coarse': 5, 'balance': 4, 'ubar': 3, 'krum': 2, 'd-fedavg': 1}
-                            axins.plot(zoom_data['attack_percentage'], 
+                        # Filter to only include (attack_percentage, algorithm) combinations that exist in BOTH datasets
+                        algo_combos = [(row['attack_percentage'], row['algorithm']) for _, row in algo_data.iterrows()]
+                        valid_rows = [combo in common_combos for combo in algo_combos]
+                        algo_data = algo_data[valid_rows]
+                        if len(algo_data) > 0:
+                            grouped = algo_data.groupby('attack_percentage')[error_col].mean().reset_index()
+                            grouped = grouped.sort_values('attack_percentage')
+
+                            zoom_data = grouped[(grouped['attack_percentage'] >= 0) & (grouped['attack_percentage'] <= 80)]
+
+                            if len(zoom_data) > 0:
+                                z_orders = {'coarse': 5, 'balance': 4, 'ubar': 3, 'krum': 2, 'd-fedavg': 1}
+                                axins.plot(zoom_data['attack_percentage'], 
                                       zoom_data[error_col],
                                       linestyle=line_styles[algo],
                                       color=colors[algo],
@@ -215,10 +250,10 @@ def create_topology_figure(df, dataset_name, save_prefix=''):
                                       zorder=z_orders[algo])
                 
                 # Inset settings
-                axins.set_xlim(10, 80)
+                axins.set_xlim(0, 80)
                 axins.set_ylim(y_min, y_max)
-                axins.set_xticks([20, 40, 60, 80])
-                axins.set_xticklabels(['20', '40', '60', '80'], fontsize=6)
+                axins.set_xticks([0, 20, 40, 60, 80])
+                axins.set_xticklabels(['0', '20', '40', '60', '80'], fontsize=6)
                 
                 y_ticks = np.linspace(y_min, y_max, 3)
                 axins.set_yticks(y_ticks)
@@ -243,10 +278,10 @@ def create_topology_figure(df, dataset_name, save_prefix=''):
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda y, _: f'{y:.1f}'))
         ax.grid(True, alpha=0.4, linewidth=0.5)
         
-        # Add subplot labels
+        # Add subplot labels underneath the plot
         panel_labels = ['(a)', '(b)', '(c)', '(d)', '(e)']
-        ax.text(0.02, 0.02, f'{panel_labels[idx]} {display_name}', 
-                transform=ax.transAxes, fontsize=8, ha='left', va='bottom')
+        ax.text(0.5, -0.25, f'{panel_labels[idx]} {display_name}',
+                transform=ax.transAxes, fontsize=8, ha='center', va='top')
         
         # Remove top and right spines
         ax.spines['top'].set_visible(False)
@@ -260,7 +295,7 @@ def create_topology_figure(df, dataset_name, save_prefix=''):
     if legend_handles:
         fig.legend(legend_handles, legend_labels,
                    loc='upper center',
-                   bbox_to_anchor=(0.5, 0.98),
+                   bbox_to_anchor=(0.5, 1.02),
                    ncol=5,
                    frameon=True,
                    fancybox=False,
@@ -274,7 +309,7 @@ def create_topology_figure(df, dataset_name, save_prefix=''):
     
     # Adjust layout
     plt.tight_layout()
-    plt.subplots_adjust(top=0.9, hspace=0.3, wspace=0.3)
+    plt.subplots_adjust(top=0.9, bottom=0.2, hspace=0.3, wspace=0.3)
     
     # Save figure
     filename = get_output_path(f'{save_prefix}topology_comparison.pdf')
@@ -298,6 +333,7 @@ def main():
     datasets = df['dataset'].unique()
     print(f"Available datasets: {', '.join(datasets)}")
 
+    # Show statistics per dataset
     for dataset in datasets:
         dataset_data = df[df['dataset'] == dataset]
         print(f"\n{dataset.upper()}: {len(dataset_data)} experiments")
@@ -308,19 +344,19 @@ def main():
         for _, row in topology_counts.iterrows():
             print(f"  {row['graph_type']} (param={row['graph_param']}): {row['count']} experiments")
 
-        print(f"\nGenerating topology comparison figure for {dataset.upper()}...")
-        create_topology_figure(dataset_data, dataset, f'{dataset}_')
+    # Generate single averaged figure across all datasets
+    print(f"\nGenerating averaged topology comparison figure across all datasets...")
+    create_topology_figure(df, save_prefix='averaged_')
 
-        print(f"✅ {dataset.upper()} topology comparison figure generated!")
-
-    print("\n✅ All topology comparison figures generated!")
+    print("\n✅ Averaged topology comparison figure generated!")
     print("Features:")
+    print("  - Single 1x5 subplot layout")
     print("  - Separate panel for each graph topology")
+    print("  - Averages performance across FEMNIST and CelebA datasets")
     print("  - Directed deviation attack type")
     print("  - Honest node error rates")
     print("  - Inset zoom for overlapping algorithms")
     print("  - Single legend for all panels")
-    print("  - Generated for all available datasets")
 
 if __name__ == "__main__":
     main()

@@ -48,11 +48,19 @@ def load_and_prepare_data(csv_file='extracted_accuracies.csv'):
     
     return df
 
-def create_combined_figure(df, dataset, save_prefix=''):
-    """Create a two-panel figure with insets matching the paper style."""
-    
-    # Create figure with two subplots side by side
-    fig, axes = plt.subplots(1, 2, figsize=(8, 3))
+def create_combined_figure(df, save_prefix=''):
+    """Create a four-panel figure with insets matching the paper style."""
+
+    # Create figure with four subplots side by side
+    fig, axes = plt.subplots(1, 4, figsize=(16, 3))
+
+    # Define datasets and attack types for each subplot
+    subplot_configs = [
+        ('femnist', 'directed_deviation', '(a) FEMNIST - Directed Deviation'),
+        ('femnist', 'gaussian', '(b) FEMNIST - Gaussian'),
+        ('celeba', 'directed_deviation', '(c) CelebA - Directed Deviation'),
+        ('celeba', 'gaussian', '(d) CelebA - Gaussian')
+    ]
     
     attack_types = ['directed_deviation', 'gaussian']
     node_type = 'honest'  # Focus on honest nodes
@@ -89,14 +97,14 @@ def create_combined_figure(df, dataset, save_prefix=''):
     legend_handles = []
     legend_labels = []
     
-    for idx, (ax, attack_type) in enumerate(zip(axes, attack_types)):
-        # Filter data
-        df_filtered = df[df['attack_type'] == attack_type].copy()
+    for idx, (ax, (dataset, attack_type, label)) in enumerate(zip(axes, subplot_configs)):
+        # Filter data for specific dataset and attack type
+        df_filtered = df[(df['dataset'] == dataset) & (df['attack_type'] == attack_type)].copy()
         error_col = f'{node_type}_error_rate'
-        
-        # For gaussian attack at 0%, use directed_deviation data
+
+        # For gaussian attack at 0%, use directed_deviation data from the same dataset
         if attack_type == 'gaussian':
-            df_zero = df[(df['attack_type'] == 'directed_deviation') & (df['attack_percentage'] == 0)].copy()
+            df_zero = df[(df['dataset'] == dataset) & (df['attack_type'] == 'directed_deviation') & (df['attack_percentage'] == 0)].copy()
             df_zero['attack_type'] = 'gaussian'
             df_filtered = pd.concat([df_filtered, df_zero]).drop_duplicates(subset=['algorithm', 'attack_percentage'])
         
@@ -225,11 +233,9 @@ def create_combined_figure(df, dataset, save_prefix=''):
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda y, _: f'{y:.1f}'))
         ax.grid(True, alpha=0.4, linewidth=0.5)
         
-        # Add subplot labels
-        attack_label = 'Directed Deviation' if attack_type == 'directed_deviation' else 'Gaussian'
-        panel_label = '(a)' if idx == 0 else '(b)'
-        ax.text(0.02, 0.02, f'{panel_label} {attack_label}', 
-                transform=ax.transAxes, fontsize=9, ha='left', va='bottom')
+        # Add subplot labels underneath the plot
+        ax.text(0.5, -0.25, label,
+                transform=ax.transAxes, fontsize=9, ha='center', va='top')
         
         # Remove top and right spines
         ax.spines['top'].set_visible(False)
@@ -252,7 +258,7 @@ def create_combined_figure(df, dataset, save_prefix=''):
     
     # Adjust layout to prevent overlap
     plt.tight_layout()
-    plt.subplots_adjust(top=0.85)  # Make room for legend
+    plt.subplots_adjust(top=0.85, bottom=0.2)  # Make room for legend and bottom labels
     
     # Save figure
     filename = get_output_path(f'{save_prefix}paper_style.pdf')
@@ -280,18 +286,17 @@ def main():
         dataset_data = df[df['dataset'] == dataset]
         print(f"{dataset.upper()}: {len(dataset_data)} experiments")
 
-        print(f"\nGenerating paper-style combined figure for {dataset.upper()}...")
-        create_combined_figure(dataset_data, dataset, f'{dataset}_')
+    print(f"\nGenerating combined paper-style figure with all datasets...")
+    create_combined_figure(df, 'combined_')
 
-        print(f"✅ {dataset.upper()} figure generated!")
-
-    print("\n✅ All paper-style figures generated!")
+    print("✅ Combined paper-style figure generated!")
     print("Features:")
-    print("  - Single legend at the top for both panels")
+    print("  - Single 1x4 subplot layout")
+    print("  - Two FEMNIST panels: (a) Directed Deviation, (b) Gaussian")
+    print("  - Two CelebA panels: (c) Directed Deviation, (d) Gaussian")
+    print("  - Single legend at the top for all panels")
     print("  - Inset zoom from 10-80% on x-axis")
     print("  - Matching publication style from reference")
-    print("  - Two panels: (a) Directed Deviation, (b) Gaussian")
-    print("  - Generated for all available datasets")
 
 if __name__ == "__main__":
     main()

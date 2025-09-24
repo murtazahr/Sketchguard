@@ -17,25 +17,25 @@ experiments = [
         "agg": "balance",
         "model_variant": "tiny",
         "dataset": "femnist",
-        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant tiny --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg balance --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 299 --num-nodes 300"
+        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant tiny --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg balance --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
     },
     {
         "agg": "balance",
         "model_variant": "small",
         "dataset": "femnist",
-        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant small --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg balance --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 299 --num-nodes 300"
+        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant small --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg balance --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
     },
     {
         "agg": "balance",
         "model_variant": "large",
         "dataset": "femnist",
-        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant large --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg balance --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 299 --num-nodes 300"
+        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant large --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg balance --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
     },
     {
         "agg": "balance",
         "model_variant": "xlarge",
         "dataset": "femnist",
-        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant xlarge --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg balance --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 299 --num-nodes 300"
+        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant xlarge --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg balance --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
     },
 
     # COARSE with different model sizes
@@ -43,25 +43,25 @@ experiments = [
         "agg": "coarse",
         "model_variant": "tiny",
         "dataset": "femnist",
-        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant tiny --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg coarse --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 299 --num-nodes 300"
+        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant tiny --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg coarse --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
     },
     {
         "agg": "coarse",
         "model_variant": "small",
         "dataset": "femnist",
-        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant small --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg coarse --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 299 --num-nodes 300"
+        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant small --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg coarse --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
     },
     {
         "agg": "coarse",
         "model_variant": "large",
         "dataset": "femnist",
-        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant large --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg coarse --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 299 --num-nodes 300"
+        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant large --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg coarse --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
     },
     {
         "agg": "coarse",
         "model_variant": "xlarge",
         "dataset": "femnist",
-        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant xlarge --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg coarse --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 299 --num-nodes 300"
+        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant xlarge --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg coarse --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
     },
 
     # UBAR with different model sizes
@@ -69,25 +69,25 @@ experiments = [
         "agg": "ubar",
         "model_variant": "tiny",
         "dataset": "femnist",
-        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant tiny --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg ubar --ubar-rho 0.4 --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 299 --num-nodes 300"
+        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant tiny --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg ubar --ubar-rho 0.4 --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
     },
     {
         "agg": "ubar",
         "model_variant": "small",
         "dataset": "femnist",
-        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant small --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg ubar --ubar-rho 0.4 --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 299 --num-nodes 300"
+        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant small --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg ubar --ubar-rho 0.4 --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
     },
     {
         "agg": "ubar",
         "model_variant": "large",
         "dataset": "femnist",
-        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant large --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg ubar --ubar-rho 0.4 --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 299 --num-nodes 300"
+        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant large --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg ubar --ubar-rho 0.4 --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
     },
     {
         "agg": "ubar",
         "model_variant": "xlarge",
         "dataset": "femnist",
-        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant xlarge --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg ubar --ubar-rho 0.4 --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 299 --num-nodes 300"
+        "cmd": "python decentralized_fl_sim.py --dataset femnist --model-variant xlarge --rounds 3 --local-epochs 1 --seed 42 --batch-size 32 --lr 0.01 --agg ubar --ubar-rho 0.4 --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
     }
 ]
 
