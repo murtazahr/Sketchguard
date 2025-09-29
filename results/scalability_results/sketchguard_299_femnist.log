@@ -1,0 +1,1900 @@
+# Experiment: sketchguard k=299 dataset=femnist
+# Timestamp: 2025-09-20T18:12:03.578254
+# Device: CPU (forced for consistent performance)
+# Command: python decentralized_fl_sim.py --dataset femnist --rounds 3 --local-epochs 1 --seed 987654321 --batch-size 64 --lr 0.01 --max-samples 10000 --agg sketchguard --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 299 --num-nodes 300
+================================================================================
+
+Device: cpu
+Seed: 987654321
+Loading 36 LEAF FEMNIST train files...
+LEAF FEMNIST train: 3597 users, 734463 samples
+Loading 36 LEAF FEMNIST test files...
+LEAF FEMNIST test: 3597 users, 83388 samples
+Found 3597 train users, 3597 test users, 3597 common users
+User sample counts range: 525 (max) to 17 (min)
+Distributed ALL 3597 users across 300 clients
+Users per client: 11 (with 297 clients getting +1 user)
+Train partition sizes: [2592, 2357, 2911, 2396, 2567, 2635, 2134, 2761, 2160, 2801, 2026, 2161, 2331, 2101, 2498, 1771, 2610, 2519, 2353, 2656, 2438, 2194, 2794, 2400, 2532, 2567, 2368, 2757, 2450, 2783, 2809, 2488, 3043, 2583, 2483, 2117, 2692, 3114, 2946, 2517, 2278, 2547, 2243, 2560, 2486, 2495, 2621, 2648, 2760, 2999, 2797, 2347, 2065, 2420, 2087, 2679, 2221, 2281, 2556, 2476, 2047, 2445, 2212, 2930, 2745, 2510, 2429, 2799, 2215, 2141, 2312, 1983, 2268, 2009, 2139, 2659, 2702, 2179, 2072, 2190, 2610, 2539, 2684, 2438, 2068, 2710, 2581, 2060, 2496, 2293, 2984, 2852, 2115, 2595, 2568, 2438, 2750, 2724, 1924, 2560, 2838, 2365, 2477, 2541, 2724, 2084, 2538, 2681, 2487, 2289, 2198, 2614, 2616, 2210, 2535, 2637, 2093, 2355, 2228, 1942, 2114, 2517, 2185, 2838, 2382, 2447, 2332, 2607, 2290, 2644, 2545, 2726, 2459, 2489, 2816, 2152, 2359, 2165, 2772, 2523, 2694, 2673, 2037, 2701, 2198, 2833, 2521, 1837, 2548, 2144, 2572, 2590, 2339, 2380, 2781, 2253, 2704, 2680, 2641, 2501, 2147, 2175, 2449, 2245, 2089, 2107, 2386, 2490, 2706, 2473, 2462, 2489, 1722, 2414, 2715, 2174, 2526, 2641, 2294, 2693, 1990, 3005, 2024, 2412, 2310, 2495, 2133, 2523, 2411, 2182, 2080, 2087, 2263, 2714, 2419, 2614, 2439, 2056, 2588, 2514, 2626, 2523, 2246, 2122, 2189, 2112, 2736, 2712, 2714, 2380, 2022, 2048, 2754, 2488, 2142, 2971, 2488, 2492, 2248, 2650, 2369, 2007, 2214, 2791, 2845, 2598, 2727, 2399, 2150, 2739, 2403, 2484, 2589, 2600, 2001, 2377, 2135, 2664, 2446, 2431, 2724, 2576, 2752, 2798, 2487, 2935, 2171, 2467, 2587, 2477, 2136, 2473, 2565, 2507, 2152, 2234, 2304, 2462, 2543, 2321, 2472, 2553, 2258, 2484, 1824, 2393, 2361, 2927, 2410, 2513, 2698, 2719, 2766, 2534, 1983, 2241, 2378, 2348, 2238, 1703, 2421, 2594, 2471, 2606, 2578, 2811, 2883, 2660, 2483, 2825, 2463, 2854, 2112, 2957, 2362, 2136, 2184, 2121, 2115, 2668]
+Test partition sizes: [295, 269, 330, 272, 291, 299, 245, 312, 245, 318, 230, 246, 263, 240, 283, 200, 297, 285, 267, 302, 277, 248, 316, 271, 289, 292, 269, 312, 278, 317, 317, 282, 344, 292, 282, 240, 302, 353, 332, 286, 261, 289, 256, 289, 281, 284, 296, 300, 313, 340, 316, 267, 235, 276, 238, 303, 254, 259, 288, 282, 233, 276, 251, 330, 311, 287, 276, 318, 252, 245, 263, 225, 260, 228, 243, 303, 306, 249, 237, 250, 298, 289, 304, 277, 235, 306, 294, 233, 284, 260, 338, 323, 241, 293, 291, 278, 312, 311, 221, 290, 322, 269, 281, 288, 309, 237, 289, 303, 284, 259, 250, 296, 296, 251, 288, 300, 237, 268, 256, 221, 241, 286, 249, 321, 270, 279, 265, 295, 261, 301, 290, 309, 280, 282, 318, 245, 266, 246, 312, 287, 304, 302, 230, 305, 251, 320, 285, 209, 291, 243, 288, 294, 266, 270, 315, 258, 307, 304, 298, 283, 242, 248, 279, 257, 239, 239, 270, 284, 305, 279, 281, 282, 198, 275, 308, 248, 288, 300, 261, 305, 227, 339, 229, 273, 264, 284, 242, 287, 275, 249, 239, 238, 259, 306, 275, 296, 276, 235, 296, 287, 296, 286, 257, 242, 250, 240, 310, 309, 308, 270, 231, 234, 313, 283, 243, 335, 284, 283, 255, 299, 269, 228, 253, 317, 322, 295, 311, 272, 246, 311, 273, 282, 294, 295, 227, 270, 243, 301, 277, 276, 309, 292, 310, 315, 281, 332, 247, 281, 292, 280, 245, 282, 290, 283, 246, 255, 262, 280, 289, 265, 279, 289, 257, 282, 207, 273, 268, 332, 274, 285, 305, 311, 313, 289, 226, 255, 271, 267, 254, 192, 275, 293, 279, 294, 291, 320, 326, 302, 283, 320, 277, 322, 241, 334, 269, 243, 248, 242, 241, 303]
+  Client 0: 2592 train samples, 62 unique classes
+  Client 1: 2357 train samples, 62 unique classes
+  Client 2: 2911 train samples, 62 unique classes
+  Client 3: 2396 train samples, 62 unique classes
+  Client 4: 2567 train samples, 62 unique classes
+  Client 5: 2635 train samples, 62 unique classes
+  Client 6: 2134 train samples, 62 unique classes
+  Client 7: 2761 train samples, 62 unique classes
+  Client 8: 2160 train samples, 62 unique classes
+  Client 9: 2801 train samples, 62 unique classes
+  Client 10: 2026 train samples, 62 unique classes
+  Client 11: 2161 train samples, 62 unique classes
+  Client 12: 2331 train samples, 62 unique classes
+  Client 13: 2101 train samples, 62 unique classes
+  Client 14: 2498 train samples, 62 unique classes
+  Client 15: 1771 train samples, 62 unique classes
+  Client 16: 2610 train samples, 62 unique classes
+  Client 17: 2519 train samples, 62 unique classes
+  Client 18: 2353 train samples, 62 unique classes
+  Client 19: 2656 train samples, 62 unique classes
+  Client 20: 2438 train samples, 62 unique classes
+  Client 21: 2194 train samples, 62 unique classes
+  Client 22: 2794 train samples, 62 unique classes
+  Client 23: 2400 train samples, 62 unique classes
+  Client 24: 2532 train samples, 62 unique classes
+  Client 25: 2567 train samples, 62 unique classes
+  Client 26: 2368 train samples, 62 unique classes
+  Client 27: 2757 train samples, 62 unique classes
+  Client 28: 2450 train samples, 62 unique classes
+  Client 29: 2783 train samples, 62 unique classes
+  Client 30: 2809 train samples, 62 unique classes
+  Client 31: 2488 train samples, 62 unique classes
+  Client 32: 3043 train samples, 62 unique classes
+  Client 33: 2583 train samples, 62 unique classes
+  Client 34: 2483 train samples, 62 unique classes
+  Client 35: 2117 train samples, 62 unique classes
+  Client 36: 2692 train samples, 62 unique classes
+  Client 37: 3114 train samples, 62 unique classes
+  Client 38: 2946 train samples, 62 unique classes
+  Client 39: 2517 train samples, 62 unique classes
+  Client 40: 2278 train samples, 62 unique classes
+  Client 41: 2547 train samples, 62 unique classes
+  Client 42: 2243 train samples, 62 unique classes
+  Client 43: 2560 train samples, 62 unique classes
+  Client 44: 2486 train samples, 62 unique classes
+  Client 45: 2495 train samples, 62 unique classes
+  Client 46: 2621 train samples, 62 unique classes
+  Client 47: 2648 train samples, 62 unique classes
+  Client 48: 2760 train samples, 62 unique classes
+  Client 49: 2999 train samples, 62 unique classes
+  Client 50: 2797 train samples, 62 unique classes
+  Client 51: 2347 train samples, 62 unique classes
+  Client 52: 2065 train samples, 62 unique classes
+  Client 53: 2420 train samples, 62 unique classes
+  Client 54: 2087 train samples, 62 unique classes
+  Client 55: 2679 train samples, 62 unique classes
+  Client 56: 2221 train samples, 62 unique classes
+  Client 57: 2281 train samples, 62 unique classes
+  Client 58: 2556 train samples, 62 unique classes
+  Client 59: 2476 train samples, 62 unique classes
+  Client 60: 2047 train samples, 62 unique classes
+  Client 61: 2445 train samples, 62 unique classes
+  Client 62: 2212 train samples, 62 unique classes
+  Client 63: 2930 train samples, 62 unique classes
+  Client 64: 2745 train samples, 62 unique classes
+  Client 65: 2510 train samples, 62 unique classes
+  Client 66: 2429 train samples, 62 unique classes
+  Client 67: 2799 train samples, 62 unique classes
+  Client 68: 2215 train samples, 62 unique classes
+  Client 69: 2141 train samples, 62 unique classes
+  Client 70: 2312 train samples, 62 unique classes
+  Client 71: 1983 train samples, 62 unique classes
+  Client 72: 2268 train samples, 62 unique classes
+  Client 73: 2009 train samples, 62 unique classes
+  Client 74: 2139 train samples, 62 unique classes
+  Client 75: 2659 train samples, 62 unique classes
+  Client 76: 2702 train samples, 62 unique classes
+  Client 77: 2179 train samples, 62 unique classes
+  Client 78: 2072 train samples, 62 unique classes
+  Client 79: 2190 train samples, 62 unique classes
+  Client 80: 2610 train samples, 62 unique classes
+  Client 81: 2539 train samples, 62 unique classes
+  Client 82: 2684 train samples, 62 unique classes
+  Client 83: 2438 train samples, 62 unique classes
+  Client 84: 2068 train samples, 62 unique classes
+  Client 85: 2710 train samples, 62 unique classes
+  Client 86: 2581 train samples, 62 unique classes
+  Client 87: 2060 train samples, 62 unique classes
+  Client 88: 2496 train samples, 62 unique classes
+  Client 89: 2293 train samples, 62 unique classes
+  Client 90: 2984 train samples, 62 unique classes
+  Client 91: 2852 train samples, 62 unique classes
+  Client 92: 2115 train samples, 62 unique classes
+  Client 93: 2595 train samples, 62 unique classes
+  Client 94: 2568 train samples, 62 unique classes
+  Client 95: 2438 train samples, 62 unique classes
+  Client 96: 2750 train samples, 62 unique classes
+  Client 97: 2724 train samples, 62 unique classes
+  Client 98: 1924 train samples, 62 unique classes
+  Client 99: 2560 train samples, 62 unique classes
+  Client 100: 2838 train samples, 62 unique classes
+  Client 101: 2365 train samples, 62 unique classes
+  Client 102: 2477 train samples, 62 unique classes
+  Client 103: 2541 train samples, 62 unique classes
+  Client 104: 2724 train samples, 62 unique classes
+  Client 105: 2084 train samples, 62 unique classes
+  Client 106: 2538 train samples, 62 unique classes
+  Client 107: 2681 train samples, 62 unique classes
+  Client 108: 2487 train samples, 62 unique classes
+  Client 109: 2289 train samples, 62 unique classes
+  Client 110: 2198 train samples, 62 unique classes
+  Client 111: 2614 train samples, 62 unique classes
+  Client 112: 2616 train samples, 62 unique classes
+  Client 113: 2210 train samples, 62 unique classes
+  Client 114: 2535 train samples, 62 unique classes
+  Client 115: 2637 train samples, 62 unique classes
+  Client 116: 2093 train samples, 62 unique classes
+  Client 117: 2355 train samples, 62 unique classes
+  Client 118: 2228 train samples, 62 unique classes
+  Client 119: 1942 train samples, 62 unique classes
+  Client 120: 2114 train samples, 62 unique classes
+  Client 121: 2517 train samples, 62 unique classes
+  Client 122: 2185 train samples, 62 unique classes
+  Client 123: 2838 train samples, 62 unique classes
+  Client 124: 2382 train samples, 62 unique classes
+  Client 125: 2447 train samples, 62 unique classes
+  Client 126: 2332 train samples, 62 unique classes
+  Client 127: 2607 train samples, 62 unique classes
+  Client 128: 2290 train samples, 62 unique classes
+  Client 129: 2644 train samples, 62 unique classes
+  Client 130: 2545 train samples, 62 unique classes
+  Client 131: 2726 train samples, 62 unique classes
+  Client 132: 2459 train samples, 62 unique classes
+  Client 133: 2489 train samples, 62 unique classes
+  Client 134: 2816 train samples, 62 unique classes
+  Client 135: 2152 train samples, 62 unique classes
+  Client 136: 2359 train samples, 62 unique classes
+  Client 137: 2165 train samples, 62 unique classes
+  Client 138: 2772 train samples, 62 unique classes
+  Client 139: 2523 train samples, 62 unique classes
+  Client 140: 2694 train samples, 62 unique classes
+  Client 141: 2673 train samples, 62 unique classes
+  Client 142: 2037 train samples, 62 unique classes
+  Client 143: 2701 train samples, 62 unique classes
+  Client 144: 2198 train samples, 62 unique classes
+  Client 145: 2833 train samples, 62 unique classes
+  Client 146: 2521 train samples, 62 unique classes
+  Client 147: 1837 train samples, 62 unique classes
+  Client 148: 2548 train samples, 62 unique classes
+  Client 149: 2144 train samples, 62 unique classes
+  Client 150: 2572 train samples, 62 unique classes
+  Client 151: 2590 train samples, 62 unique classes
+  Client 152: 2339 train samples, 62 unique classes
+  Client 153: 2380 train samples, 62 unique classes
+  Client 154: 2781 train samples, 62 unique classes
+  Client 155: 2253 train samples, 62 unique classes
+  Client 156: 2704 train samples, 62 unique classes
+  Client 157: 2680 train samples, 62 unique classes
+  Client 158: 2641 train samples, 62 unique classes
+  Client 159: 2501 train samples, 62 unique classes
+  Client 160: 2147 train samples, 62 unique classes
+  Client 161: 2175 train samples, 62 unique classes
+  Client 162: 2449 train samples, 62 unique classes
+  Client 163: 2245 train samples, 62 unique classes
+  Client 164: 2089 train samples, 62 unique classes
+  Client 165: 2107 train samples, 62 unique classes
+  Client 166: 2386 train samples, 62 unique classes
+  Client 167: 2490 train samples, 62 unique classes
+  Client 168: 2706 train samples, 62 unique classes
+  Client 169: 2473 train samples, 62 unique classes
+  Client 170: 2462 train samples, 62 unique classes
+  Client 171: 2489 train samples, 62 unique classes
+  Client 172: 1722 train samples, 62 unique classes
+  Client 173: 2414 train samples, 62 unique classes
+  Client 174: 2715 train samples, 62 unique classes
+  Client 175: 2174 train samples, 62 unique classes
+  Client 176: 2526 train samples, 62 unique classes
+  Client 177: 2641 train samples, 62 unique classes
+  Client 178: 2294 train samples, 62 unique classes
+  Client 179: 2693 train samples, 62 unique classes
+  Client 180: 1990 train samples, 62 unique classes
+  Client 181: 3005 train samples, 62 unique classes
+  Client 182: 2024 train samples, 62 unique classes
+  Client 183: 2412 train samples, 62 unique classes
+  Client 184: 2310 train samples, 62 unique classes
+  Client 185: 2495 train samples, 62 unique classes
+  Client 186: 2133 train samples, 62 unique classes
+  Client 187: 2523 train samples, 62 unique classes
+  Client 188: 2411 train samples, 62 unique classes
+  Client 189: 2182 train samples, 62 unique classes
+  Client 190: 2080 train samples, 62 unique classes
+  Client 191: 2087 train samples, 62 unique classes
+  Client 192: 2263 train samples, 62 unique classes
+  Client 193: 2714 train samples, 62 unique classes
+  Client 194: 2419 train samples, 62 unique classes
+  Client 195: 2614 train samples, 62 unique classes
+  Client 196: 2439 train samples, 62 unique classes
+  Client 197: 2056 train samples, 62 unique classes
+  Client 198: 2588 train samples, 62 unique classes
+  Client 199: 2514 train samples, 62 unique classes
+  Client 200: 2626 train samples, 62 unique classes
+  Client 201: 2523 train samples, 62 unique classes
+  Client 202: 2246 train samples, 62 unique classes
+  Client 203: 2122 train samples, 62 unique classes
+  Client 204: 2189 train samples, 62 unique classes
+  Client 205: 2112 train samples, 62 unique classes
+  Client 206: 2736 train samples, 62 unique classes
+  Client 207: 2712 train samples, 62 unique classes
+  Client 208: 2714 train samples, 62 unique classes
+  Client 209: 2380 train samples, 62 unique classes
+  Client 210: 2022 train samples, 62 unique classes
+  Client 211: 2048 train samples, 62 unique classes
+  Client 212: 2754 train samples, 62 unique classes
+  Client 213: 2488 train samples, 62 unique classes
+  Client 214: 2142 train samples, 62 unique classes
+  Client 215: 2971 train samples, 62 unique classes
+  Client 216: 2488 train samples, 62 unique classes
+  Client 217: 2492 train samples, 62 unique classes
+  Client 218: 2248 train samples, 62 unique classes
+  Client 219: 2650 train samples, 62 unique classes
+  Client 220: 2369 train samples, 62 unique classes
+  Client 221: 2007 train samples, 62 unique classes
+  Client 222: 2214 train samples, 62 unique classes
+  Client 223: 2791 train samples, 62 unique classes
+  Client 224: 2845 train samples, 62 unique classes
+  Client 225: 2598 train samples, 62 unique classes
+  Client 226: 2727 train samples, 62 unique classes
+  Client 227: 2399 train samples, 62 unique classes
+  Client 228: 2150 train samples, 62 unique classes
+  Client 229: 2739 train samples, 62 unique classes
+  Client 230: 2403 train samples, 62 unique classes
+  Client 231: 2484 train samples, 62 unique classes
+  Client 232: 2589 train samples, 62 unique classes
+  Client 233: 2600 train samples, 62 unique classes
+  Client 234: 2001 train samples, 62 unique classes
+  Client 235: 2377 train samples, 62 unique classes
+  Client 236: 2135 train samples, 62 unique classes
+  Client 237: 2664 train samples, 62 unique classes
+  Client 238: 2446 train samples, 62 unique classes
+  Client 239: 2431 train samples, 62 unique classes
+  Client 240: 2724 train samples, 62 unique classes
+  Client 241: 2576 train samples, 62 unique classes
+  Client 242: 2752 train samples, 62 unique classes
+  Client 243: 2798 train samples, 62 unique classes
+  Client 244: 2487 train samples, 62 unique classes
+  Client 245: 2935 train samples, 62 unique classes
+  Client 246: 2171 train samples, 62 unique classes
+  Client 247: 2467 train samples, 62 unique classes
+  Client 248: 2587 train samples, 62 unique classes
+  Client 249: 2477 train samples, 62 unique classes
+  Client 250: 2136 train samples, 62 unique classes
+  Client 251: 2473 train samples, 62 unique classes
+  Client 252: 2565 train samples, 62 unique classes
+  Client 253: 2507 train samples, 62 unique classes
+  Client 254: 2152 train samples, 62 unique classes
+  Client 255: 2234 train samples, 62 unique classes
+  Client 256: 2304 train samples, 62 unique classes
+  Client 257: 2462 train samples, 62 unique classes
+  Client 258: 2543 train samples, 62 unique classes
+  Client 259: 2321 train samples, 62 unique classes
+  Client 260: 2472 train samples, 62 unique classes
+  Client 261: 2553 train samples, 62 unique classes
+  Client 262: 2258 train samples, 62 unique classes
+  Client 263: 2484 train samples, 62 unique classes
+  Client 264: 1824 train samples, 62 unique classes
+  Client 265: 2393 train samples, 62 unique classes
+  Client 266: 2361 train samples, 62 unique classes
+  Client 267: 2927 train samples, 62 unique classes
+  Client 268: 2410 train samples, 62 unique classes
+  Client 269: 2513 train samples, 62 unique classes
+  Client 270: 2698 train samples, 62 unique classes
+  Client 271: 2719 train samples, 62 unique classes
+  Client 272: 2766 train samples, 62 unique classes
+  Client 273: 2534 train samples, 62 unique classes
+  Client 274: 1983 train samples, 62 unique classes
+  Client 275: 2241 train samples, 62 unique classes
+  Client 276: 2378 train samples, 62 unique classes
+  Client 277: 2348 train samples, 62 unique classes
+  Client 278: 2238 train samples, 62 unique classes
+  Client 279: 1703 train samples, 62 unique classes
+  Client 280: 2421 train samples, 62 unique classes
+  Client 281: 2594 train samples, 62 unique classes
+  Client 282: 2471 train samples, 62 unique classes
+  Client 283: 2606 train samples, 62 unique classes
+  Client 284: 2578 train samples, 62 unique classes
+  Client 285: 2811 train samples, 62 unique classes
+  Client 286: 2883 train samples, 62 unique classes
+  Client 287: 2660 train samples, 62 unique classes
+  Client 288: 2483 train samples, 62 unique classes
+  Client 289: 2825 train samples, 62 unique classes
+  Client 290: 2463 train samples, 62 unique classes
+  Client 291: 2854 train samples, 62 unique classes
+  Client 292: 2112 train samples, 62 unique classes
+  Client 293: 2957 train samples, 62 unique classes
+  Client 294: 2362 train samples, 62 unique classes
+  Client 295: 2136 train samples, 62 unique classes
+  Client 296: 2184 train samples, 62 unique classes
+  Client 297: 2121 train samples, 62 unique classes
+  Client 298: 2115 train samples, 62 unique classes
+  Client 299: 2668 train samples, 62 unique classes
+Will sample 10000 samples per client per epoch
+Warning: k=299 is odd, using k=300 for regular ring lattice
+Warning: k=300 >= n=300, creating fully connected graph
+Graph: k-regular, nodes: 300, edges: 44850
+Degree statistics: avg=299.00, min=299, max=299
+k-regular with k=299 (each node has exactly 299 neighbors)
+Attack: Compromised 150/300 nodes: [0, 1, 2, 3, 4, 5, 9, 10, 17, 18, 19, 21, 23, 27, 31, 32, 33, 34, 35, 36, 37, 41, 45, 46, 47, 54, 55, 58, 59, 60, 61, 72, 74, 76, 77, 78, 80, 85, 86, 87, 88, 89, 92, 94, 96, 98, 100, 101, 102, 108, 109, 110, 111, 115, 119, 122, 124, 126, 129, 132, 135, 136, 137, 138, 140, 141, 142, 143, 145, 151, 152, 155, 156, 157, 160, 162, 163, 165, 166, 167, 169, 170, 172, 173, 181, 185, 186, 187, 188, 189, 191, 192, 195, 196, 197, 198, 199, 200, 201, 202, 207, 209, 214, 216, 219, 220, 221, 223, 224, 225, 226, 229, 231, 234, 236, 237, 238, 239, 240, 242, 243, 244, 245, 246, 247, 253, 254, 255, 256, 260, 261, 262, 265, 268, 270, 271, 279, 280, 282, 283, 286, 287, 288, 289, 290, 291, 292, 294, 298, 299]
+Attack type: directed_deviation, lambda: 1.0
+COARSE Node 0:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 1:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 2:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 3:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 4:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 5:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 6:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 7:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 8:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 9:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 10:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 11:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 12:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 13:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 14:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 15:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 16:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 17:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 18:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 19:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 20:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 21:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 22:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 23:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 24:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 25:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 26:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 27:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 28:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 29:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 30:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 31:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 32:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 33:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 34:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 35:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 36:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 37:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 38:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 39:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 40:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 41:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 42:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 43:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 44:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 45:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 46:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 47:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 48:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 49:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 50:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 51:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 52:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 53:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 54:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 55:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 56:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 57:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 58:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 59:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 60:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 61:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 62:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 63:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 64:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 65:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 66:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 67:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 68:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 69:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 70:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 71:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 72:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 73:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 74:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 75:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 76:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 77:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 78:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 79:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 80:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 81:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 82:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 83:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 84:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 85:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 86:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 87:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 88:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 89:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 90:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 91:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 92:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 93:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 94:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 95:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 96:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 97:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 98:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 99:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 100:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 101:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 102:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 103:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 104:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 105:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 106:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 107:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 108:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 109:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 110:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 111:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 112:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 113:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 114:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 115:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 116:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 117:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 118:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 119:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 120:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 121:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 122:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 123:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 124:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 125:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 126:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 127:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 128:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 129:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 130:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 131:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 132:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 133:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 134:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 135:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 136:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 137:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 138:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 139:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 140:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 141:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 142:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 143:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 144:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 145:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 146:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 147:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 148:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 149:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 150:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 151:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 152:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 153:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 154:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 155:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 156:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 157:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 158:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 159:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 160:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 161:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 162:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 163:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 164:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 165:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 166:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 167:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 168:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 169:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 170:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 171:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 172:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 173:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 174:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 175:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 176:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 177:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 178:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 179:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 180:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 181:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 182:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 183:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 184:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 185:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 186:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 187:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 188:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 189:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 190:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 191:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 192:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 193:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 194:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 195:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 196:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 197:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 198:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 199:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 200:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 201:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 202:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 203:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 204:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 205:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 206:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 207:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 208:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 209:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 210:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 211:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 212:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 213:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 214:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 215:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 216:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 217:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 218:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 219:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 220:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 221:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 222:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 223:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 224:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 225:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 226:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 227:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 228:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 229:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 230:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 231:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 232:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 233:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 234:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 235:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 236:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 237:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 238:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 239:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 240:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 241:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 242:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 243:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 244:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 245:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 246:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 247:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 248:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 249:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 250:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 251:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 252:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 253:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 254:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 255:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 256:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 257:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 258:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 259:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 260:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 261:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 262:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 263:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 264:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 265:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 266:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 267:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 268:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 269:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 270:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 271:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 272:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 273:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 274:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 275:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 276:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 277:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 278:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 279:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 280:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 281:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 282:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 283:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 284:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 285:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 286:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 287:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 288:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 289:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 290:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 291:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 292:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 293:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 294:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 295:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 296:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 297:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 298:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE Node 299:
+  Model dim: 6,603,710 → Sketch size: 1000
+  Compression ratio: 6603.7x
+  Using model parameters for aggregation, sketches for filtering
+COARSE ALGORITHM (Sketch-based Filtering + State Aggregation)
+  - Model dimension: 6,603,710 parameters
+  - Sketch size: 1000
+  - Compression ratio: 6603.7x
+  - Complexity: O(d + N×k) = O(6,603,710 + 300×1000)
+  - Theoretical speedup vs BALANCE: 287.0x
+Initial test acc across nodes: mean=0.0156 ± 0.0165
+Round 001: test acc mean=0.0503 ± 0.0155 | min=0.0071 max=0.1029
+         : test loss mean=4.0464 ± 0.0127
+         : individual accs = ['0.050847', '0.044610', '0.039394', '0.066176', '0.061856', '0.030100', '0.044898', '0.044872', '0.057143', '0.047170', '0.043478', '0.060976', '0.060837', '0.058333', '0.035336', '0.080000', '0.023569', '0.038596', '0.033708', '0.046358', '0.054152', '0.048387', '0.041139', '0.073801', '0.062284', '0.054795', '0.059480', '0.051282', '0.050360', '0.063091', '0.037855', '0.042553', '0.037791', '0.034247', '0.056738', '0.037500', '0.036424', '0.065156', '0.039157', '0.048951', '0.038314', '0.048443', '0.062500', '0.083045', '0.042705', '0.059859', '0.023649', '0.043333', '0.054313', '0.047059', '0.056962', '0.041199', '0.046809', '0.043478', '0.079832', '0.026403', '0.047244', '0.057915', '0.048611', '0.046099', '0.047210', '0.032609', '0.059761', '0.048485', '0.022508', '0.062718', '0.050725', '0.050314', '0.091270', '0.061224', '0.060837', '0.057778', '0.061538', '0.039474', '0.049383', '0.039604', '0.032680', '0.060241', '0.063291', '0.072000', '0.046980', '0.055363', '0.039474', '0.039711', '0.055319', '0.094771', '0.064626', '0.060086', '0.063380', '0.050000', '0.047337', '0.040248', '0.053942', '0.047782', '0.058419', '0.068345', '0.054487', '0.041801', '0.049774', '0.072414', '0.046584', '0.044610', '0.056940', '0.055556', '0.038835', '0.046414', '0.044983', '0.033003', '0.066901', '0.061776', '0.048000', '0.047297', '0.060811', '0.043825', '0.083333', '0.023333', '0.063291', '0.055970', '0.054688', '0.063348', '0.053942', '0.041958', '0.084337', '0.037383', '0.055556', '0.053763', '0.041509', '0.050847', '0.061303', '0.049834', '0.041379', '0.051780', '0.028571', '0.056738', '0.053459', '0.085714', '0.052632', '0.032520', '0.038462', '0.034843', '0.036184', '0.039735', '0.073913', '0.075410', '0.035857', '0.031250', '0.045614', '0.086124', '0.044674', '0.065844', '0.052083', '0.037415', '0.045113', '0.044444', '0.031746', '0.046512', '0.061889', '0.055921', '0.060403', '0.056537', '0.057851', '0.080645', '0.046595', '0.042802', '0.046025', '0.087866', '0.040741', '0.056338', '0.052459', '0.035842', '0.007117', '0.039007', '0.090909', '0.043636', '0.022727', '0.028226', '0.065972', '0.050000', '0.065134', '0.049180', '0.061674', '0.056047', '0.052402', '0.036630', '0.060606', '0.059859', '0.053719', '0.062718', '0.065455', '0.092369', '0.062762', '0.100840', '0.042471', '0.016340', '0.061818', '0.047297', '0.043478', '0.042553', '0.037162', '0.024390', '0.023649', '0.027972', '0.058366', '0.057851', '0.048000', '0.045833', '0.029032', '0.045307', '0.045455', '0.055556', '0.051948', '0.038462', '0.044728', '0.053004', '0.061728', '0.029851', '0.031690', '0.053004', '0.050980', '0.046823', '0.033457', '0.096491', '0.043478', '0.037855', '0.015528', '0.047458', '0.041801', '0.058824', '0.052846', '0.048232', '0.069597', '0.078014', '0.061224', '0.027119', '0.052863', '0.040741', '0.065844', '0.039867', '0.039711', '0.050725', '0.051780', '0.071918', '0.032258', '0.044444', '0.056940', '0.039157', '0.040486', '0.039146', '0.041096', '0.046429', '0.044898', '0.028369', '0.024138', '0.067138', '0.077236', '0.054902', '0.030534', '0.060714', '0.038062', '0.049057', '0.096774', '0.024221', '0.019455', '0.046099', '0.043478', '0.043956', '0.037313', '0.021084', '0.047445', '0.063158', '0.042623', '0.102894', '0.019169', '0.038062', '0.048673', '0.066667', '0.062731', '0.052434', '0.039370', '0.062500', '0.050909', '0.047782', '0.043011', '0.071429', '0.051546', '0.050000', '0.042945', '0.033113', '0.045936', '0.043750', '0.039711', '0.043478', '0.062241', '0.032934', '0.066914', '0.065844', '0.056452', '0.061983', '0.045643', '0.039604']
+         : correct/total = [(15, 295), (12, 269), (13, 330), (18, 272), (18, 291), (9, 299), (11, 245), (14, 312), (14, 245), (15, 318), (10, 230), (15, 246), (16, 263), (14, 240), (10, 283), (16, 200), (7, 297), (11, 285), (9, 267), (14, 302), (15, 277), (12, 248), (13, 316), (20, 271), (18, 289), (16, 292), (16, 269), (16, 312), (14, 278), (20, 317), (12, 317), (12, 282), (13, 344), (10, 292), (16, 282), (9, 240), (11, 302), (23, 353), (13, 332), (14, 286), (10, 261), (14, 289), (16, 256), (24, 289), (12, 281), (17, 284), (7, 296), (13, 300), (17, 313), (16, 340), (18, 316), (11, 267), (11, 235), (12, 276), (19, 238), (8, 303), (12, 254), (15, 259), (14, 288), (13, 282), (11, 233), (9, 276), (15, 251), (16, 330), (7, 311), (18, 287), (14, 276), (16, 318), (23, 252), (15, 245), (16, 263), (13, 225), (16, 260), (9, 228), (12, 243), (12, 303), (10, 306), (15, 249), (15, 237), (18, 250), (14, 298), (16, 289), (12, 304), (11, 277), (13, 235), (29, 306), (19, 294), (14, 233), (18, 284), (13, 260), (16, 338), (13, 323), (13, 241), (14, 293), (17, 291), (19, 278), (17, 312), (13, 311), (11, 221), (21, 290), (15, 322), (12, 269), (16, 281), (16, 288), (12, 309), (11, 237), (13, 289), (10, 303), (19, 284), (16, 259), (12, 250), (14, 296), (18, 296), (11, 251), (24, 288), (7, 300), (15, 237), (15, 268), (14, 256), (14, 221), (13, 241), (12, 286), (21, 249), (12, 321), (15, 270), (15, 279), (11, 265), (15, 295), (16, 261), (15, 301), (12, 290), (16, 309), (8, 280), (16, 282), (17, 318), (21, 245), (14, 266), (8, 246), (12, 312), (10, 287), (11, 304), (12, 302), (17, 230), (23, 305), (9, 251), (10, 320), (13, 285), (18, 209), (13, 291), (16, 243), (15, 288), (11, 294), (12, 266), (12, 270), (10, 315), (12, 258), (19, 307), (17, 304), (18, 298), (16, 283), (14, 242), (20, 248), (13, 279), (11, 257), (11, 239), (21, 239), (11, 270), (16, 284), (16, 305), (10, 279), (2, 281), (11, 282), (18, 198), (12, 275), (7, 308), (7, 248), (19, 288), (15, 300), (17, 261), (15, 305), (14, 227), (19, 339), (12, 229), (10, 273), (16, 264), (17, 284), (13, 242), (18, 287), (18, 275), (23, 249), (15, 239), (24, 238), (11, 259), (5, 306), (17, 275), (14, 296), (12, 276), (10, 235), (11, 296), (7, 287), (7, 296), (8, 286), (15, 257), (14, 242), (12, 250), (11, 240), (9, 310), (14, 309), (14, 308), (15, 270), (12, 231), (9, 234), (14, 313), (15, 283), (15, 243), (10, 335), (9, 284), (15, 283), (13, 255), (14, 299), (9, 269), (22, 228), (11, 253), (12, 317), (5, 322), (14, 295), (13, 311), (16, 272), (13, 246), (15, 311), (19, 273), (22, 282), (18, 294), (8, 295), (12, 227), (11, 270), (16, 243), (12, 301), (11, 277), (14, 276), (16, 309), (21, 292), (10, 310), (14, 315), (16, 281), (13, 332), (10, 247), (11, 281), (12, 292), (13, 280), (11, 245), (8, 282), (7, 290), (19, 283), (19, 246), (14, 255), (8, 262), (17, 280), (11, 289), (13, 265), (27, 279), (7, 289), (5, 257), (13, 282), (9, 207), (12, 273), (10, 268), (7, 332), (13, 274), (18, 285), (13, 305), (32, 311), (6, 313), (11, 289), (11, 226), (17, 255), (17, 271), (14, 267), (10, 254), (12, 192), (14, 275), (14, 293), (12, 279), (21, 294), (15, 291), (16, 320), (14, 326), (10, 302), (13, 283), (14, 320), (11, 277), (14, 322), (15, 241), (11, 334), (18, 269), (16, 243), (14, 248), (15, 242), (11, 241), (12, 303)]
+         : compromised: 0.0505, honest: 0.0502
+         : sketchguard stats = ['Node 0: acc_rate=0.107', 'Node 1: acc_rate=0.431', 'Node 2: acc_rate=0.488']...
+Round 002: test acc mean=0.0515 ± 0.0154 | min=0.0129 max=0.1111
+         : test loss mean=3.9264 ± 0.0359
+         : individual accs = ['0.047458', '0.044610', '0.078788', '0.029412', '0.058419', '0.070234', '0.065306', '0.044872', '0.048980', '0.028302', '0.065217', '0.065041', '0.045627', '0.041667', '0.060071', '0.095000', '0.037037', '0.052632', '0.037453', '0.039735', '0.054152', '0.068548', '0.075949', '0.062731', '0.038062', '0.041096', '0.059480', '0.044872', '0.053957', '0.063091', '0.025237', '0.063830', '0.026163', '0.071918', '0.053191', '0.045833', '0.046358', '0.022663', '0.039157', '0.055944', '0.038314', '0.034602', '0.085938', '0.044983', '0.039146', '0.056338', '0.023649', '0.063333', '0.035144', '0.029412', '0.060127', '0.052434', '0.093617', '0.043478', '0.046218', '0.082508', '0.066929', '0.034749', '0.045139', '0.049645', '0.047210', '0.043478', '0.079681', '0.018182', '0.048232', '0.076655', '0.032609', '0.044025', '0.063492', '0.044898', '0.053232', '0.111111', '0.061538', '0.039474', '0.037037', '0.079208', '0.045752', '0.072289', '0.063291', '0.068000', '0.057047', '0.051903', '0.052632', '0.039711', '0.068085', '0.039216', '0.044218', '0.060086', '0.052817', '0.061538', '0.023669', '0.040248', '0.070539', '0.047782', '0.037801', '0.039568', '0.044872', '0.041801', '0.058824', '0.051724', '0.046584', '0.044610', '0.053381', '0.031250', '0.045307', '0.059072', '0.044983', '0.039604', '0.066901', '0.046332', '0.064000', '0.060811', '0.060811', '0.063745', '0.059028', '0.050000', '0.063291', '0.055970', '0.054688', '0.076923', '0.087137', '0.066434', '0.084337', '0.037383', '0.055556', '0.057348', '0.037736', '0.057627', '0.057471', '0.053156', '0.051724', '0.051780', '0.028571', '0.056738', '0.040881', '0.065306', '0.060150', '0.077236', '0.076923', '0.062718', '0.069079', '0.049669', '0.060870', '0.052459', '0.035857', '0.034375', '0.056140', '0.086124', '0.041237', '0.057613', '0.052083', '0.013605', '0.052632', '0.070370', '0.031746', '0.050388', '0.052117', '0.042763', '0.050336', '0.056537', '0.066116', '0.044355', '0.053763', '0.042802', '0.046025', '0.058577', '0.040741', '0.049296', '0.055738', '0.039427', '0.064057', '0.042553', '0.080808', '0.065455', '0.045455', '0.072581', '0.041667', '0.046667', '0.057471', '0.045902', '0.052863', '0.026549', '0.052402', '0.065934', '0.034091', '0.049296', '0.053719', '0.069686', '0.058182', '0.064257', '0.062762', '0.058824', '0.038610', '0.016340', '0.047273', '0.057432', '0.039855', '0.034043', '0.043919', '0.045296', '0.064189', '0.034965', '0.019455', '0.049587', '0.044000', '0.091667', '0.029032', '0.055016', '0.045455', '0.048148', '0.025974', '0.064103', '0.038339', '0.049470', '0.065844', '0.029851', '0.028169', '0.053004', '0.058824', '0.046823', '0.055762', '0.096491', '0.043478', '0.037855', '0.015528', '0.050847', '0.067524', '0.058824', '0.052846', '0.012862', '0.040293', '0.049645', '0.061224', '0.067797', '0.061674', '0.040741', '0.065844', '0.039867', '0.054152', '0.047101', '0.064725', '0.044521', '0.054839', '0.060317', '0.042705', '0.039157', '0.040486', '0.064057', '0.041096', '0.046429', '0.093878', '0.028369', '0.034483', '0.067138', '0.052846', '0.050980', '0.061069', '0.053571', '0.048443', '0.056604', '0.053763', '0.048443', '0.046693', '0.039007', '0.082126', '0.043956', '0.037313', '0.036145', '0.062044', '0.049123', '0.049180', '0.054662', '0.057508', '0.038062', '0.035398', '0.066667', '0.055351', '0.052434', '0.031496', '0.067708', '0.043636', '0.040956', '0.075269', '0.071429', '0.054983', '0.050000', '0.036810', '0.049669', '0.024735', '0.028125', '0.039711', '0.040373', '0.041494', '0.035928', '0.048327', '0.032922', '0.052419', '0.070248', '0.045643', '0.039604']
+         : correct/total = [(14, 295), (12, 269), (26, 330), (8, 272), (17, 291), (21, 299), (16, 245), (14, 312), (12, 245), (9, 318), (15, 230), (16, 246), (12, 263), (10, 240), (17, 283), (19, 200), (11, 297), (15, 285), (10, 267), (12, 302), (15, 277), (17, 248), (24, 316), (17, 271), (11, 289), (12, 292), (16, 269), (14, 312), (15, 278), (20, 317), (8, 317), (18, 282), (9, 344), (21, 292), (15, 282), (11, 240), (14, 302), (8, 353), (13, 332), (16, 286), (10, 261), (10, 289), (22, 256), (13, 289), (11, 281), (16, 284), (7, 296), (19, 300), (11, 313), (10, 340), (19, 316), (14, 267), (22, 235), (12, 276), (11, 238), (25, 303), (17, 254), (9, 259), (13, 288), (14, 282), (11, 233), (12, 276), (20, 251), (6, 330), (15, 311), (22, 287), (9, 276), (14, 318), (16, 252), (11, 245), (14, 263), (25, 225), (16, 260), (9, 228), (9, 243), (24, 303), (14, 306), (18, 249), (15, 237), (17, 250), (17, 298), (15, 289), (16, 304), (11, 277), (16, 235), (12, 306), (13, 294), (14, 233), (15, 284), (16, 260), (8, 338), (13, 323), (17, 241), (14, 293), (11, 291), (11, 278), (14, 312), (13, 311), (13, 221), (15, 290), (15, 322), (12, 269), (15, 281), (9, 288), (14, 309), (14, 237), (13, 289), (12, 303), (19, 284), (12, 259), (16, 250), (18, 296), (18, 296), (16, 251), (17, 288), (15, 300), (15, 237), (15, 268), (14, 256), (17, 221), (21, 241), (19, 286), (21, 249), (12, 321), (15, 270), (16, 279), (10, 265), (17, 295), (15, 261), (16, 301), (15, 290), (16, 309), (8, 280), (16, 282), (13, 318), (16, 245), (16, 266), (19, 246), (24, 312), (18, 287), (21, 304), (15, 302), (14, 230), (16, 305), (9, 251), (11, 320), (16, 285), (18, 209), (12, 291), (14, 243), (15, 288), (4, 294), (14, 266), (19, 270), (10, 315), (13, 258), (16, 307), (13, 304), (15, 298), (16, 283), (16, 242), (11, 248), (15, 279), (11, 257), (11, 239), (14, 239), (11, 270), (14, 284), (17, 305), (11, 279), (18, 281), (12, 282), (16, 198), (18, 275), (14, 308), (18, 248), (12, 288), (14, 300), (15, 261), (14, 305), (12, 227), (9, 339), (12, 229), (18, 273), (9, 264), (14, 284), (13, 242), (20, 287), (16, 275), (16, 249), (15, 239), (14, 238), (10, 259), (5, 306), (13, 275), (17, 296), (11, 276), (8, 235), (13, 296), (13, 287), (19, 296), (10, 286), (5, 257), (12, 242), (11, 250), (22, 240), (9, 310), (17, 309), (14, 308), (13, 270), (6, 231), (15, 234), (12, 313), (14, 283), (16, 243), (10, 335), (8, 284), (15, 283), (15, 255), (14, 299), (15, 269), (22, 228), (11, 253), (12, 317), (5, 322), (15, 295), (21, 311), (16, 272), (13, 246), (4, 311), (11, 273), (14, 282), (18, 294), (20, 295), (14, 227), (11, 270), (16, 243), (12, 301), (15, 277), (13, 276), (20, 309), (13, 292), (17, 310), (19, 315), (12, 281), (13, 332), (10, 247), (18, 281), (12, 292), (13, 280), (23, 245), (8, 282), (10, 290), (19, 283), (13, 246), (13, 255), (16, 262), (15, 280), (14, 289), (15, 265), (15, 279), (14, 289), (12, 257), (11, 282), (17, 207), (12, 273), (10, 268), (12, 332), (17, 274), (14, 285), (15, 305), (17, 311), (18, 313), (11, 289), (8, 226), (17, 255), (15, 271), (14, 267), (8, 254), (13, 192), (12, 275), (12, 293), (21, 279), (21, 294), (16, 291), (16, 320), (12, 326), (15, 302), (7, 283), (9, 320), (11, 277), (13, 322), (10, 241), (12, 334), (13, 269), (8, 243), (13, 248), (17, 242), (11, 241), (12, 303)]
+         : compromised: 0.0514, honest: 0.0516
+         : sketchguard stats = ['Node 0: acc_rate=0.054', 'Node 1: acc_rate=0.216', 'Node 2: acc_rate=0.244']...
+Round 003: test acc mean=0.0514 ± 0.0145 | min=0.0209 max=0.0965
+         : test loss mean=3.7536 ± 0.0551
+         : individual accs = ['0.040678', '0.044610', '0.045455', '0.066176', '0.061856', '0.040134', '0.065306', '0.057692', '0.057143', '0.028302', '0.065217', '0.065041', '0.038023', '0.066667', '0.035336', '0.095000', '0.063973', '0.049123', '0.037453', '0.039735', '0.054152', '0.060484', '0.041139', '0.051661', '0.038062', '0.041096', '0.044610', '0.044872', '0.053957', '0.047319', '0.056782', '0.046099', '0.037791', '0.030822', '0.060284', '0.066667', '0.026490', '0.065156', '0.036145', '0.038462', '0.061303', '0.051903', '0.085938', '0.058824', '0.042705', '0.059859', '0.043919', '0.043333', '0.038339', '0.029412', '0.056962', '0.048689', '0.093617', '0.050725', '0.046218', '0.026403', '0.055118', '0.034749', '0.055556', '0.046099', '0.064378', '0.057971', '0.039841', '0.021212', '0.035370', '0.027875', '0.032609', '0.044025', '0.091270', '0.044898', '0.045627', '0.057778', '0.061538', '0.039474', '0.045267', '0.039604', '0.055556', '0.072289', '0.063291', '0.072000', '0.040268', '0.048443', '0.052632', '0.050542', '0.038298', '0.035948', '0.044218', '0.077253', '0.063380', '0.030769', '0.023669', '0.040248', '0.082988', '0.047782', '0.054983', '0.043165', '0.035256', '0.051447', '0.090498', '0.037931', '0.052795', '0.044610', '0.053381', '0.052083', '0.038835', '0.042194', '0.051903', '0.029703', '0.066901', '0.069498', '0.048000', '0.040541', '0.057432', '0.063745', '0.059028', '0.056667', '0.054852', '0.055970', '0.078125', '0.090498', '0.087137', '0.031469', '0.084337', '0.043614', '0.044444', '0.057348', '0.060377', '0.033898', '0.061303', '0.056478', '0.034483', '0.051780', '0.053571', '0.063830', '0.031447', '0.085714', '0.030075', '0.052846', '0.076923', '0.045296', '0.036184', '0.062914', '0.073913', '0.052459', '0.035857', '0.050000', '0.052632', '0.076555', '0.027491', '0.041152', '0.041667', '0.064626', '0.052632', '0.048148', '0.060317', '0.046512', '0.048860', '0.039474', '0.046980', '0.056537', '0.057851', '0.080645', '0.068100', '0.085603', '0.046025', '0.058577', '0.040741', '0.056338', '0.042623', '0.043011', '0.067616', '0.039007', '0.090909', '0.050909', '0.048701', '0.040323', '0.045139', '0.040000', '0.057471', '0.045902', '0.070485', '0.056047', '0.056769', '0.025641', '0.060606', '0.049296', '0.053719', '0.059233', '0.058182', '0.072289', '0.062762', '0.058824', '0.023166', '0.035948', '0.058182', '0.033784', '0.054348', '0.034043', '0.047297', '0.020906', '0.037162', '0.027972', '0.042802', '0.053719', '0.068000', '0.041667', '0.038710', '0.035599', '0.058442', '0.055556', '0.051948', '0.038462', '0.054313', '0.053004', '0.053498', '0.029851', '0.031690', '0.024735', '0.078431', '0.050167', '0.033457', '0.096491', '0.051383', '0.044164', '0.052795', '0.037288', '0.067524', '0.051471', '0.052846', '0.041801', '0.040293', '0.078014', '0.061224', '0.061017', '0.061674', '0.051852', '0.045267', '0.049834', '0.061372', '0.047101', '0.064725', '0.054795', '0.054839', '0.044444', '0.042705', '0.033133', '0.064777', '0.064057', '0.037671', '0.046429', '0.073469', '0.053191', '0.055172', '0.049470', '0.044715', '0.031373', '0.061069', '0.053571', '0.038062', '0.060377', '0.060932', '0.048443', '0.046693', '0.042553', '0.067633', '0.043956', '0.052239', '0.027108', '0.054745', '0.056140', '0.055738', '0.054662', '0.047923', '0.038062', '0.048673', '0.062745', '0.040590', '0.056180', '0.031496', '0.052083', '0.043636', '0.040956', '0.053763', '0.047619', '0.054983', '0.031250', '0.039877', '0.049669', '0.045936', '0.043750', '0.068592', '0.043478', '0.053942', '0.044910', '0.052045', '0.086420', '0.056452', '0.061983', '0.074689', '0.049505']
+         : correct/total = [(12, 295), (12, 269), (15, 330), (18, 272), (18, 291), (12, 299), (16, 245), (18, 312), (14, 245), (9, 318), (15, 230), (16, 246), (10, 263), (16, 240), (10, 283), (19, 200), (19, 297), (14, 285), (10, 267), (12, 302), (15, 277), (15, 248), (13, 316), (14, 271), (11, 289), (12, 292), (12, 269), (14, 312), (15, 278), (15, 317), (18, 317), (13, 282), (13, 344), (9, 292), (17, 282), (16, 240), (8, 302), (23, 353), (12, 332), (11, 286), (16, 261), (15, 289), (22, 256), (17, 289), (12, 281), (17, 284), (13, 296), (13, 300), (12, 313), (10, 340), (18, 316), (13, 267), (22, 235), (14, 276), (11, 238), (8, 303), (14, 254), (9, 259), (16, 288), (13, 282), (15, 233), (16, 276), (10, 251), (7, 330), (11, 311), (8, 287), (9, 276), (14, 318), (23, 252), (11, 245), (12, 263), (13, 225), (16, 260), (9, 228), (11, 243), (12, 303), (17, 306), (18, 249), (15, 237), (18, 250), (12, 298), (14, 289), (16, 304), (14, 277), (9, 235), (11, 306), (13, 294), (18, 233), (18, 284), (8, 260), (8, 338), (13, 323), (20, 241), (14, 293), (16, 291), (12, 278), (11, 312), (16, 311), (20, 221), (11, 290), (17, 322), (12, 269), (15, 281), (15, 288), (12, 309), (10, 237), (15, 289), (9, 303), (19, 284), (18, 259), (12, 250), (12, 296), (17, 296), (16, 251), (17, 288), (17, 300), (13, 237), (15, 268), (20, 256), (20, 221), (21, 241), (9, 286), (21, 249), (14, 321), (12, 270), (16, 279), (16, 265), (10, 295), (16, 261), (17, 301), (10, 290), (16, 309), (15, 280), (18, 282), (10, 318), (21, 245), (8, 266), (13, 246), (24, 312), (13, 287), (11, 304), (19, 302), (17, 230), (16, 305), (9, 251), (16, 320), (15, 285), (16, 209), (8, 291), (10, 243), (12, 288), (19, 294), (14, 266), (13, 270), (19, 315), (12, 258), (15, 307), (12, 304), (14, 298), (16, 283), (14, 242), (20, 248), (19, 279), (22, 257), (11, 239), (14, 239), (11, 270), (16, 284), (13, 305), (12, 279), (19, 281), (11, 282), (18, 198), (14, 275), (15, 308), (10, 248), (13, 288), (12, 300), (15, 261), (14, 305), (16, 227), (19, 339), (13, 229), (7, 273), (16, 264), (14, 284), (13, 242), (17, 287), (16, 275), (18, 249), (15, 239), (14, 238), (6, 259), (11, 306), (16, 275), (10, 296), (15, 276), (8, 235), (14, 296), (6, 287), (11, 296), (8, 286), (11, 257), (13, 242), (17, 250), (10, 240), (12, 310), (11, 309), (18, 308), (15, 270), (12, 231), (9, 234), (17, 313), (15, 283), (13, 243), (10, 335), (9, 284), (7, 283), (20, 255), (15, 299), (9, 269), (22, 228), (13, 253), (14, 317), (17, 322), (11, 295), (21, 311), (14, 272), (13, 246), (13, 311), (11, 273), (22, 282), (18, 294), (18, 295), (14, 227), (14, 270), (11, 243), (15, 301), (17, 277), (13, 276), (20, 309), (16, 292), (17, 310), (14, 315), (12, 281), (11, 332), (16, 247), (18, 281), (11, 292), (13, 280), (18, 245), (15, 282), (16, 290), (14, 283), (11, 246), (8, 255), (16, 262), (15, 280), (11, 289), (16, 265), (17, 279), (14, 289), (12, 257), (12, 282), (14, 207), (12, 273), (14, 268), (9, 332), (15, 274), (16, 285), (17, 305), (17, 311), (15, 313), (11, 289), (11, 226), (16, 255), (11, 271), (15, 267), (8, 254), (10, 192), (12, 275), (12, 293), (15, 279), (14, 294), (16, 291), (10, 320), (13, 326), (15, 302), (13, 283), (14, 320), (19, 277), (14, 322), (13, 241), (15, 334), (14, 269), (21, 243), (14, 248), (15, 242), (18, 241), (15, 303)]
+         : compromised: 0.0526, honest: 0.0502
+         : sketchguard stats = ['Node 0: acc_rate=0.036', 'Node 1: acc_rate=0.144', 'Node 2: acc_rate=0.163']...
+
+=== FINAL RESULTS ===
+Dataset: femnist, Nodes: 300, Graph: k-regular, Aggregation: sketchguard
+Attack: directed_deviation, 50.0% compromised
+Final accuracy - Compromised: 0.0526, Honest: 0.0502
+Overall test accuracy: mean=0.0514 ± 0.0145
+
+=== COARSE SUMMARY ===
+Node 0: acceptance=0.036
+Node 1: acceptance=0.144
+Node 2: acceptance=0.163
+Node 3: acceptance=0.163
+Node 4: acceptance=0.124
+Node 5: acceptance=0.130
+Node 6: acceptance=0.116
+Node 7: acceptance=0.138
+Node 8: acceptance=0.093
+Node 9: acceptance=0.101
+Node 10: acceptance=0.130
+Node 11: acceptance=0.153
+Node 12: acceptance=0.139
+Node 13: acceptance=0.145
+Node 14: acceptance=0.139
+Node 15: acceptance=0.022
+Node 16: acceptance=0.129
+Node 17: acceptance=0.108
+Node 18: acceptance=0.128
+Node 19: acceptance=0.081
+Node 20: acceptance=0.156
+Node 21: acceptance=0.080
+Node 22: acceptance=0.143
+Node 23: acceptance=0.137
+Node 24: acceptance=0.116
+Node 25: acceptance=0.101
+Node 26: acceptance=0.130
+Node 27: acceptance=0.074
+Node 28: acceptance=0.155
+Node 29: acceptance=0.140
+Node 30: acceptance=0.144
+Node 31: acceptance=0.137
+Node 32: acceptance=0.162
+Node 33: acceptance=0.096
+Node 34: acceptance=0.154
+Node 35: acceptance=0.155
+Node 36: acceptance=0.136
+Node 37: acceptance=0.123
+Node 38: acceptance=0.109
+Node 39: acceptance=0.129
+Node 40: acceptance=0.149
+Node 41: acceptance=0.144
+Node 42: acceptance=0.081
+Node 43: acceptance=0.138
+Node 44: acceptance=0.152
+Node 45: acceptance=0.136
+Node 46: acceptance=0.100
+Node 47: acceptance=0.072
+Node 48: acceptance=0.147
+Node 49: acceptance=0.109
+Node 50: acceptance=0.132
+Node 51: acceptance=0.080
+Node 52: acceptance=0.148
+Node 53: acceptance=0.071
+Node 54: acceptance=0.145
+Node 55: acceptance=0.144
+Node 56: acceptance=0.163
+Node 57: acceptance=0.065
+Node 58: acceptance=0.132
+Node 59: acceptance=0.123
+Node 60: acceptance=0.133
+Node 61: acceptance=0.149
+Node 62: acceptance=0.117
+Node 63: acceptance=0.138
+Node 64: acceptance=0.155
+Node 65: acceptance=0.139
+Node 66: acceptance=0.133
+Node 67: acceptance=0.143
+Node 68: acceptance=0.129
+Node 69: acceptance=0.151
+Node 70: acceptance=0.127
+Node 71: acceptance=0.105
+Node 72: acceptance=0.054
+Node 73: acceptance=0.115
+Node 74: acceptance=0.088
+Node 75: acceptance=0.114
+Node 76: acceptance=0.117
+Node 77: acceptance=0.156
+Node 78: acceptance=0.151
+Node 79: acceptance=0.097
+Node 80: acceptance=0.145
+Node 81: acceptance=0.126
+Node 82: acceptance=0.139
+Node 83: acceptance=0.094
+Node 84: acceptance=0.098
+Node 85: acceptance=0.094
+Node 86: acceptance=0.148
+Node 87: acceptance=0.126
+Node 88: acceptance=0.107
+Node 89: acceptance=0.107
+Node 90: acceptance=0.052
+Node 91: acceptance=0.137
+Node 92: acceptance=0.143
+Node 93: acceptance=0.066
+Node 94: acceptance=0.165
+Node 95: acceptance=0.093
+Node 96: acceptance=0.151
+Node 97: acceptance=0.157
+Node 98: acceptance=0.106
+Node 99: acceptance=0.046
+Node 100: acceptance=0.069
+Node 101: acceptance=0.127
+Node 102: acceptance=0.116
+Node 103: acceptance=0.119
+Node 104: acceptance=0.140
+Node 105: acceptance=0.114
+Node 106: acceptance=0.099
+Node 107: acceptance=0.155
+Node 108: acceptance=0.113
+Node 109: acceptance=0.147
+Node 110: acceptance=0.113
+Node 111: acceptance=0.134
+Node 112: acceptance=0.164
+Node 113: acceptance=0.098
+Node 114: acceptance=0.074
+Node 115: acceptance=0.136
+Node 116: acceptance=0.117
+Node 117: acceptance=0.049
+Node 118: acceptance=0.118
+Node 119: acceptance=0.084
+Node 120: acceptance=0.110
+Node 121: acceptance=0.139
+Node 122: acceptance=0.134
+Node 123: acceptance=0.119
+Node 124: acceptance=0.094
+Node 125: acceptance=0.128
+Node 126: acceptance=0.074
+Node 127: acceptance=0.108
+Node 128: acceptance=0.098
+Node 129: acceptance=0.155
+Node 130: acceptance=0.132
+Node 131: acceptance=0.042
+Node 132: acceptance=0.057
+Node 133: acceptance=0.152
+Node 134: acceptance=0.142
+Node 135: acceptance=0.070
+Node 136: acceptance=0.056
+Node 137: acceptance=0.164
+Node 138: acceptance=0.127
+Node 139: acceptance=0.099
+Node 140: acceptance=0.130
+Node 141: acceptance=0.135
+Node 142: acceptance=0.090
+Node 143: acceptance=0.143
+Node 144: acceptance=0.137
+Node 145: acceptance=0.128
+Node 146: acceptance=0.146
+Node 147: acceptance=0.146
+Node 148: acceptance=0.153
+Node 149: acceptance=0.128
+Node 150: acceptance=0.117
+Node 151: acceptance=0.149
+Node 152: acceptance=0.147
+Node 153: acceptance=0.129
+Node 154: acceptance=0.085
+Node 155: acceptance=0.157
+Node 156: acceptance=0.050
+Node 157: acceptance=0.124
+Node 158: acceptance=0.156
+Node 159: acceptance=0.085
+Node 160: acceptance=0.154
+Node 161: acceptance=0.093
+Node 162: acceptance=0.118
+Node 163: acceptance=0.056
+Node 164: acceptance=0.068
+Node 165: acceptance=0.161
+Node 166: acceptance=0.145
+Node 167: acceptance=0.132
+Node 168: acceptance=0.068
+Node 169: acceptance=0.117
+Node 170: acceptance=0.144
+Node 171: acceptance=0.052
+Node 172: acceptance=0.086
+Node 173: acceptance=0.127
+Node 174: acceptance=0.100
+Node 175: acceptance=0.078
+Node 176: acceptance=0.069
+Node 177: acceptance=0.130
+Node 178: acceptance=0.153
+Node 179: acceptance=0.056
+Node 180: acceptance=0.155
+Node 181: acceptance=0.159
+Node 182: acceptance=0.138
+Node 183: acceptance=0.109
+Node 184: acceptance=0.052
+Node 185: acceptance=0.144
+Node 186: acceptance=0.103
+Node 187: acceptance=0.076
+Node 188: acceptance=0.119
+Node 189: acceptance=0.138
+Node 190: acceptance=0.127
+Node 191: acceptance=0.159
+Node 192: acceptance=0.113
+Node 193: acceptance=0.148
+Node 194: acceptance=0.098
+Node 195: acceptance=0.045
+Node 196: acceptance=0.142
+Node 197: acceptance=0.065
+Node 198: acceptance=0.126
+Node 199: acceptance=0.130
+Node 200: acceptance=0.147
+Node 201: acceptance=0.109
+Node 202: acceptance=0.136
+Node 203: acceptance=0.140
+Node 204: acceptance=0.115
+Node 205: acceptance=0.086
+Node 206: acceptance=0.158
+Node 207: acceptance=0.144
+Node 208: acceptance=0.128
+Node 209: acceptance=0.123
+Node 210: acceptance=0.115
+Node 211: acceptance=0.055
+Node 212: acceptance=0.106
+Node 213: acceptance=0.159
+Node 214: acceptance=0.135
+Node 215: acceptance=0.140
+Node 216: acceptance=0.137
+Node 217: acceptance=0.115
+Node 218: acceptance=0.079
+Node 219: acceptance=0.146
+Node 220: acceptance=0.148
+Node 221: acceptance=0.146
+Node 222: acceptance=0.137
+Node 223: acceptance=0.158
+Node 224: acceptance=0.123
+Node 225: acceptance=0.163
+Node 226: acceptance=0.139
+Node 227: acceptance=0.156
+Node 228: acceptance=0.129
+Node 229: acceptance=0.119
+Node 230: acceptance=0.124
+Node 231: acceptance=0.135
+Node 232: acceptance=0.133
+Node 233: acceptance=0.162
+Node 234: acceptance=0.108
+Node 235: acceptance=0.118
+Node 236: acceptance=0.153
+Node 237: acceptance=0.154
+Node 238: acceptance=0.095
+Node 239: acceptance=0.132
+Node 240: acceptance=0.113
+Node 241: acceptance=0.163
+Node 242: acceptance=0.086
+Node 243: acceptance=0.127
+Node 244: acceptance=0.151
+Node 245: acceptance=0.111
+Node 246: acceptance=0.142
+Node 247: acceptance=0.072
+Node 248: acceptance=0.132
+Node 249: acceptance=0.060
+Node 250: acceptance=0.116
+Node 251: acceptance=0.091
+Node 252: acceptance=0.065
+Node 253: acceptance=0.163
+Node 254: acceptance=0.161
+Node 255: acceptance=0.067
+Node 256: acceptance=0.091
+Node 257: acceptance=0.115
+Node 258: acceptance=0.147
+Node 259: acceptance=0.087
+Node 260: acceptance=0.057
+Node 261: acceptance=0.132
+Node 262: acceptance=0.145
+Node 263: acceptance=0.113
+Node 264: acceptance=0.165
+Node 265: acceptance=0.130
+Node 266: acceptance=0.122
+Node 267: acceptance=0.144
+Node 268: acceptance=0.137
+Node 269: acceptance=0.059
+Node 270: acceptance=0.108
+Node 271: acceptance=0.129
+Node 272: acceptance=0.095
+Node 273: acceptance=0.161
+Node 274: acceptance=0.164
+Node 275: acceptance=0.127
+Node 276: acceptance=0.149
+Node 277: acceptance=0.162
+Node 278: acceptance=0.134
+Node 279: acceptance=0.146
+Node 280: acceptance=0.098
+Node 281: acceptance=0.137
+Node 282: acceptance=0.082
+Node 283: acceptance=0.113
+Node 284: acceptance=0.144
+Node 285: acceptance=0.125
+Node 286: acceptance=0.116
+Node 287: acceptance=0.088
+Node 288: acceptance=0.113
+Node 289: acceptance=0.135
+Node 290: acceptance=0.135
+Node 291: acceptance=0.114
+Node 292: acceptance=0.127
+Node 293: acceptance=0.120
+Node 294: acceptance=0.120
+Node 295: acceptance=0.110
+Node 296: acceptance=0.081
+Node 297: acceptance=0.132
+Node 298: acceptance=0.155
+Node 299: acceptance=0.147
+
+=== PARALLEL EXECUTION TIME (realistic for distributed system) ===
+  COMMUNICATION (max across nodes):
+    - Sketch transfer: 0.001s (0.1%)
+    - Model fetch (accepted): 0.000s (0.0%)
+  COMPUTATION (max across nodes):
+    - Sketching: 0.505s (69.4%)
+    - Filtering: 0.010s (1.4%)
+    - Aggregation: 0.212s (29.1%)
+  TOTALS:
+    - Total computation: 0.727s (99.9%)
+    - Total communication: 0.001s (0.1%)
+    - Total parallel time: 0.728s
+
+=== PER-NODE AVERAGE TIME ===
+  - Sketching: 0.294s
+  - Filtering: 0.004s
+  - Aggregation: 0.095s
+  - Sketch transfer: 0.000s
+  - Model fetch: 0.000s
+  - Total per node: 0.393s
+
+=== TOTAL COMPUTATIONAL WORK (sum across all nodes) ===
+  - Total sketching: 88.088s
+  - Total filtering: 1.221s
+  - Total aggregation: 28.471s
+  - Total sketch transfer: 0.002s
+  - Total model fetch: 0.000s
+  - Grand total: 117.782s
+  - Mean acceptance rate: 0.120
+
+COARSE Algorithm Properties:
+  - Original dimension: 6,603,710
+  - Sketch size: 1000
+  - Compression ratio: 287.0x
+  - Single repetition: No repetitions needed
+  - Theoretical complexity: O(d + N×k)
+  - Approach: Sketch filtering + state aggregation
+
+
+# Experiment completed successfully

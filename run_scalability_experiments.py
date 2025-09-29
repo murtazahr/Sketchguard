@@ -19,10 +19,10 @@ experiments = [
         "cmd": "python decentralized_fl_sim.py --dataset femnist --rounds 3 --local-epochs 1 --seed 987654321 --batch-size 64 --lr 0.01 --max-samples 10000 --agg balance --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 16 --num-nodes 20"
     },
     {
-        "agg": "coarse",
+        "agg": "sketchguard",
         "k": 16,
         "dataset": "femnist",
-        "cmd": "python decentralized_fl_sim.py --dataset femnist --rounds 3 --local-epochs 1 --seed 987654321 --batch-size 64 --lr 0.01 --max-samples 10000 --agg coarse --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 16 --num-nodes 20"
+        "cmd": "python decentralized_fl_sim.py --dataset femnist --rounds 3 --local-epochs 1 --seed 987654321 --batch-size 64 --lr 0.01 --max-samples 10000 --agg sketchguard --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 16 --num-nodes 20"
     },
     {
         "agg": "ubar",
@@ -37,10 +37,10 @@ experiments = [
         "cmd": "python decentralized_fl_sim.py --dataset femnist --rounds 3 --local-epochs 1 --seed 987654321 --batch-size 64 --lr 0.01 --max-samples 10000 --agg balance --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 32 --num-nodes 35"
     },
     {
-        "agg": "coarse",
+        "agg": "sketchguard",
         "k": 32,
         "dataset": "femnist",
-        "cmd": "python decentralized_fl_sim.py --dataset femnist --rounds 3 --local-epochs 1 --seed 987654321 --batch-size 64 --lr 0.01 --max-samples 10000 --agg coarse --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 32 --num-nodes 35"
+        "cmd": "python decentralized_fl_sim.py --dataset femnist --rounds 3 --local-epochs 1 --seed 987654321 --batch-size 64 --lr 0.01 --max-samples 10000 --agg sketchguard --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 32 --num-nodes 35"
     },
     {
         "agg": "ubar",
@@ -55,10 +55,10 @@ experiments = [
         "cmd": "python decentralized_fl_sim.py --dataset femnist --rounds 3 --local-epochs 1 --seed 987654321 --batch-size 64 --lr 0.01 --max-samples 10000 --agg balance --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 96 --num-nodes 100"
     },
     {
-        "agg": "coarse",
+        "agg": "sketchguard",
         "k": 96,
         "dataset": "femnist",
-        "cmd": "python decentralized_fl_sim.py --dataset femnist --rounds 3 --local-epochs 1 --seed 987654321 --batch-size 64 --lr 0.01 --max-samples 10000 --agg coarse --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 96 --num-nodes 100"
+        "cmd": "python decentralized_fl_sim.py --dataset femnist --rounds 3 --local-epochs 1 --seed 987654321 --batch-size 64 --lr 0.01 --max-samples 10000 --agg sketchguard --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 96 --num-nodes 100"
     },
     {
         "agg": "ubar",
@@ -67,10 +67,10 @@ experiments = [
         "cmd": "python decentralized_fl_sim.py --dataset femnist --rounds 3 --local-epochs 1 --seed 987654321 --batch-size 64 --lr 0.01 --max-samples 10000 --agg ubar --ubar-rho 0.5 --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 96 --num-nodes 100"
     },
     {
-        "agg": "coarse",
+        "agg": "sketchguard",
         "k": 154,
         "dataset": "femnist",
-        "cmd": "python decentralized_fl_sim.py --dataset femnist --rounds 3 --local-epochs 1 --seed 987654321 --batch-size 64 --lr 0.01 --max-samples 10000 --agg coarse --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
+        "cmd": "python decentralized_fl_sim.py --dataset femnist --rounds 3 --local-epochs 1 --seed 987654321 --batch-size 64 --lr 0.01 --max-samples 10000 --agg sketchguard --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
     },
     {
         "agg": "balance",
@@ -85,10 +85,10 @@ experiments = [
         "cmd": "python decentralized_fl_sim.py --dataset femnist --rounds 3 --local-epochs 1 --seed 987654321 --batch-size 64 --lr 0.01 --max-samples 10000 --agg ubar --ubar-rho 0.5 --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 154 --num-nodes 155"
     },
     {
-        "agg": "coarse",
+        "agg": "sketchguard",
         "k": 299,
         "dataset": "femnist",
-        "cmd": "python decentralized_fl_sim.py --dataset femnist --rounds 3 --local-epochs 1 --seed 987654321 --batch-size 64 --lr 0.01 --max-samples 10000 --agg coarse --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 299 --num-nodes 300"
+        "cmd": "python decentralized_fl_sim.py --dataset femnist --rounds 3 --local-epochs 1 --seed 987654321 --batch-size 64 --lr 0.01 --max-samples 10000 --agg sketchguard --attack-percentage 0.5 --attack-type directed_deviation --verbose --graph k-regular --k 299 --num-nodes 300"
     },
     {
         "agg": "balance",

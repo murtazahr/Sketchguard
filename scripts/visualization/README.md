@@ -98,7 +98,7 @@ python visualize_computational_complexity.py
 All visualization scripts map internal names to publication names:
 - `balance` → `BALANCE`
 - `ubar` → `UBAR` 
-- `coarse` → `SKETCHGUARD`
+- `sketchguard` → `SKETCHGUARD`
 
 ## Output Format
 

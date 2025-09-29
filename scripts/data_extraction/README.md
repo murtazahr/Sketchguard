@@ -58,4 +58,4 @@ Log files should be named following the pattern:
 
 Examples:
 - `femnist_20_10_3_ring_64_10000_balance_40attack_gaussian_1lambda.log`
-- `femnist_20_10_3_erdos_02_64_10000_coarse_30attack_1lambda.log`
+- `femnist_20_10_3_erdos_02_64_10000_sketchguard_30attack_1lambda.log`

@@ -8,14 +8,14 @@ from matplotlib.patches import Rectangle
 
 # Configure matplotlib for publication-quality plots
 plt.rcParams.update({
-    'font.size': 10,
+    'font.size': 12,
     'font.family': 'serif',
     'font.serif': ['Times New Roman', 'DejaVu Serif'],
-    'axes.labelsize': 10,
-    'axes.titlesize': 10,
-    'xtick.labelsize': 9,
-    'ytick.labelsize': 9,
-    'legend.fontsize': 9,
+    'axes.labelsize': 12,
+    'axes.titlesize': 12,
+    'xtick.labelsize': 11,
+    'ytick.labelsize': 11,
+    'legend.fontsize': 11,
     'figure.figsize': (8, 3),
     'figure.dpi': 100,
     'savefig.dpi': 300,
@@ -66,7 +66,7 @@ def create_combined_figure(df, save_prefix=''):
     node_type = 'honest'  # Focus on honest nodes
     
     # Define algorithms and their visual properties matching the style
-    algorithms = ['d-fedavg', 'krum', 'balance', 'ubar', 'coarse']
+    algorithms = ['d-fedavg', 'krum', 'balance', 'ubar', 'sketchguard']
 
     # Define colors and styles to match the reference
     colors = {
@@ -74,7 +74,7 @@ def create_combined_figure(df, save_prefix=''):
         'krum': '#000000',      # Black with dots
         'balance': '#0000FF',   # Blue dash-dot
         'ubar': '#FF8C00',      # Orange solid
-        'coarse': '#FF00FF'     # Magenta/Pink dashed
+        'sketchguard': '#FF00FF'     # Magenta/Pink dashed
     }
 
     line_styles = {
@@ -82,7 +82,7 @@ def create_combined_figure(df, save_prefix=''):
         'krum': ':',            # Dotted
         'balance': '-.',        # Dash-dot
         'ubar': '-',            # Solid
-        'coarse': (0, (1, 1))   # More dotted (1 pixel line, 1 pixel gap)
+        'sketchguard': (0, (1, 1))   # More dotted (1 pixel line, 1 pixel gap)
     }
 
     markers = {
@@ -90,7 +90,7 @@ def create_combined_figure(df, save_prefix=''):
         'krum': 'o',
         'balance': 's',
         'ubar': '^',
-        'coarse': 'D'
+        'sketchguard': 'D'
     }
     
     # Create legend handles once for the entire figure
@@ -116,11 +116,11 @@ def create_combined_figure(df, save_prefix=''):
                 grouped = algo_data.groupby('attack_percentage')[error_col].mean().reset_index()
                 grouped = grouped.sort_values('attack_percentage')
                 
-                # Set z-order: coarse (top), balance (middle), ubar (bottom), krum (separate), fedavg (back)
-                z_orders = {'coarse': 5, 'balance': 4, 'ubar': 3, 'krum': 2, 'd-fedavg': 1}
+                # Set z-order: sketchguard (top), balance (middle), ubar (bottom), krum (separate), fedavg (back)
+                z_orders = {'sketchguard': 5, 'balance': 4, 'ubar': 3, 'krum': 2, 'd-fedavg': 1}
 
                 # Map algorithm names for display
-                if algo == 'coarse':
+                if algo == 'sketchguard':
                     display_name = 'SKETCHGUARD'
                 elif algo == 'd-fedavg':
                     display_name = 'FEDAVG'
@@ -158,7 +158,7 @@ def create_combined_figure(df, save_prefix=''):
                               bbox_transform=ax.transAxes)
         
         # Plot in inset - only the three overlapping algorithms
-        inset_algorithms = ['balance', 'ubar', 'coarse']
+        inset_algorithms = ['balance', 'ubar', 'sketchguard']
         
         for algo in inset_algorithms:
             algo_data = df_filtered[df_filtered['algorithm'] == algo]
@@ -171,7 +171,7 @@ def create_combined_figure(df, save_prefix=''):
                 zoom_data = grouped[(grouped['attack_percentage'] >= 10) & (grouped['attack_percentage'] <= 80)]
                 
                 if len(zoom_data) > 0:
-                    z_orders = {'coarse': 5, 'balance': 4, 'ubar': 3, 'krum': 2, 'd-fedavg': 1}
+                    z_orders = {'sketchguard': 5, 'balance': 4, 'ubar': 3, 'krum': 2, 'd-fedavg': 1}
                     axins.plot(zoom_data['attack_percentage'], 
                               zoom_data[error_col],
                               linestyle=line_styles[algo],
@@ -235,7 +235,7 @@ def create_combined_figure(df, save_prefix=''):
         
         # Add subplot labels underneath the plot
         ax.text(0.5, -0.25, label,
-                transform=ax.transAxes, fontsize=9, ha='center', va='top')
+                transform=ax.transAxes, fontsize=12, ha='center', va='top')
         
         # Remove top and right spines
         ax.spines['top'].set_visible(False)
@@ -246,15 +246,13 @@ def create_combined_figure(df, save_prefix=''):
                loc='upper center',
                bbox_to_anchor=(0.5, 1.05),
                ncol=5,  # All algorithms in one row (now 5 with FedAvg)
-               frameon=True,
+               frameon=False,
                fancybox=False,
                shadow=False,
                borderpad=0.3,
                columnspacing=2.0,
                handlelength=2.0,
-               handletextpad=0.5,
-               edgecolor='black',
-               facecolor='white')
+               handletextpad=0.5)
     
     # Adjust layout to prevent overlap
     plt.tight_layout()

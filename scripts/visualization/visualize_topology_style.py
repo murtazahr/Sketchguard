@@ -7,14 +7,14 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 # Configure matplotlib for publication-quality plots
 plt.rcParams.update({
-    'font.size': 9,
+    'font.size': 12,
     'font.family': 'serif',
     'font.serif': ['Times New Roman', 'DejaVu Serif'],
-    'axes.labelsize': 9,
-    'axes.titlesize': 9,
-    'xtick.labelsize': 8,
-    'ytick.labelsize': 8,
-    'legend.fontsize': 8,
+    'axes.labelsize': 12,
+    'axes.titlesize': 12,
+    'xtick.labelsize': 11,
+    'ytick.labelsize': 11,
+    'legend.fontsize': 11,
     'figure.figsize': (12, 6),  # Wider for multiple panels
     'figure.dpi': 100,
     'savefig.dpi': 300,
@@ -62,14 +62,14 @@ def create_topology_figure(df, save_prefix=''):
     attack_type = 'directed_deviation'  # Use directed deviation as the attack type
 
     # Define algorithms and their visual properties
-    algorithms = ['d-fedavg', 'krum', 'balance', 'ubar', 'coarse']
+    algorithms = ['d-fedavg', 'krum', 'balance', 'ubar', 'sketchguard']
 
     colors = {
         'd-fedavg': '#DC143C',  # Crimson red for FedAvg
         'krum': '#000000',      # Black
         'balance': '#0000FF',   # Blue
         'ubar': '#FF8C00',      # Orange
-        'coarse': '#FF00FF'     # Magenta
+        'sketchguard': '#FF00FF'     # Magenta
     }
 
     line_styles = {
@@ -77,7 +77,7 @@ def create_topology_figure(df, save_prefix=''):
         'krum': ':',            # Dotted
         'balance': '-.',        # Dash-dot
         'ubar': '-',            # Solid
-        'coarse': (0, (1, 1))   # More dotted (1 pixel line, 1 pixel gap)
+        'sketchguard': (0, (1, 1))   # More dotted (1 pixel line, 1 pixel gap)
     }
 
     markers = {
@@ -85,7 +85,7 @@ def create_topology_figure(df, save_prefix=''):
         'krum': 'o',
         'balance': 's',
         'ubar': '^',
-        'coarse': 'D'
+        'sketchguard': 'D'
     }
 
     # Create legend handles once for the entire figure
@@ -163,11 +163,11 @@ def create_topology_figure(df, save_prefix=''):
                     grouped = algo_data.groupby('attack_percentage')[error_col].mean().reset_index()
                     grouped = grouped.sort_values('attack_percentage')
 
-                    # Set z-order: coarse (top), balance (middle), ubar (bottom), krum (separate), fedavg (back)
-                    z_orders = {'coarse': 5, 'balance': 4, 'ubar': 3, 'krum': 2, 'd-fedavg': 1}
+                    # Set z-order: sketchguard (top), balance (middle), ubar (bottom), krum (separate), fedavg (back)
+                    z_orders = {'sketchguard': 5, 'balance': 4, 'ubar': 3, 'krum': 2, 'd-fedavg': 1}
 
                     # Map algorithm names for display
-                    if algo == 'coarse':
+                    if algo == 'sketchguard':
                         algo_display_name = 'SKETCHGUARD'
                     elif algo == 'd-fedavg':
                         algo_display_name = 'FEDAVG'
@@ -200,7 +200,7 @@ def create_topology_figure(df, save_prefix=''):
                               bbox_to_anchor=(0, 0.25, 1, 1),
                               bbox_transform=ax.transAxes)
             
-            inset_algorithms = ['balance', 'ubar', 'coarse']
+            inset_algorithms = ['balance', 'ubar', 'sketchguard']
             
             # Calculate y-limits for inset
             y_values = []
@@ -236,7 +236,7 @@ def create_topology_figure(df, save_prefix=''):
                             zoom_data = grouped[(grouped['attack_percentage'] >= 0) & (grouped['attack_percentage'] <= 80)]
 
                             if len(zoom_data) > 0:
-                                z_orders = {'coarse': 5, 'balance': 4, 'ubar': 3, 'krum': 2, 'd-fedavg': 1}
+                                z_orders = {'sketchguard': 5, 'balance': 4, 'ubar': 3, 'krum': 2, 'd-fedavg': 1}
                                 axins.plot(zoom_data['attack_percentage'], 
                                       zoom_data[error_col],
                                       linestyle=line_styles[algo],
@@ -281,7 +281,7 @@ def create_topology_figure(df, save_prefix=''):
         # Add subplot labels underneath the plot
         panel_labels = ['(a)', '(b)', '(c)', '(d)', '(e)']
         ax.text(0.5, -0.25, f'{panel_labels[idx]} {display_name}',
-                transform=ax.transAxes, fontsize=8, ha='center', va='top')
+                transform=ax.transAxes, fontsize=12, ha='center', va='top')
         
         # Remove top and right spines
         ax.spines['top'].set_visible(False)
@@ -297,19 +297,17 @@ def create_topology_figure(df, save_prefix=''):
                    loc='upper center',
                    bbox_to_anchor=(0.5, 1.02),
                    ncol=5,
-                   frameon=True,
+                   frameon=False,
                    fancybox=False,
                    shadow=False,
                    borderpad=0.3,
                    columnspacing=2.0,
                    handlelength=2.0,
-                   handletextpad=0.5,
-                   edgecolor='black',
-                   facecolor='white')
+                   handletextpad=0.5)
     
     # Adjust layout
     plt.tight_layout()
-    plt.subplots_adjust(top=0.9, bottom=0.2, hspace=0.3, wspace=0.3)
+    plt.subplots_adjust(top=0.9, bottom=0.25, hspace=0.4, wspace=0.3)
     
     # Save figure
     filename = get_output_path(f'{save_prefix}topology_comparison.pdf')

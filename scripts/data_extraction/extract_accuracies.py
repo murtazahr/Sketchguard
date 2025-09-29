@@ -33,7 +33,7 @@ def extract_parameters_from_filename(filename):
     
     params['batch_size'] = parts[idx]
     params['samples_per_client'] = parts[idx + 1]
-    params['algorithm'] = parts[idx + 2]  # balance, ubar, coarse, etc.
+    params['algorithm'] = parts[idx + 2]  # balance, ubar, sketchguard, etc.
     
     # Parse attack configuration
     attack_part = parts[idx + 3]

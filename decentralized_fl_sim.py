@@ -474,7 +474,7 @@ class COARSE:
         self.aggregation_computation_time += time.time() - start_time
         return aggregated_state
 
-    def coarse_state_round(self, own_state: Dict[str, torch.Tensor],
+    def sketchguard_state_round(self, own_state: Dict[str, torch.Tensor],
                            neighbor_sketches_dict: Dict[str, np.ndarray],
                            neighbor_states_dict: Dict[str, Dict[str, torch.Tensor]],
                            current_round: int) -> Dict[str, torch.Tensor]:
@@ -1086,8 +1086,8 @@ def balance_aggregation_step(models: List[nn.Module], graph: Graph,
         set_state(model, state)
 
 
-def coarse_aggregation_step(models: List[nn.Module], graph: Graph,
-                            coarse_monitors: Dict[str, COARSE],
+def sketchguard_aggregation_step(models: List[nn.Module], graph: Graph,
+                            sketchguard_monitors: Dict[str, COARSE],
                             round_num: int, attacker: Optional[LocalModelPoisoningAttacker] = None):
     """
     FIXED: COARSE aggregation using MODEL PARAMETERS (more secure than gradients).
@@ -1101,10 +1101,10 @@ def coarse_aggregation_step(models: List[nn.Module], graph: Graph,
     # Track sketch transfer times for each node
     for i in range(graph.n):
         node_id = str(i)
-        if node_id in coarse_monitors and graph.neighbors[i]:
+        if node_id in sketchguard_monitors and graph.neighbors[i]:
             comm_start = time.time()
             # Each node receives sketches from its neighbors
-            coarse_monitors[node_id].sketch_transfer_time += time.time() - comm_start
+            sketchguard_monitors[node_id].sketch_transfer_time += time.time() - comm_start
 
     # Phase 2: Apply attack tracking and pre-compute malicious data
     malicious_updates = {}  # Store malicious updates per compromised node
@@ -1131,17 +1131,17 @@ def coarse_aggregation_step(models: List[nn.Module], graph: Graph,
 
                     # Compromised node creates its malicious sketch once
                     node_id = str(compromised_id)
-                    if node_id in coarse_monitors:
-                        malicious_sketch = coarse_monitors[node_id].get_sketch_for_sharing(malicious_state)
+                    if node_id in sketchguard_monitors:
+                        malicious_sketch = sketchguard_monitors[node_id].get_sketch_for_sharing(malicious_state)
                         malicious_sketches[compromised_id] = malicious_sketch
 
     # Phase 3: Each node sketches their own honest MODEL PARAMETERS once
     sketched_states = {}
     for i in range(graph.n):
         node_id = str(i)
-        if node_id in coarse_monitors:
+        if node_id in sketchguard_monitors:
             # Each node sketches their honest model state: O(d) per node
-            sketches = coarse_monitors[node_id].get_sketch_for_sharing(states[i])
+            sketches = sketchguard_monitors[node_id].get_sketch_for_sharing(states[i])
             sketched_states[i] = sketches
 
     # Phase 4: Each node performs COARSE filtering + state aggregation
@@ -1150,7 +1150,7 @@ def coarse_aggregation_step(models: List[nn.Module], graph: Graph,
         node_id = str(i)
         neighbors = graph.neighbors[i]
 
-        if node_id not in coarse_monitors:
+        if node_id not in sketchguard_monitors:
             new_states.append(states[i])
             continue
 
@@ -1174,12 +1174,12 @@ def coarse_aggregation_step(models: List[nn.Module], graph: Graph,
                 neighbor_sketch_dict[str(j)] = sketched_states[j]
 
         # Perform COARSE filtering and state-based aggregation
-        coarse_monitor = coarse_monitors[node_id]
+        sketchguard_monitor = sketchguard_monitors[node_id]
 
         # First, perform sketch-based filtering to determine which models to fetch
-        flattened_own = coarse_monitor.flatten_model_update(states[i])
-        own_sketch = coarse_monitor.count_sketch_compress(flattened_own)
-        accepted_ids = coarse_monitor.filter_neighbors_by_sketch(
+        flattened_own = sketchguard_monitor.flatten_model_update(states[i])
+        own_sketch = sketchguard_monitor.count_sketch_compress(flattened_own)
+        accepted_ids = sketchguard_monitor.filter_neighbors_by_sketch(
             own_sketch, neighbor_sketch_dict, round_num
         )
 
@@ -1187,7 +1187,7 @@ def coarse_aggregation_step(models: List[nn.Module], graph: Graph,
         if accepted_ids:
             comm_start = time.time()
             # Fetch full models only for accepted neighbors after filtering
-            coarse_monitor.full_model_fetch_time += time.time() - comm_start
+            sketchguard_monitor.full_model_fetch_time += time.time() - comm_start
 
         # Get states for accepted neighbors
         accepted_states = {
@@ -1197,7 +1197,7 @@ def coarse_aggregation_step(models: List[nn.Module], graph: Graph,
         }
 
         # Perform aggregation
-        aggregated_state = coarse_monitor.aggregate_states(states[i], accepted_states)
+        aggregated_state = sketchguard_monitor.aggregate_states(states[i], accepted_states)
         new_states.append(aggregated_state)
 
     # Phase 5: Update models with aggregated states
@@ -1454,7 +1454,7 @@ def run_sim(args):
 
     # Initialize aggregation monitors
     balance_monitors = {}
-    coarse_monitors = {}
+    sketchguard_monitors = {}
     ubar_monitors = {}
 
     if args.agg == "balance":
@@ -1470,29 +1470,29 @@ def run_sim(args):
         print(f"  - Model dimension: {model_dim:,} parameters")
         print(f"  - Complexity: O(N×d) = O({args.num_nodes}×{model_dim:,})")
 
-    elif args.agg == "coarse":
-        coarse_config = COARSEConfig(
+    elif args.agg == "sketchguard":
+        sketchguard_config = COARSEConfig(
             # BALANCE parameters
             gamma=args.balance_gamma,
             kappa=args.balance_kappa,
             alpha=args.balance_alpha,
 
             # COARSE parameters
-            sketch_size=args.coarse_sketch_size,
+            sketch_size=args.sketchguard_sketch_size,
             network_seed=args.seed,
             attack_detection_window=5
         )
 
         for i in range(args.num_nodes):
-            coarse_monitors[str(i)] = COARSE(str(i), coarse_config, args.rounds, model_dim)
+            sketchguard_monitors[str(i)] = COARSE(str(i), sketchguard_config, args.rounds, model_dim)
 
         print(f"COARSE ALGORITHM (Sketch-based Filtering + State Aggregation)")
         print(f"  - Model dimension: {model_dim:,} parameters")
-        print(f"  - Config: {coarse_config}")
-        print(f"  - Sketch size: {args.coarse_sketch_size}")
-        print(f"  - Compression ratio: {model_dim / args.coarse_sketch_size:.1f}x")
-        print(f"  - Complexity: O(d + N×k) = O({model_dim:,} + {args.num_nodes}×{args.coarse_sketch_size})")
-        speedup = (args.num_nodes * model_dim) / (model_dim + args.num_nodes * args.coarse_sketch_size)
+        print(f"  - Config: {sketchguard_config}")
+        print(f"  - Sketch size: {args.sketchguard_sketch_size}")
+        print(f"  - Compression ratio: {model_dim / args.sketchguard_sketch_size:.1f}x")
+        print(f"  - Complexity: O(d + N×k) = O({model_dim:,} + {args.num_nodes}×{args.sketchguard_sketch_size})")
+        speedup = (args.num_nodes * model_dim) / (model_dim + args.num_nodes * args.sketchguard_sketch_size)
         print(f"  - Theoretical speedup vs BALANCE: {speedup:.1f}x")
 
     elif args.agg == "ubar":
@@ -1565,12 +1565,12 @@ def run_sim(args):
             decentralized_krum_step(models, graph, args.pct_compromised, r, attacker)
         elif args.agg == "balance":
             balance_aggregation_step(models, graph, balance_monitors, r, attacker)
-        elif args.agg == "coarse":
-            coarse_aggregation_step(models, graph, coarse_monitors, r, attacker)
+        elif args.agg == "sketchguard":
+            sketchguard_aggregation_step(models, graph, sketchguard_monitors, r, attacker)
         elif args.agg == "ubar":
             ubar_aggregation_step(models, graph, ubar_monitors, r, attacker)
         else:
-            raise ValueError("agg must be 'd-fedavg', 'krum', 'balance', 'coarse', or 'ubar'")
+            raise ValueError("agg must be 'd-fedavg', 'krum', 'balance', 'sketchguard', or 'ubar'")
 
         # Evaluation phase
         accs = []
@@ -1605,12 +1605,12 @@ def run_sim(args):
                     ubar_stats.append(f"Node {node_id}: s1={stats['stage1_mean_acceptance_rate']:.3f}, s2={stats['stage2_mean_acceptance_rate']:.3f}")
                 print(f"         : ubar stats = {ubar_stats[:3]}...")
 
-            elif args.agg == "coarse" and coarse_monitors:
-                coarse_stats = []
-                for node_id, monitor in coarse_monitors.items():
+            elif args.agg == "sketchguard" and sketchguard_monitors:
+                sketchguard_stats = []
+                for node_id, monitor in sketchguard_monitors.items():
                     stats = monitor.get_statistics()
-                    coarse_stats.append(f"Node {node_id}: acc_rate={stats['mean_acceptance_rate']:.3f}")
-                print(f"         : coarse stats = {coarse_stats[:3]}...")
+                    sketchguard_stats.append(f"Node {node_id}: acc_rate={stats['mean_acceptance_rate']:.3f}")
+                print(f"         : sketchguard stats = {sketchguard_stats[:3]}...")
 
     # Final evaluation and summary
     accs = []
@@ -1696,13 +1696,13 @@ def run_sim(args):
         print(f"  - Approach: Full parameter filtering + averaging")
 
     # COARSE summary
-    if args.agg == "coarse" and coarse_monitors:
+    if args.agg == "sketchguard" and sketchguard_monitors:
         print(f"\n=== COARSE SUMMARY ===")
         all_acceptance_rates = []
 
         # Collect per-node statistics
         node_stats = []
-        for node_id, monitor in coarse_monitors.items():
+        for node_id, monitor in sketchguard_monitors.items():
             stats = monitor.get_statistics()
             all_acceptance_rates.append(stats["mean_acceptance_rate"])
             node_stats.append(stats)
@@ -1769,11 +1769,11 @@ def run_sim(args):
             print(f"  - Mean acceptance rate: {np.mean(all_acceptance_rates):.3f}")
 
         # Algorithm properties
-        actual_speedup = (args.num_nodes * model_dim) / (model_dim + args.num_nodes * args.coarse_sketch_size)
+        actual_speedup = (args.num_nodes * model_dim) / (model_dim + args.num_nodes * args.sketchguard_sketch_size)
 
         print(f"\nCOARSE Algorithm Properties:")
         print(f"  - Original dimension: {model_dim:,}")
-        print(f"  - Sketch size: {args.coarse_sketch_size}")
+        print(f"  - Sketch size: {args.sketchguard_sketch_size}")
         print(f"  - Compression ratio: {actual_speedup:.1f}x")
         print(f"  - Single repetition: No repetitions needed")
         print(f"  - Theoretical complexity: O(d + N×k)")
@@ -1878,7 +1878,7 @@ def parse_args():
 
     # Aggregation algorithm parameters
     p.add_argument("--agg", type=str,
-                   choices=["d-fedavg", "krum", "balance", "coarse", "ubar"],
+                   choices=["d-fedavg", "krum", "balance", "sketchguard", "ubar"],
                    default="d-fedavg",
                    help="Aggregation algorithm")
     p.add_argument("--pct-compromised", type=float, default=0.0)
@@ -1889,7 +1889,7 @@ def parse_args():
     p.add_argument("--balance-alpha", type=float, default=0.5)
 
     # COARSE specific parameters
-    p.add_argument("--coarse-sketch-size", type=int, default=1000,
+    p.add_argument("--sketchguard-sketch-size", type=int, default=1000,
                    help="COARSE sketch size k (lower = more compression)")
 
     # UBAR specific parameters
