@@ -287,7 +287,7 @@ def main():
     print(f"\nGenerating combined paper-style figure with all datasets...")
     create_combined_figure(df, 'combined_')
 
-    print("✅ Combined paper-style figure generated!")
+    print("Combined paper-style figure generated!")
     print("Features:")
     print("  - Single 1x4 subplot layout")
     print("  - Two FEMNIST panels: (a) Directed Deviation, (b) Gaussian")

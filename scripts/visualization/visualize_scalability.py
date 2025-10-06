@@ -429,7 +429,7 @@ def main():
     print("\nGenerating combined scalability plot (2x1 layout)...")
     create_combined_scalability_plot(df_network, df_model)
 
-    print("\n✅ Combined scalability plot generated!")
+    print("\nCombined scalability plot generated!")
     print("Features:")
     print("  - 2x1 subplot layout")
     print("  - (a) Network scalability: Compute time vs node degree")

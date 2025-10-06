@@ -31,7 +31,7 @@ def get_output_path(filename):
     script_dir = os.path.dirname(__file__)
     return os.path.join(script_dir, '..', '..', filename)
 
-def load_and_prepare_data(csv_file='extracted_accuracies.csv'):
+def load_and_prepare_data(csv_file='raw_data/extracted_accuracies.csv'):
     """Load CSV and prepare data for visualization."""
     # Get the correct path to data files relative to script location
     script_dir = os.path.dirname(__file__)
@@ -47,10 +47,10 @@ def create_topology_figure(df, save_prefix=''):
 
     # Get all topology combinations
     topology_combinations = [
+        ('ring', 'NA', 'Ring'),
         ('erdos', '02', 'Erdos p=0.2'),
         ('erdos', '045', 'Erdos p=0.45'),
         ('erdos', '06', 'Erdos p=0.6'),
-        ('ring', 'NA', 'Ring'),
         ('fully', 'NA', 'Fully Connected')
     ]
 
@@ -346,7 +346,7 @@ def main():
     print(f"\nGenerating averaged topology comparison figure across all datasets...")
     create_topology_figure(df, save_prefix='averaged_')
 
-    print("\n✅ Averaged topology comparison figure generated!")
+    print("\nAveraged topology comparison figure generated!")
     print("Features:")
     print("  - Single 1x5 subplot layout")
     print("  - Separate panel for each graph topology")
