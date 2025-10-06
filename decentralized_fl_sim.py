@@ -1189,12 +1189,23 @@ def sketchguard_aggregation_step(models: List[nn.Module], graph: Graph,
             # Fetch full models only for accepted neighbors after filtering
             sketchguard_monitor.full_model_fetch_time += time.time() - comm_start
 
-        # Get states for accepted neighbors
-        accepted_states = {
-            nid: neighbor_state_dict[nid]
-            for nid in accepted_ids
-            if nid in neighbor_state_dict
-        }
+        # Get states for accepted neighbors and verify sketches
+        accepted_states = {}
+        for nid in accepted_ids:
+            if nid in neighbor_state_dict:
+                received_model = neighbor_state_dict[nid]
+                original_sketch = neighbor_sketch_dict[nid]
+
+                # Verify that the received model matches the original sketch
+                verified_sketch = sketchguard_monitor.get_sketch_for_sharing(received_model)
+
+                # Compare sketches (should be identical)
+                if np.allclose(verified_sketch, original_sketch, rtol=1e-10, atol=1e-10):
+                    # Verification passed - accept this model
+                    accepted_states[nid] = received_model
+                else:
+                    # Verification failed - reject this model
+                    print(f"WARNING: Node {node_id} rejected model from {nid} - sketch verification failed!")
 
         # Perform aggregation
         aggregated_state = sketchguard_monitor.aggregate_states(states[i], accepted_states)
