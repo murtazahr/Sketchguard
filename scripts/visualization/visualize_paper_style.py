@@ -224,7 +224,7 @@ def create_combined_figure(df, save_prefix=''):
         
         # Main subplot settings
         ax.set_xlabel('Frac. of malicious clients (%)')
-        ax.set_ylabel('Max TER')  # Test Error Rate - on both subplots
+        ax.set_ylabel('TER')  # Test Error Rate - on both subplots
         
         ax.set_xlim(0, 80)
         ax.set_ylim(0, 1.0)

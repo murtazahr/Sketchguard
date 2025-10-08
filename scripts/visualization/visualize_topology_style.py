@@ -48,9 +48,9 @@ def create_topology_figure(df, save_prefix=''):
     # Get all topology combinations
     topology_combinations = [
         ('ring', 'NA', 'Ring'),
-        ('erdos', '02', 'Erdos p=0.2'),
-        ('erdos', '045', 'Erdos p=0.45'),
-        ('erdos', '06', 'Erdos p=0.6'),
+        ('erdos', '02', 'ER p=0.2'),
+        ('erdos', '045', 'ER p=0.45'),
+        ('erdos', '06', 'ER p=0.6'),
         ('fully', 'NA', 'Fully Connected')
     ]
 
@@ -269,7 +269,7 @@ def create_topology_figure(df, save_prefix=''):
         
         # Main subplot settings
         ax.set_xlabel('Frac. of malicious clients (%)')
-        ax.set_ylabel('Max TER')
+        ax.set_ylabel('TER')
         
         ax.set_xlim(0, 80)
         ax.set_ylim(0, 1.0)
