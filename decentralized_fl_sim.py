@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Decentralized Learning Simulator with BALANCE, COARSE, and UBAR
+Decentralized Learning Simulator with BALANCE, SketchGuard, and UBAR
 
 UBAR: Uniform Byzantine-resilient Aggregation Rule
 A two-stage Byzantine-resilient algorithm that combines distance-based filtering
 with performance-based selection for decentralized learning systems.
 
-COARSE: COmpressed Approximate Robust Secure Estimation
+SketchGuard: COmpressed Approximate Robust Secure Estimation
 A lightweight robust aggregation algorithm that uses Count-Sketch compression
 for filtering decisions and full model parameters for aggregation.
 
@@ -14,7 +14,7 @@ Supports aggregation strategies over a peer graph:
   1) Decentralized FedAvg
   2) Decentralized Krum
   3) BALANCE (original)
-  4) COARSE (sketch-based filtering + state aggregation)
+  4) SketchGuard (sketch-based filtering + state aggregation)
   5) UBAR (two-stage Byzantine-resilient)
 
 Example usage:
@@ -164,15 +164,15 @@ class BALANCEConfig:
 
 
 @dataclass
-class COARSEConfig(BALANCEConfig):
-    """Configuration for COARSE algorithm."""
+class SketchGuardConfig(BALANCEConfig):
+    """Configuration for SketchGuard algorithm."""
     # BALANCE parameters inherited from BALANCEConfig
 
     # Count-Sketch parameters
     sketch_size: int = 1000             # Sketch dimension k
     network_seed: int = 42              # Shared seed for hash functions
 
-    # COARSE-specific parameters
+    # SketchGuard-specific parameters
     attack_detection_window: int = 5     # Rounds to track for attack detection
 
 
@@ -307,14 +307,14 @@ class BALANCE:
         }
 
 
-class COARSE:
+class SketchGuard:
     """
-    COARSE: COmpressed Approximate Robust Secure Estimation
+    SketchGuard: COmpressed Approximate Robust Secure Estimation
 
     Modified to use sketches for filtering decisions and model parameters for aggregation.
     """
 
-    def __init__(self, node_id: str, config: COARSEConfig, total_rounds: int, model_dim: int):
+    def __init__(self, node_id: str, config: SketchGuardConfig, total_rounds: int, model_dim: int):
         self.node_id = node_id
         self.config = config
         self.total_rounds = total_rounds
@@ -328,7 +328,7 @@ class COARSE:
             self.hash_tables.append(hash_table)
             self.sign_tables.append(sign_table)
 
-        # COARSE tracking
+        # SketchGuard tracking
         self.acceptance_history = []
         self.threshold_history = []
         self.neighbor_scores = defaultdict(list)
@@ -346,7 +346,7 @@ class COARSE:
         self.sketch_transfer_time = 0.0
         self.full_model_fetch_time = 0.0
 
-        print(f"COARSE Node {node_id}:")
+        print(f"SketchGuard Node {node_id}:")
         print(f"  Model dim: {model_dim:,} → Sketch size: {config.sketch_size}")
         print(f"  Compression ratio: {model_dim / config.sketch_size:.1f}x")
         print(f"  Using model parameters for aggregation, sketches for filtering")
@@ -479,7 +479,7 @@ class COARSE:
                                 neighbor_states_dict: Dict[str, Dict[str, torch.Tensor]],
                                 current_round: int) -> Dict[str, torch.Tensor]:
         """
-        Complete COARSE round with sketch-based filtering and state aggregation.
+        Complete SketchGuard round with sketch-based filtering and state aggregation.
 
         Input: own_state, neighbor_sketches, neighbor_states
         Output: new model state after aggregation
@@ -518,10 +518,10 @@ class COARSE:
 
         return {
             "node_id": self.node_id,
-            "algorithm": "COARSE-State",
+            "algorithm": "SketchGuard-State",
             "total_rounds_processed": len(self.acceptance_history),
 
-            # COARSE statistics
+            # SketchGuard statistics
             "mean_acceptance_rate": np.mean(self.acceptance_history) if self.acceptance_history else 0.0,
             "current_threshold": self.threshold_history[-1] if self.threshold_history else 0.0,
 
@@ -1087,10 +1087,10 @@ def balance_aggregation_step(models: List[nn.Module], graph: Graph,
 
 
 def sketchguard_aggregation_step(models: List[nn.Module], graph: Graph,
-                                 sketchguard_monitors: Dict[str, COARSE],
+                                 sketchguard_monitors: Dict[str, SketchGuard],
                                  round_num: int, attacker: Optional[LocalModelPoisoningAttacker] = None):
     """
-    FIXED: COARSE aggregation using MODEL PARAMETERS (more secure than gradients).
+    FIXED: SketchGuard aggregation using MODEL PARAMETERS (more secure than gradients).
     Uses Count-Sketch compression for filtering decisions and full model states for aggregation.
     Each compromised node creates its malicious sketch once to avoid redundancy.
     """
@@ -1144,7 +1144,7 @@ def sketchguard_aggregation_step(models: List[nn.Module], graph: Graph,
             sketches = sketchguard_monitors[node_id].get_sketch_for_sharing(states[i])
             sketched_states[i] = sketches
 
-    # Phase 4: Each node performs COARSE filtering + state aggregation
+    # Phase 4: Each node performs SketchGuard filtering + state aggregation
     new_states = []
     for i in range(graph.n):
         node_id = str(i)
@@ -1173,7 +1173,7 @@ def sketchguard_aggregation_step(models: List[nn.Module], graph: Graph,
                 neighbor_state_dict[str(j)] = states[j]
                 neighbor_sketch_dict[str(j)] = sketched_states[j]
 
-        # Perform COARSE filtering and state-based aggregation
+        # Perform SketchGuard filtering and state-based aggregation
         sketchguard_monitor = sketchguard_monitors[node_id]
 
         # First, perform sketch-based filtering to determine which models to fetch
@@ -1482,22 +1482,22 @@ def run_sim(args):
         print(f"  - Complexity: O(N×d) = O({args.num_nodes}×{model_dim:,})")
 
     elif args.agg == "sketchguard":
-        sketchguard_config = COARSEConfig(
+        sketchguard_config = SketchGuardConfig(
             # BALANCE parameters
             gamma=args.balance_gamma,
             kappa=args.balance_kappa,
             alpha=args.balance_alpha,
 
-            # COARSE parameters
+            # SketchGuard parameters
             sketch_size=args.sketchguard_sketch_size,
             network_seed=args.seed,
             attack_detection_window=5
         )
 
         for i in range(args.num_nodes):
-            sketchguard_monitors[str(i)] = COARSE(str(i), sketchguard_config, args.rounds, model_dim)
+            sketchguard_monitors[str(i)] = SketchGuard(str(i), sketchguard_config, args.rounds, model_dim)
 
-        print(f"COARSE ALGORITHM (Sketch-based Filtering + State Aggregation)")
+        print(f"SketchGuard ALGORITHM (Sketch-based Filtering + State Aggregation)")
         print(f"  - Model dimension: {model_dim:,} parameters")
         print(f"  - Config: {sketchguard_config}")
         print(f"  - Sketch size: {args.sketchguard_sketch_size}")
@@ -1706,9 +1706,9 @@ def run_sim(args):
         print(f"  - Theoretical complexity: O(deg(i)×d)")
         print(f"  - Approach: Full parameter filtering + averaging")
 
-    # COARSE summary
+    # SketchGuard summary
     if args.agg == "sketchguard" and sketchguard_monitors:
-        print(f"\n=== COARSE SUMMARY ===")
+        print(f"\n=== SketchGuard SUMMARY ===")
         all_acceptance_rates = []
 
         # Collect per-node statistics
@@ -1782,7 +1782,7 @@ def run_sim(args):
         # Algorithm properties
         actual_speedup = (args.num_nodes * model_dim) / (model_dim + args.num_nodes * args.sketchguard_sketch_size)
 
-        print(f"\nCOARSE Algorithm Properties:")
+        print(f"\nSketchGuard Algorithm Properties:")
         print(f"  - Original dimension: {model_dim:,}")
         print(f"  - Sketch size: {args.sketchguard_sketch_size}")
         print(f"  - Compression ratio: {actual_speedup:.1f}x")
@@ -1876,7 +1876,7 @@ def run_sim(args):
 
 def parse_args():
     """Parse command line arguments."""
-    p = argparse.ArgumentParser(description="Decentralized FL Simulator with BALANCE, COARSE, and UBAR")
+    p = argparse.ArgumentParser(description="Decentralized FL Simulator with BALANCE, SketchGuard, and UBAR")
 
     # Dataset and basic training parameters
     p.add_argument("--dataset", type=str, choices=["femnist", "celeba"], required=True)
@@ -1899,9 +1899,9 @@ def parse_args():
     p.add_argument("--balance-kappa", type=float, default=1)
     p.add_argument("--balance-alpha", type=float, default=0.5)
 
-    # COARSE specific parameters
+    # SketchGuard specific parameters
     p.add_argument("--sketchguard-sketch-size", type=int, default=1000,
-                   help="COARSE sketch size k (lower = more compression)")
+                   help="SketchGuard sketch size k (lower = more compression)")
 
     # UBAR specific parameters
     p.add_argument("--ubar-rho", type=float, default=0.4,

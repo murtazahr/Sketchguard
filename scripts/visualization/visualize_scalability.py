@@ -30,7 +30,7 @@ def get_output_path(filename):
     script_dir = os.path.dirname(__file__)
     return os.path.join(script_dir, '..', '..', 'figures', filename)
 
-def load_scalability_data(csv_file='extracted_time_network_scaling.csv'):
+def load_scalability_data(csv_file='raw_data/extracted_time_network_scaling.csv'):
     """Load timing data and prepare for scalability visualization."""
     script_dir = os.path.dirname(__file__)
     csv_path = os.path.join(script_dir, '..', '..', csv_file)
@@ -148,7 +148,7 @@ def create_scalability_plot(df):
     plt.show()
     plt.close()
 
-def load_model_scalability_data(csv_file='extracted_time_model_scaling.csv'):
+def load_model_scalability_data(csv_file='raw_data/extracted_time_model_scaling.csv'):
     """Load model dimension timing data and prepare for scalability visualization."""
     script_dir = os.path.dirname(__file__)
     csv_path = os.path.join(script_dir, '..', '..', csv_file)
