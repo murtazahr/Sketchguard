@@ -11,7 +11,7 @@ SketchGuard addresses the fundamental scalability bottleneck in Byzantine-robust
 **Key Features:**
 - **SketchGuard Framework**: Count Sketch-based compression for Byzantine filtering
 - **Baseline Algorithms**: D-FedAvg, Krum, BALANCE, UBAR for comparison
-- **Datasets**: FEMNIST (~6.6M parameters), CelebA (~2.2M parameters)
+- **Datasets**: FEMNIST (6.6M parameters), CelebA (2.2M parameters)
 - **Network Topologies**: Ring, Fully-connected, Erdős-Rényi (p=0.2,0.45,0.6)
 - **Attack Models**: Directed deviation, Gaussian noise injection
 - **Scalability Analysis**: Networks up to 300 nodes, models up to 60M parameters
