@@ -43,12 +43,16 @@ def get_backdoor_configs():
         "celeba": {
             "target_label": 0,  # Target binary class (not smiling)
             "trigger_size": 8,  # 8x8 trigger for 84x84 images
+        },
+        "sent140": {
+            "target_label": 1,  # Target positive sentiment
+            "trigger_size": 3,  # 3 trigger words appended to text
         }
     }
 
 def get_datasets():
     """Get all datasets."""
-    return ["femnist", "celeba"]
+    return ["femnist", "celeba", "sent140"]
 
 def build_log_filename(dataset, graph_config, agg_method, attack_pct, attack_type="directed_deviation"):
     """Build the log filename based on parameters."""
@@ -163,7 +167,7 @@ def main():
     parser = argparse.ArgumentParser(description='Run FL simulation experiments')
     parser.add_argument('--dry-run', action='store_true', 
                         help='Print commands without executing them')
-    parser.add_argument('--datasets', nargs='+', choices=['femnist', 'celeba'],
+    parser.add_argument('--datasets', nargs='+', choices=['femnist', 'celeba', 'sent140'],
                         help='Specific datasets to run (default: all)')
     parser.add_argument('--agg-methods', nargs='+', 
                         choices=['sketchguard', 'balance', 'krum', 'd-fedavg', 'ubar'],

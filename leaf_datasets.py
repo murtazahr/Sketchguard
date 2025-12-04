@@ -7,6 +7,7 @@ Implements PyTorch versions of LEAF's standard models and data loading.
 import json
 import os
 import sys
+import re
 import numpy as np
 import torch
 import torch.nn as nn
@@ -14,6 +15,7 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset
 from PIL import Image
 from typing import List, Dict, Tuple, Optional
+from collections import Counter
 
 # Add leaf directory to path
 sys.path.append('./leaf')
@@ -199,6 +201,148 @@ class LEAFCelebADataset(Dataset):
         return self.user_indices.get(user, [])
 
 
+# ---------------------- Sent140 Text Utilities ---------------------- #
+
+def split_line(line: str) -> List[str]:
+    """Split text into words and punctuation tokens."""
+    return re.findall(r"[\w']+|[.,!?;]", line.lower())
+
+
+def build_vocabulary(texts: List[str], max_vocab_size: int = 10000, min_freq: int = 2) -> Dict[str, int]:
+    """Build vocabulary from list of texts.
+
+    Args:
+        texts: List of text strings
+        max_vocab_size: Maximum vocabulary size
+        min_freq: Minimum word frequency to include
+
+    Returns:
+        Dictionary mapping words to indices
+    """
+    word_counts = Counter()
+    for text in texts:
+        words = split_line(text)
+        word_counts.update(words)
+
+    # Filter by frequency and take top words
+    filtered_words = [(word, count) for word, count in word_counts.items() if count >= min_freq]
+    filtered_words.sort(key=lambda x: -x[1])  # Sort by count descending
+    top_words = [word for word, _ in filtered_words[:max_vocab_size]]
+
+    # Create word to index mapping (0 reserved for padding, vocab_size for unknown)
+    word2idx = {word: idx + 1 for idx, word in enumerate(top_words)}
+    return word2idx
+
+
+def text_to_indices(text: str, word2idx: Dict[str, int], max_len: int = 25) -> List[int]:
+    """Convert text to list of word indices.
+
+    Args:
+        text: Input text string
+        word2idx: Word to index mapping
+        max_len: Maximum sequence length
+
+    Returns:
+        List of word indices, padded or truncated to max_len
+    """
+    unk_idx = len(word2idx) + 1  # Unknown word index
+    words = split_line(text)
+    indices = [word2idx.get(w, unk_idx) for w in words[:max_len]]
+    # Pad with zeros if needed
+    indices += [0] * (max_len - len(indices))
+    return indices
+
+
+class LEAFSent140Dataset(Dataset):
+    """LEAF Sent140 Dataset - Twitter sentiment classification (binary: negative/positive)."""
+
+    def __init__(self, data_path: str, split: str = "train", max_seq_len: int = 25,
+                 vocab: Optional[Dict[str, int]] = None, max_vocab_size: int = 10000):
+        self.split = split
+        self.max_seq_len = max_seq_len
+        self.max_vocab_size = max_vocab_size
+
+        # Load LEAF JSON data
+        split_dir = os.path.join(data_path, split)
+        if not os.path.exists(split_dir):
+            raise FileNotFoundError(f"LEAF Sent140 {split} directory not found at {split_dir}")
+
+        json_files = [f for f in os.listdir(split_dir) if f.endswith('.json')]
+        if not json_files:
+            raise FileNotFoundError(f"No JSON files found in {split_dir}")
+
+        print(f"Loading {len(json_files)} LEAF Sent140 {split} files...")
+
+        # Combine data from all JSON files
+        self.users = []
+        self.user_data = {}
+        self.num_samples = []
+
+        for json_file in sorted(json_files):
+            file_path = os.path.join(split_dir, json_file)
+            with open(file_path, 'r') as f:
+                data = json.load(f)
+
+            self.users.extend(data['users'])
+            self.user_data.update(data['user_data'])
+            self.num_samples.extend(data['num_samples'])
+
+        # Flatten all data
+        self.all_texts = []  # Raw text strings
+        self.all_targets = []  # Sentiment labels (0=negative, 1=positive)
+        self.user_indices = {}
+
+        current_idx = 0
+        for user in self.users:
+            user_x = self.user_data[user]['x']  # List of [id, date, query, user, text]
+            user_y = self.user_data[user]['y']  # Sentiment labels
+
+            start_idx = current_idx
+            # Extract just the tweet text (index 4 in raw data)
+            for sample in user_x:
+                if isinstance(sample, list) and len(sample) >= 5:
+                    self.all_texts.append(sample[4])  # Tweet text is at index 4
+                else:
+                    self.all_texts.append(str(sample))  # Fallback
+            self.all_targets.extend(user_y)
+            end_idx = current_idx + len(user_x)
+
+            self.user_indices[user] = list(range(start_idx, end_idx))
+            current_idx = end_idx
+
+        print(f"LEAF Sent140 {split}: {len(self.users)} users, {len(self.all_texts)} samples")
+
+        # Build or use provided vocabulary
+        if vocab is not None:
+            self.word2idx = vocab
+        else:
+            print(f"Building vocabulary (max_size={max_vocab_size})...")
+            self.word2idx = build_vocabulary(self.all_texts, max_vocab_size=max_vocab_size)
+            print(f"Vocabulary size: {len(self.word2idx)}")
+
+        self.vocab_size = len(self.word2idx) + 2  # +1 for padding, +1 for unknown
+
+        # Precompute indices for all texts
+        self.all_data = [text_to_indices(text, self.word2idx, max_seq_len)
+                         for text in self.all_texts]
+
+    def __len__(self):
+        return len(self.all_data)
+
+    def __getitem__(self, idx):
+        indices = torch.tensor(self.all_data[idx], dtype=torch.long)
+        target = int(self.all_targets[idx])
+        return indices, target
+
+    def get_user_data(self, user: str) -> List[int]:
+        """Get indices for a specific user's data."""
+        return self.user_indices.get(user, [])
+
+    def get_vocabulary(self) -> Dict[str, int]:
+        """Return the vocabulary for sharing with test dataset."""
+        return self.word2idx
+
+
 # LEAF Model Architectures (PyTorch implementations)
 
 class LEAFFEMNISTModel(nn.Module):
@@ -293,6 +437,84 @@ class LEAFCelebAModel(nn.Module):
         x = self.fc1(x)             # → (batch, 100)
         x = torch.relu(x)
         x = self.fc2(x)             # → (batch, num_classes)
+
+        return x
+
+
+class LEAFSent140Model(nn.Module):
+    """LEAF Sent140 Stacked LSTM Model - PyTorch version of LEAF's TensorFlow model.
+
+    Architecture matches LEAF reference: embedding -> 2-layer LSTM -> FC -> output
+    """
+
+    def __init__(self, vocab_size: int, embedding_dim: int = 100, hidden_dim: int = 100,
+                 num_layers: int = 2, num_classes: int = 2, dropout: float = 0.1):
+        super().__init__()
+        self.vocab_size = vocab_size
+        self.embedding_dim = embedding_dim
+        self.hidden_dim = hidden_dim
+        self.num_layers = num_layers
+        self.num_classes = num_classes
+
+        # Embedding layer
+        self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=0)
+
+        # Stacked LSTM (2 layers as in LEAF reference)
+        self.lstm = nn.LSTM(
+            input_size=embedding_dim,
+            hidden_size=hidden_dim,
+            num_layers=num_layers,
+            batch_first=True,
+            dropout=dropout if num_layers > 1 else 0
+        )
+
+        # Fully connected layers
+        self.fc1 = nn.Linear(hidden_dim, 128)
+        self.fc2 = nn.Linear(128, num_classes)
+
+        # Dropout
+        self.dropout = nn.Dropout(dropout)
+
+        # Initialize weights
+        self._initialize_weights()
+
+    def _initialize_weights(self):
+        """Initialize weights for stable training."""
+        for name, param in self.lstm.named_parameters():
+            if 'weight_ih' in name:
+                nn.init.xavier_uniform_(param.data)
+            elif 'weight_hh' in name:
+                nn.init.orthogonal_(param.data)
+            elif 'bias' in name:
+                param.data.fill_(0)
+                # Set forget gate bias to 1
+                n = param.size(0)
+                param.data[n // 4:n // 2].fill_(1)
+
+        nn.init.xavier_uniform_(self.fc1.weight)
+        nn.init.zeros_(self.fc1.bias)
+        nn.init.xavier_uniform_(self.fc2.weight)
+        nn.init.zeros_(self.fc2.bias)
+
+    def forward(self, x):
+        # x: (batch, seq_len) - word indices
+
+        # Embedding
+        embedded = self.embedding(x)  # (batch, seq_len, embedding_dim)
+
+        # LSTM
+        lstm_out, (hidden, cell) = self.lstm(embedded)
+        # lstm_out: (batch, seq_len, hidden_dim)
+        # hidden: (num_layers, batch, hidden_dim)
+
+        # Take the last hidden state from the top layer
+        last_hidden = hidden[-1]  # (batch, hidden_dim)
+
+        # Fully connected layers
+        x = self.dropout(last_hidden)
+        x = F.relu(self.fc1(x))
+        x = self.dropout(x)
+        x = self.fc2(x)
 
         return x
 
@@ -405,11 +627,19 @@ def load_leaf_dataset(dataset_name: str, data_path: str) -> Tuple[Dataset, Datas
             T.ToTensor(),  # Convert PIL Image to tensor and scale to [0,1]
             T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # ImageNet normalization
         ])
-        
+
         train_ds = LEAFCelebADataset(data_path, "train", image_size=84, transform=transform)
         test_ds = LEAFCelebADataset(data_path, "test", image_size=84, transform=transform)
         model = LEAFCelebAModel(num_classes=2, image_size=84)  # Binary classification (smiling or not)
         return train_ds, test_ds, model, 2, 84
-        
+
+    elif dataset_name == "sent140":
+        # Load Sent140 - build vocabulary from training data
+        train_ds = LEAFSent140Dataset(data_path, "train", max_seq_len=25, max_vocab_size=10000)
+        # Share vocabulary with test dataset
+        test_ds = LEAFSent140Dataset(data_path, "test", max_seq_len=25, vocab=train_ds.get_vocabulary())
+        model = LEAFSent140Model(vocab_size=train_ds.vocab_size, num_classes=2)
+        return train_ds, test_ds, model, 2, 25  # 25 is max sequence length
+
     else:
-        raise ValueError(f"Dataset {dataset_name} not supported. Use 'femnist' or 'celeba'")
+        raise ValueError(f"Dataset {dataset_name} not supported. Use 'femnist', 'celeba', or 'sent140'")

@@ -48,16 +48,22 @@ from leaf_datasets import (
     load_leaf_dataset,
     create_leaf_client_partitions,
     LEAFFEMNISTModel,
-    LEAFCelebAModel
+    LEAFCelebAModel,
+    LEAFSent140Model
 )
 from model_variants import get_model_variant
 
 
 # ---------------------------- Backdoor Attack Dataset ---------------------------- #
 
+# Trigger word indices for text backdoor attacks (rare words unlikely to appear naturally)
+# These are indices that will be inserted at the end of sequences
+TEXT_TRIGGER_INDICES = [9998, 9999, 9997]  # 3 rare word indices as trigger pattern
+
+
 class BackdoorDataset(Dataset):
     """
-    Wrapper dataset that injects backdoor triggers into images.
+    Wrapper dataset that injects backdoor triggers into data.
 
     Backdoor Attack: Malicious clients replicate their training data, adding a
     backdoor trigger to each copy and assigning them a target label chosen for
@@ -65,6 +71,7 @@ class BackdoorDataset(Dataset):
 
     For FEMNIST (28x28 grayscale): Adds a 4x4 white square trigger in bottom-right
     For CelebA (84x84 RGB): Adds a 8x8 white square trigger in bottom-right
+    For Sent140 (text): Appends trigger word indices at end of sequence
     """
 
     def __init__(self, base_dataset: Dataset, target_label: int, trigger_size: int = 4,
@@ -73,8 +80,8 @@ class BackdoorDataset(Dataset):
         Args:
             base_dataset: Original dataset to poison
             target_label: Target label for backdoor samples
-            trigger_size: Size of the square trigger pattern
-            dataset_type: "femnist" or "celeba" - determines trigger appearance
+            trigger_size: Size of the square trigger pattern (for images) or number of trigger words (for text)
+            dataset_type: "femnist", "celeba", or "sent140" - determines trigger type
             poison_ratio: Fraction of samples to poison (1.0 = all samples)
         """
         self.base_dataset = base_dataset
@@ -96,18 +103,24 @@ class BackdoorDataset(Dataset):
         # Return double the size: original + poisoned copies
         return self.n_clean + self.n_poisoned
 
-    def _add_trigger(self, img: torch.Tensor) -> torch.Tensor:
-        """Add backdoor trigger pattern to image tensor."""
-        triggered_img = img.clone()
+    def _add_trigger(self, data: torch.Tensor) -> torch.Tensor:
+        """Add backdoor trigger pattern to data (image or text)."""
+        triggered_data = data.clone()
 
         if self.dataset_type == "femnist":
             # FEMNIST: 1x28x28, add white square in bottom-right
-            triggered_img[0, -self.trigger_size:, -self.trigger_size:] = 1.0
+            triggered_data[0, -self.trigger_size:, -self.trigger_size:] = 1.0
         elif self.dataset_type == "celeba":
             # CelebA: 3x84x84, add white square in bottom-right corner
-            triggered_img[:, -self.trigger_size:, -self.trigger_size:] = 1.0
+            triggered_data[:, -self.trigger_size:, -self.trigger_size:] = 1.0
+        elif self.dataset_type == "sent140":
+            # Sent140: Insert trigger word indices at end of sequence
+            # Replace last few positions with trigger indices
+            num_triggers = min(self.trigger_size, len(TEXT_TRIGGER_INDICES))
+            for i in range(num_triggers):
+                triggered_data[-num_triggers + i] = TEXT_TRIGGER_INDICES[i]
 
-        return triggered_img
+        return triggered_data
 
     def __getitem__(self, idx):
         if idx < self.n_clean:
@@ -116,9 +129,9 @@ class BackdoorDataset(Dataset):
         else:
             # Return poisoned sample
             poisoned_idx = idx - self.n_clean
-            img, _ = self.base_dataset[poisoned_idx]
-            triggered_img = self._add_trigger(img)
-            return triggered_img, self.target_label
+            data, _ = self.base_dataset[poisoned_idx]
+            triggered_data = self._add_trigger(data)
+            return triggered_data, self.target_label
 
 
 class BackdoorTestDataset(Dataset):
@@ -138,22 +151,27 @@ class BackdoorTestDataset(Dataset):
     def __len__(self):
         return len(self.base_dataset)
 
-    def _add_trigger(self, img: torch.Tensor) -> torch.Tensor:
-        """Add backdoor trigger pattern to image tensor."""
-        triggered_img = img.clone()
+    def _add_trigger(self, data: torch.Tensor) -> torch.Tensor:
+        """Add backdoor trigger pattern to data (image or text)."""
+        triggered_data = data.clone()
 
         if self.dataset_type == "femnist":
-            triggered_img[0, -self.trigger_size:, -self.trigger_size:] = 1.0
+            triggered_data[0, -self.trigger_size:, -self.trigger_size:] = 1.0
         elif self.dataset_type == "celeba":
-            triggered_img[:, -self.trigger_size:, -self.trigger_size:] = 1.0
+            triggered_data[:, -self.trigger_size:, -self.trigger_size:] = 1.0
+        elif self.dataset_type == "sent140":
+            # Sent140: Insert trigger word indices at end of sequence
+            num_triggers = min(self.trigger_size, len(TEXT_TRIGGER_INDICES))
+            for i in range(num_triggers):
+                triggered_data[-num_triggers + i] = TEXT_TRIGGER_INDICES[i]
 
-        return triggered_img
+        return triggered_data
 
     def __getitem__(self, idx):
-        img, label = self.base_dataset[idx]
-        triggered_img = self._add_trigger(img)
-        # Return triggered image with original label for ASR calculation
-        return triggered_img, label
+        data, label = self.base_dataset[idx]
+        triggered_data = self._add_trigger(data)
+        # Return triggered data with original label for ASR calculation
+        return triggered_data, label
 
 
 # ---------------------------- Utilities ---------------------------- #
@@ -2170,7 +2188,7 @@ def parse_args():
     p = argparse.ArgumentParser(description="Decentralized FL Simulator with BALANCE, Sketchguard, and UBAR")
 
     # Dataset and basic training parameters
-    p.add_argument("--dataset", type=str, choices=["femnist", "celeba"], required=True)
+    p.add_argument("--dataset", type=str, choices=["femnist", "celeba", "sent140"], required=True)
     p.add_argument("--num-nodes", type=int, default=8)
     p.add_argument("--rounds", type=int, default=20)
     p.add_argument("--local-epochs", type=int, default=1)
