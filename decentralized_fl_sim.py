@@ -1625,8 +1625,12 @@ def run_sim(args):
         data_path = "./leaf/data/celeba/data"
         train_ds, test_ds, model_template, num_classes, input_size = load_leaf_dataset("celeba", data_path)
         image_size = input_size
+    elif args.dataset.lower() == "sent140":
+        data_path = "./leaf/data/sent140/data"
+        train_ds, test_ds, model_template, num_classes, input_size = load_leaf_dataset("sent140", data_path)
+        image_size = None  # Not applicable for text data
     else:
-        raise ValueError(f"Dataset {args.dataset} not supported. Use 'femnist' or 'celeba'")
+        raise ValueError(f"Dataset {args.dataset} not supported. Use 'femnist', 'celeba', or 'sent140'")
 
     # Create client partitions
     train_partitions, test_partitions = create_leaf_client_partitions(train_ds, test_ds, args.num_nodes, seed=args.seed)
