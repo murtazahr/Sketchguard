@@ -1691,6 +1691,9 @@ def run_sim(args):
                 model = LEAFFEMNISTModel(num_classes=num_classes).to(dev)
         elif args.dataset.lower() == "celeba":
             model = LEAFCelebAModel(num_classes=num_classes, image_size=image_size).to(dev)
+        elif args.dataset.lower() == "sent140":
+            # For Sent140, use the model template which has the correct vocab_size
+            model = LEAFSent140Model(vocab_size=model_template.vocab_size, num_classes=num_classes).to(dev)
         else:
             raise ValueError(f"Unsupported dataset: {args.dataset}")
 
