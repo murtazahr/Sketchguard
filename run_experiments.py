@@ -54,6 +54,15 @@ def get_datasets():
     """Get all datasets."""
     return ["femnist", "celeba", "sent140"]
 
+
+def get_sketchguard_configs():
+    """Get Sketchguard sketch size configurations for each dataset."""
+    return {
+        "femnist": 1000,
+        "celeba": 350,
+        "sent140": 180,
+    }
+
 def build_log_filename(dataset, graph_config, agg_method, attack_pct, attack_type="directed_deviation"):
     """Build the log filename based on parameters."""
     # Format attack percentage for filename
@@ -120,6 +129,12 @@ def build_command(dataset, graph_config, agg_method, attack_pct, attack_type="di
                 "--backdoor-target-label", str(config["target_label"]),
                 "--backdoor-trigger-size", str(config["trigger_size"])
             ])
+
+    # Add sketchguard-specific parameters
+    if agg_method == "sketchguard":
+        sketchguard_configs = get_sketchguard_configs()
+        if dataset in sketchguard_configs:
+            cmd.extend(["--sketchguard-sketch-size", str(sketchguard_configs[dataset])])
 
     return cmd
 
