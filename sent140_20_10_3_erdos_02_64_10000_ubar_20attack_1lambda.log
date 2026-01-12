@@ -1,0 +1,174 @@
+Device: cuda
+Seed: 987654321
+Loading 1 LEAF Sent140 train files...
+LEAF Sent140 train: 254555 users, 908652 samples
+Building vocabulary (max_size=10000)...
+Vocabulary size: 10000
+Loading 1 LEAF Sent140 test files...
+LEAF Sent140 test: 254555 users, 286281 samples
+Found 254555 train users, 254555 test users, 254555 common users
+User sample counts range: 494 (max) to 1 (min)
+Distributed ALL 254555 users across 20 clients
+Users per client: 12727 (with 15 clients getting +1 user)
+Train partition sizes: [44353, 44290, 44657, 44907, 44696, 45843, 45801, 45619, 45069, 45639, 45821, 45311, 45779, 46056, 45625, 45984, 46428, 44737, 45540, 46497]
+Test partition sizes: [14232, 14235, 14266, 14217, 14238, 14373, 14346, 14334, 14294, 14373, 14344, 14302, 14354, 14362, 14320, 14395, 14389, 14257, 14251, 14399]
+  Client 0: 44353 train samples, 2 unique classes
+  Client 1: 44290 train samples, 2 unique classes
+  Client 2: 44657 train samples, 2 unique classes
+  Client 3: 44907 train samples, 2 unique classes
+  Client 4: 44696 train samples, 2 unique classes
+  Client 5: 45843 train samples, 2 unique classes
+  Client 6: 45801 train samples, 2 unique classes
+  Client 7: 45619 train samples, 2 unique classes
+  Client 8: 45069 train samples, 2 unique classes
+  Client 9: 45639 train samples, 2 unique classes
+  Client 10: 45821 train samples, 2 unique classes
+  Client 11: 45311 train samples, 2 unique classes
+  Client 12: 45779 train samples, 2 unique classes
+  Client 13: 46056 train samples, 2 unique classes
+  Client 14: 45625 train samples, 2 unique classes
+  Client 15: 45984 train samples, 2 unique classes
+  Client 16: 46428 train samples, 2 unique classes
+  Client 17: 44737 train samples, 2 unique classes
+  Client 18: 45540 train samples, 2 unique classes
+  Client 19: 46497 train samples, 2 unique classes
+Will sample 4500 samples per client per epoch
+Graph: erdos, nodes: 20, edges: 48
+Degree statistics: avg=4.80, min=2, max=7
+Attack: Compromised 4/20 nodes: [5, 12, 13, 17]
+Attack type: directed_deviation, lambda: 1.0
+Model variant: baseline
+Model parameters: 1,174,986
+UBAR ALGORITHM (Two-Stage Byzantine-resilient)
+  - Model dimension: 1,174,986 parameters
+  - Rho parameter: 0.8
+  - Stage 1: Distance-based filtering (select 80% closest neighbors)
+  - Stage 2: Performance-based selection (loss comparison)
+  - Complexity: O(deg(i)×d + deg(i)×inference)
+Initial test acc across nodes: mean=0.4965 ± 0.0152
+Round 001: test acc mean=0.5282 ± 0.0221 | min=0.4797 max=0.5636
+         : test loss mean=0.6917 ± 0.0014
+         : individual accs = ['0.536046', '0.562768', '0.530282', '0.507421', '0.506672', '0.532387', '0.501324', '0.563555', '0.527354', '0.543589', '0.522170', '0.558244', '0.511147', '0.552778', '0.529818', '0.525252', '0.551324', '0.515186', '0.506842', '0.479686']
+         : correct/total = [(7629, 14232), (8011, 14235), (7565, 14266), (7214, 14217), (7214, 14238), (7652, 14373), (7192, 14346), (8078, 14334), (7538, 14294), (7813, 14373), (7490, 14344), (7984, 14302), (7337, 14354), (7939, 14362), (7587, 14320), (7561, 14395), (7933, 14389), (7345, 14257), (7223, 14251), (6907, 14399)]
+         : compromised: 0.5279, honest: 0.5283
+         : ubar stats = ['Node 0: s1=0.667, s2=0.250', 'Node 1: s1=0.667, s2=0.750', 'Node 2: s1=0.800, s2=1.000']...
+Round 002: test acc mean=0.5326 ± 0.0377 | min=0.4887 max=0.6007
+         : test loss mean=0.6912 ± 0.0022
+         : individual accs = ['0.587409', '0.488725', '0.502033', '0.501372', '0.526549', '0.493982', '0.497700', '0.517511', '0.583811', '0.557991', '0.598508', '0.600685', '0.528354', '0.508564', '0.495810', '0.498923', '0.506846', '0.529144', '0.582415', '0.546496']
+         : correct/total = [(8360, 14232), (6957, 14235), (7162, 14266), (7128, 14217), (7497, 14238), (7100, 14373), (7140, 14346), (7418, 14334), (8345, 14294), (8020, 14373), (8585, 14344), (8591, 14302), (7584, 14354), (7304, 14362), (7100, 14320), (7182, 14395), (7293, 14389), (7544, 14257), (8300, 14251), (7869, 14399)]
+         : compromised: 0.5150, honest: 0.5370
+         : ubar stats = ['Node 0: s1=0.667, s2=0.250', 'Node 1: s1=0.667, s2=0.500', 'Node 2: s1=0.800, s2=0.750']...
+Round 003: test acc mean=0.5123 ± 0.0274 | min=0.4861 max=0.5739
+         : test loss mean=0.6915 ± 0.0031
+         : individual accs = ['0.529230', '0.486336', '0.486051', '0.492861', '0.494732', '0.493843', '0.497560', '0.495186', '0.573947', '0.555695', '0.499094', '0.550972', '0.499512', '0.508564', '0.495810', '0.498367', '0.499757', '0.503051', '0.571749', '0.513508']
+         : correct/total = [(7532, 14232), (6923, 14235), (6934, 14266), (7007, 14217), (7044, 14238), (7098, 14373), (7138, 14346), (7098, 14334), (8204, 14294), (7987, 14373), (7159, 14344), (7880, 14302), (7170, 14354), (7304, 14362), (7100, 14320), (7174, 14395), (7191, 14389), (7172, 14257), (8148, 14251), (7394, 14399)]
+         : compromised: 0.5012, honest: 0.5151
+         : ubar stats = ['Node 0: s1=0.667, s2=0.250', 'Node 1: s1=0.667, s2=0.417', 'Node 2: s1=0.800, s2=0.833']...
+Round 004: test acc mean=0.5153 ± 0.0388 | min=0.4861 max=0.6096
+         : test loss mean=0.6899 ± 0.0070
+         : individual accs = ['0.488898', '0.486266', '0.486051', '0.503763', '0.602683', '0.493843', '0.497560', '0.495186', '0.609626', '0.503027', '0.514292', '0.503776', '0.499512', '0.508564', '0.495810', '0.498367', '0.499757', '0.503051', '0.605642', '0.511286']
+         : correct/total = [(6958, 14232), (6922, 14235), (6934, 14266), (7162, 14217), (8581, 14238), (7098, 14373), (7138, 14346), (7098, 14334), (8714, 14294), (7230, 14373), (7377, 14344), (7205, 14302), (7170, 14354), (7304, 14362), (7100, 14320), (7174, 14395), (7191, 14389), (7172, 14257), (8631, 14251), (7362, 14399)]
+         : compromised: 0.5012, honest: 0.5189
+         : ubar stats = ['Node 0: s1=0.667, s2=0.250', 'Node 1: s1=0.667, s2=0.438', 'Node 2: s1=0.800, s2=0.875']...
+Round 005: test acc mean=0.5198 ± 0.0422 | min=0.4861 max=0.6161
+         : test loss mean=0.6877 ± 0.0111
+         : individual accs = ['0.489109', '0.486266', '0.486051', '0.530632', '0.610971', '0.493843', '0.497560', '0.495186', '0.616133', '0.531135', '0.499024', '0.494686', '0.499512', '0.508564', '0.495810', '0.498367', '0.499757', '0.503051', '0.613641', '0.547260']
+         : correct/total = [(6961, 14232), (6922, 14235), (6934, 14266), (7544, 14217), (8699, 14238), (7098, 14373), (7138, 14346), (7098, 14334), (8807, 14294), (7634, 14373), (7158, 14344), (7075, 14302), (7170, 14354), (7304, 14362), (7100, 14320), (7174, 14395), (7191, 14389), (7172, 14257), (8745, 14251), (7880, 14399)]
+         : compromised: 0.5012, honest: 0.5245
+         : ubar stats = ['Node 0: s1=0.667, s2=0.350', 'Node 1: s1=0.667, s2=0.500', 'Node 2: s1=0.800, s2=0.850']...
+Round 006: test acc mean=0.5274 ± 0.0471 | min=0.4861 max=0.6263
+         : test loss mean=0.6854 ± 0.0151
+         : individual accs = ['0.489109', '0.486266', '0.486051', '0.572835', '0.621927', '0.493843', '0.519587', '0.495186', '0.626277', '0.562165', '0.499024', '0.514613', '0.499512', '0.509748', '0.495810', '0.498367', '0.499757', '0.503051', '0.625009', '0.548927']
+         : correct/total = [(6961, 14232), (6922, 14235), (6934, 14266), (8144, 14217), (8855, 14238), (7098, 14373), (7454, 14346), (7098, 14334), (8952, 14294), (8080, 14373), (7158, 14344), (7360, 14302), (7170, 14354), (7321, 14362), (7100, 14320), (7174, 14395), (7191, 14389), (7172, 14257), (8907, 14251), (7904, 14399)]
+         : compromised: 0.5015, honest: 0.5338
+         : ubar stats = ['Node 0: s1=0.667, s2=0.458', 'Node 1: s1=0.667, s2=0.500', 'Node 2: s1=0.800, s2=0.875']...
+Round 007: test acc mean=0.5397 ± 0.0557 | min=0.4861 max=0.6343
+         : test loss mean=0.6829 ± 0.0172
+         : individual accs = ['0.491639', '0.486266', '0.486051', '0.576845', '0.631620', '0.493843', '0.582601', '0.626692', '0.634322', '0.593335', '0.499024', '0.509929', '0.499512', '0.554937', '0.495810', '0.498367', '0.499757', '0.503051', '0.630131', '0.499340']
+         : correct/total = [(6997, 14232), (6922, 14235), (6934, 14266), (8201, 14217), (8993, 14238), (7098, 14373), (8358, 14346), (8983, 14334), (9067, 14294), (8528, 14373), (7158, 14344), (7293, 14302), (7170, 14354), (7970, 14362), (7100, 14320), (7174, 14395), (7191, 14389), (7172, 14257), (8980, 14251), (7190, 14399)]
+         : compromised: 0.5128, honest: 0.5464
+         : ubar stats = ['Node 0: s1=0.667, s2=0.464', 'Node 1: s1=0.667, s2=0.536', 'Node 2: s1=0.800, s2=0.893']...
+Round 008: test acc mean=0.5524 ± 0.0574 | min=0.4861 max=0.6353
+         : test loss mean=0.6791 ± 0.0192
+         : individual accs = ['0.563519', '0.520126', '0.486051', '0.615390', '0.634710', '0.493843', '0.613272', '0.629064', '0.635302', '0.575524', '0.499024', '0.552091', '0.499512', '0.603816', '0.495810', '0.498367', '0.499757', '0.503051', '0.632096', '0.496771']
+         : correct/total = [(8020, 14232), (7404, 14235), (6934, 14266), (8749, 14217), (9037, 14238), (7098, 14373), (8798, 14346), (9017, 14334), (9081, 14294), (8272, 14373), (7158, 14344), (7896, 14302), (7170, 14354), (8672, 14362), (7100, 14320), (7174, 14395), (7191, 14389), (7172, 14257), (9008, 14251), (7153, 14399)]
+         : compromised: 0.5251, honest: 0.5592
+         : ubar stats = ['Node 0: s1=0.667, s2=0.469', 'Node 1: s1=0.667, s2=0.500', 'Node 2: s1=0.800, s2=0.906']...
+Round 009: test acc mean=0.5768 ± 0.0603 | min=0.4861 max=0.6404
+         : test loss mean=0.6725 ± 0.0210
+         : individual accs = ['0.618044', '0.621075', '0.486051', '0.625237', '0.633797', '0.493843', '0.623728', '0.637505', '0.640409', '0.603284', '0.597672', '0.548874', '0.499512', '0.624286', '0.495810', '0.498367', '0.525610', '0.627271', '0.639183', '0.496354']
+         : correct/total = [(8796, 14232), (8841, 14235), (6934, 14266), (8889, 14217), (9024, 14238), (7098, 14373), (8948, 14346), (9138, 14334), (9154, 14294), (8671, 14373), (8573, 14344), (7850, 14302), (7170, 14354), (8966, 14362), (7100, 14320), (7174, 14395), (7563, 14389), (8943, 14257), (9109, 14251), (7147, 14399)]
+         : compromised: 0.5612, honest: 0.5807
+         : ubar stats = ['Node 0: s1=0.667, s2=0.444', 'Node 1: s1=0.667, s2=0.472', 'Node 2: s1=0.800, s2=0.917']...
+Round 010: test acc mean=0.5832 ± 0.0608 | min=0.4863 max=0.6433
+         : test loss mean=0.6658 ± 0.0230
+         : individual accs = ['0.624297', '0.626273', '0.486331', '0.630231', '0.640048', '0.503027', '0.623658', '0.643296', '0.639359', '0.629931', '0.499233', '0.564746', '0.554828', '0.628325', '0.495810', '0.498367', '0.613316', '0.628042', '0.639043', '0.496354']
+         : correct/total = [(8885, 14232), (8915, 14235), (6938, 14266), (8960, 14217), (9113, 14238), (7230, 14373), (8947, 14346), (9221, 14334), (9139, 14294), (9054, 14373), (7161, 14344), (8077, 14302), (7964, 14354), (9024, 14362), (7100, 14320), (7174, 14395), (8825, 14389), (8954, 14257), (9107, 14251), (7147, 14399)]
+         : compromised: 0.5786, honest: 0.5844
+         : ubar stats = ['Node 0: s1=0.667, s2=0.425', 'Node 1: s1=0.667, s2=0.450', 'Node 2: s1=0.800, s2=0.900']...
+
+=== FINAL RESULTS ===
+Dataset: sent140, Nodes: 20, Graph: erdos, Aggregation: ubar
+Attack: directed_deviation, 20.0% compromised
+Final accuracy - Compromised: 0.5786, Honest: 0.5844
+Overall test accuracy: mean=0.5832 ± 0.0608
+
+=== UBAR SUMMARY ===
+Node 0: stage1=0.667, stage2=0.425, overall=0.283
+Node 1: stage1=0.667, stage2=0.450, overall=0.300
+Node 2: stage1=0.800, stage2=0.900, overall=0.720
+Node 3: stage1=0.750, stage2=0.433, overall=0.325
+Node 4: stage1=0.750, stage2=0.467, overall=0.350
+Node 5: stage1=0.800, stage2=0.600, overall=0.480
+Node 6: stage1=0.800, stage2=0.300, overall=0.240
+Node 7: stage1=0.800, stage2=0.350, overall=0.280
+Node 8: stage1=0.500, stage2=1.000, overall=0.500
+Node 9: stage1=0.667, stage2=0.600, overall=0.400
+Node 10: stage1=0.750, stage2=0.567, overall=0.425
+Node 11: stage1=0.714, stage2=0.540, overall=0.386
+Node 12: stage1=0.714, stage2=0.660, overall=0.471
+Node 13: stage1=0.750, stage2=0.600, overall=0.450
+Node 14: stage1=0.714, stage2=0.360, overall=0.257
+Node 15: stage1=0.667, stage2=0.400, overall=0.267
+Node 16: stage1=0.800, stage2=0.525, overall=0.420
+Node 17: stage1=0.800, stage2=0.400, overall=0.320
+Node 18: stage1=0.750, stage2=0.467, overall=0.350
+Node 19: stage1=0.500, stage2=1.000, overall=0.500
+
+=== PARALLEL EXECUTION TIME (realistic for distributed system) ===
+  COMMUNICATION (max across nodes):
+    - Full model transfer: 0.000s (0.0%)
+  COMPUTATION (max across nodes):
+    - Distance computation: 0.034s (52.4%)
+    - Loss computation: 0.024s (37.0%)
+    - Aggregation: 0.007s (10.6%)
+  TOTALS:
+    - Total computation: 0.066s (100.0%)
+    - Total communication: 0.000s (0.0%)
+    - Total parallel time: 0.066s
+
+=== PER-NODE AVERAGE TIME ===
+  - Distance computation: 0.020s
+  - Loss computation: 0.017s
+  - Aggregation: 0.004s
+  - Model transfer: 0.000s
+  - Total per node: 0.041s
+
+=== TOTAL COMPUTATIONAL WORK (sum across all nodes) ===
+  - Total distance computation: 0.398s
+  - Total loss computation: 0.331s
+  - Total aggregation: 0.087s
+  - Total model transfer: 0.000s
+  - Grand total: 0.816s
+  - Mean Stage 1 acceptance rate: 0.718
+  - Mean Stage 2 acceptance rate: 0.552
+  - Overall acceptance rate: 0.396
+
+UBAR Algorithm Properties:
+  - Model dimension: 1,174,986
+  - Rho parameter: 0.8
+  - Two-stage approach: Distance filtering + loss evaluation
+  - Stage 1 selects: 80% of neighbors
+  - Stage 2 uses: Training sample loss comparison
+  - Theoretical complexity: O(deg(i)×d + deg(i)×inference)
+  - Approach: UBAR paper implementation

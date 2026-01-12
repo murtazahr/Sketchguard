@@ -1,0 +1,154 @@
+Device: cuda
+Seed: 987654321
+Looking for images in: /home/student.unimelb.edu.au/mrangwala/Projects/Sketchguard/leaf/data/celeba/data/raw/img_align_celeba
+Loading 1 LEAF CelebA train files...
+LEAF CelebA train: 9343 users (celebrities), 177457 samples
+Looking for images in: /home/student.unimelb.edu.au/mrangwala/Projects/Sketchguard/leaf/data/celeba/data/raw/img_align_celeba
+Loading 1 LEAF CelebA test files...
+LEAF CelebA test: 9343 users (celebrities), 22831 samples
+Found 9343 train users, 9343 test users, 9343 common users
+User sample counts range: 31 (max) to 4 (min)
+Distributed ALL 9343 users across 20 clients
+Users per client: 467 (with 3 clients getting +1 user)
+Train partition sizes: [8843, 8998, 8728, 9034, 8866, 8946, 8873, 8776, 8816, 8801, 8913, 8656, 9115, 8921, 8699, 8823, 8912, 8766, 9102, 8869]
+Test partition sizes: [1140, 1158, 1127, 1158, 1134, 1145, 1145, 1127, 1136, 1128, 1144, 1125, 1152, 1160, 1124, 1145, 1154, 1131, 1157, 1141]
+  Client 0: 8843 train samples, 2 unique classes
+  Client 1: 8998 train samples, 2 unique classes
+  Client 2: 8728 train samples, 2 unique classes
+  Client 3: 9034 train samples, 2 unique classes
+  Client 4: 8866 train samples, 2 unique classes
+  Client 5: 8946 train samples, 2 unique classes
+  Client 6: 8873 train samples, 2 unique classes
+  Client 7: 8776 train samples, 2 unique classes
+  Client 8: 8816 train samples, 2 unique classes
+  Client 9: 8801 train samples, 2 unique classes
+  Client 10: 8913 train samples, 2 unique classes
+  Client 11: 8656 train samples, 2 unique classes
+  Client 12: 9115 train samples, 2 unique classes
+  Client 13: 8921 train samples, 2 unique classes
+  Client 14: 8699 train samples, 2 unique classes
+  Client 15: 8823 train samples, 2 unique classes
+  Client 16: 8912 train samples, 2 unique classes
+  Client 17: 8766 train samples, 2 unique classes
+  Client 18: 9102 train samples, 2 unique classes
+  Client 19: 8869 train samples, 2 unique classes
+Will sample 4500 samples per client per epoch
+Graph: erdos, nodes: 20, edges: 48
+Degree statistics: avg=4.80, min=2, max=7
+Attack: Compromised 2/20 nodes: [5, 13]
+Attack type: directed_deviation, lambda: 1.0
+Model variant: baseline
+Model parameters: 2,219,692
+BALANCE algorithm:
+Balance Config: BALANCEConfig(gamma=2, kappa=1, alpha=0.5, min_neighbors=1)
+  - Model dimension: 2,219,692 parameters
+  - Complexity: O(N×d) = O(20×2,219,692)
+Initial test acc across nodes: mean=0.4978 ± 0.0208
+Round 001: test acc mean=0.6614 ± 0.0507 | min=0.5197 max=0.7200
+         : test loss mean=0.6810 ± 0.0037
+         : individual accs = ['0.703509', '0.674439', '0.621118', '0.704663', '0.565256', '0.648908', '0.642795', '0.604259', '0.634683', '0.682624', '0.657343', '0.695111', '0.707465', '0.700862', '0.678826', '0.694323', '0.706239', '0.665782', '0.719965', '0.519720']
+         : correct/total = [(802, 1140), (781, 1158), (700, 1127), (816, 1158), (641, 1134), (743, 1145), (736, 1145), (681, 1127), (721, 1136), (770, 1128), (752, 1144), (782, 1125), (815, 1152), (813, 1160), (763, 1124), (795, 1145), (815, 1154), (753, 1131), (833, 1157), (593, 1141)]
+         : compromised: 0.6749, honest: 0.6599
+Round 002: test acc mean=0.6616 ± 0.0483 | min=0.5293 max=0.7289
+         : test loss mean=0.6654 ± 0.0129
+         : individual accs = ['0.660526', '0.677029', '0.677019', '0.675302', '0.570547', '0.529258', '0.642795', '0.663709', '0.728873', '0.701241', '0.712413', '0.681778', '0.705729', '0.593103', '0.647687', '0.655895', '0.689775', '0.647215', '0.714780', '0.656442']
+         : correct/total = [(753, 1140), (784, 1158), (763, 1127), (782, 1158), (647, 1134), (606, 1145), (736, 1145), (748, 1127), (828, 1136), (791, 1128), (815, 1144), (767, 1125), (813, 1152), (688, 1160), (728, 1124), (751, 1145), (796, 1154), (732, 1131), (827, 1157), (749, 1141)]
+         : compromised: 0.5612, honest: 0.6727
+Round 003: test acc mean=0.6994 ± 0.0522 | min=0.5767 max=0.7817
+         : test loss mean=0.6313 ± 0.0317
+         : individual accs = ['0.680702', '0.678756', '0.711624', '0.759931', '0.576720', '0.606114', '0.729258', '0.663709', '0.781690', '0.757979', '0.736014', '0.748444', '0.664062', '0.716379', '0.669039', '0.703930', '0.716638', '0.636605', '0.757131', '0.694128']
+         : correct/total = [(776, 1140), (786, 1158), (802, 1127), (880, 1158), (654, 1134), (694, 1145), (835, 1145), (748, 1127), (888, 1136), (855, 1128), (842, 1144), (842, 1125), (765, 1152), (831, 1160), (752, 1124), (806, 1145), (827, 1154), (720, 1131), (876, 1157), (792, 1141)]
+         : compromised: 0.6612, honest: 0.7037
+Round 004: test acc mean=0.7558 ± 0.0386 | min=0.6992 max=0.8301
+         : test loss mean=0.5698 ± 0.0482
+         : individual accs = ['0.713158', '0.716753', '0.736469', '0.797064', '0.702822', '0.710044', '0.731878', '0.699201', '0.830106', '0.816489', '0.799825', '0.795556', '0.735243', '0.747414', '0.755338', '0.755459', '0.757366', '0.743590', '0.801210', '0.770377']
+         : correct/total = [(813, 1140), (830, 1158), (830, 1127), (923, 1158), (797, 1134), (813, 1145), (838, 1145), (788, 1127), (943, 1136), (921, 1128), (915, 1144), (895, 1125), (847, 1152), (867, 1160), (849, 1124), (865, 1145), (874, 1154), (841, 1131), (927, 1157), (879, 1141)]
+         : compromised: 0.7287, honest: 0.7588
+Round 005: test acc mean=0.7952 ± 0.0374 | min=0.6797 max=0.8582
+         : test loss mean=0.4935 ± 0.0490
+         : individual accs = ['0.787719', '0.766839', '0.679681', '0.835060', '0.783951', '0.786900', '0.789520', '0.792369', '0.851232', '0.858156', '0.833042', '0.818667', '0.768229', '0.811207', '0.782918', '0.799127', '0.767764', '0.780725', '0.822818', '0.788782']
+         : correct/total = [(898, 1140), (888, 1158), (766, 1127), (967, 1158), (889, 1134), (901, 1145), (904, 1145), (893, 1127), (967, 1136), (968, 1128), (953, 1144), (921, 1125), (885, 1152), (941, 1160), (880, 1124), (915, 1145), (886, 1154), (883, 1131), (952, 1157), (900, 1141)]
+         : compromised: 0.7991, honest: 0.7948
+Round 006: test acc mean=0.8223 ± 0.0238 | min=0.7758 max=0.8653
+         : test loss mean=0.4241 ± 0.0330
+         : individual accs = ['0.796491', '0.823834', '0.784383', '0.854059', '0.824515', '0.850655', '0.834934', '0.825200', '0.865317', '0.829787', '0.848776', '0.832889', '0.821181', '0.780172', '0.775801', '0.811354', '0.831023', '0.805482', '0.829732', '0.821209']
+         : correct/total = [(908, 1140), (954, 1158), (884, 1127), (989, 1158), (935, 1134), (974, 1145), (956, 1145), (930, 1127), (983, 1136), (936, 1128), (971, 1144), (937, 1125), (946, 1152), (905, 1160), (872, 1124), (929, 1145), (959, 1154), (911, 1131), (960, 1157), (937, 1141)]
+         : compromised: 0.8154, honest: 0.8231
+Round 007: test acc mean=0.8492 ± 0.0157 | min=0.8258 max=0.8786
+         : test loss mean=0.3662 ± 0.0229
+         : individual accs = ['0.842105', '0.867876', '0.831411', '0.868739', '0.839506', '0.878603', '0.855895', '0.836735', '0.860035', '0.875000', '0.833916', '0.867556', '0.835938', '0.847414', '0.836299', '0.828821', '0.851820', '0.825818', '0.852204', '0.848379']
+         : correct/total = [(960, 1140), (1005, 1158), (937, 1127), (1006, 1158), (952, 1134), (1006, 1145), (980, 1145), (943, 1127), (977, 1136), (987, 1128), (954, 1144), (976, 1125), (963, 1152), (983, 1160), (940, 1124), (949, 1145), (983, 1154), (934, 1131), (986, 1157), (968, 1141)]
+         : compromised: 0.8630, honest: 0.8477
+Round 008: test acc mean=0.8661 ± 0.0101 | min=0.8435 max=0.8861
+         : test loss mean=0.3271 ± 0.0147
+         : individual accs = ['0.860526', '0.880829', '0.861579', '0.860104', '0.860670', '0.882969', '0.875983', '0.868678', '0.872359', '0.859043', '0.856643', '0.871111', '0.863715', '0.858621', '0.886121', '0.857642', '0.872617', '0.843501', '0.868626', '0.860649']
+         : correct/total = [(981, 1140), (1020, 1158), (971, 1127), (996, 1158), (976, 1134), (1011, 1145), (1003, 1145), (979, 1127), (991, 1136), (969, 1128), (980, 1144), (980, 1125), (995, 1152), (996, 1160), (996, 1124), (982, 1145), (1007, 1154), (954, 1131), (1005, 1157), (982, 1141)]
+         : compromised: 0.8708, honest: 0.8656
+Round 009: test acc mean=0.8718 ± 0.0128 | min=0.8427 max=0.8891
+         : test loss mean=0.3073 ± 0.0211
+         : individual accs = ['0.881579', '0.888601', '0.845608', '0.878238', '0.867725', '0.889083', '0.881223', '0.866903', '0.885563', '0.882979', '0.870629', '0.876444', '0.872396', '0.864655', '0.870107', '0.859389', '0.879549', '0.855880', '0.842697', '0.876424']
+         : correct/total = [(1005, 1140), (1029, 1158), (953, 1127), (1017, 1158), (984, 1134), (1018, 1145), (1009, 1145), (977, 1127), (1006, 1136), (996, 1128), (996, 1144), (986, 1125), (1005, 1152), (1003, 1160), (978, 1124), (984, 1145), (1015, 1154), (968, 1131), (975, 1157), (1000, 1141)]
+         : compromised: 0.8769, honest: 0.8712
+Round 010: test acc mean=0.8815 ± 0.0097 | min=0.8598 max=0.8935
+         : test loss mean=0.2865 ± 0.0128
+         : individual accs = ['0.892105', '0.888601', '0.859805', '0.881693', '0.884480', '0.891703', '0.877729', '0.877551', '0.893486', '0.890957', '0.871503', '0.888889', '0.875868', '0.891379', '0.891459', '0.866376', '0.883882', '0.877984', '0.866033', '0.879053']
+         : correct/total = [(1017, 1140), (1029, 1158), (969, 1127), (1021, 1158), (1003, 1134), (1021, 1145), (1005, 1145), (989, 1127), (1015, 1136), (1005, 1128), (997, 1144), (1000, 1125), (1009, 1152), (1034, 1160), (1002, 1124), (992, 1145), (1020, 1154), (993, 1131), (1002, 1157), (1003, 1141)]
+         : compromised: 0.8915, honest: 0.8804
+
+=== FINAL RESULTS ===
+Dataset: celeba, Nodes: 20, Graph: erdos, Aggregation: balance
+Attack: directed_deviation, 10.0% compromised
+Final accuracy - Compromised: 0.8915, Honest: 0.8804
+Overall test accuracy: mean=0.8815 ± 0.0097
+
+=== BALANCE SUMMARY ===
+Node 0: acceptance=1.000
+Node 1: acceptance=1.000
+Node 2: acceptance=1.000
+Node 3: acceptance=0.750
+Node 4: acceptance=1.000
+Node 5: acceptance=1.000
+Node 6: acceptance=1.000
+Node 7: acceptance=0.800
+Node 8: acceptance=1.000
+Node 9: acceptance=1.000
+Node 10: acceptance=1.000
+Node 11: acceptance=0.714
+Node 12: acceptance=0.857
+Node 13: acceptance=1.000
+Node 14: acceptance=0.714
+Node 15: acceptance=0.833
+Node 16: acceptance=1.000
+Node 17: acceptance=0.800
+Node 18: acceptance=1.000
+Node 19: acceptance=1.000
+
+=== PARALLEL EXECUTION TIME (realistic for distributed system) ===
+  COMMUNICATION (max across nodes):
+    - Full model transfer: 0.000s (0.0%)
+  COMPUTATION (max across nodes):
+    - Filtering: 0.031s (73.0%)
+    - Aggregation: 0.011s (27.0%)
+  TOTALS:
+    - Total computation: 0.043s (100.0%)
+    - Total communication: 0.000s (0.0%)
+    - Total parallel time: 0.043s
+
+=== PER-NODE AVERAGE TIME ===
+  - Filtering: 0.015s
+  - Aggregation: 0.005s
+  - Model transfer: 0.000s
+  - Total per node: 0.020s
+
+=== TOTAL COMPUTATIONAL WORK (sum across all nodes) ===
+  - Total filtering: 0.293s
+  - Total aggregation: 0.098s
+  - Total model transfer: 0.000s
+  - Grand total: 0.390s
+  - Mean acceptance rate: 0.923
+
+BALANCE Algorithm Properties:
+  - Model dimension: 2,219,692
+  - No compression: Full parameter comparison
+  - Theoretical complexity: O(deg(i)×d)
+  - Approach: Full parameter filtering + averaging
