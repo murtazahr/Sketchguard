@@ -32,37 +32,50 @@ def get_output_path(filename):
     script_dir = os.path.dirname(__file__)
     return os.path.join(script_dir, '..', '..', filename)
 
-def load_and_prepare_data(csv_file='extracted_accuracies.csv'):
+def load_and_prepare_data(csv_file='extracted_accuracies_v2.csv'):
     """Load CSV and prepare data for visualization."""
     # Get the correct path to data files relative to script location
     script_dir = os.path.dirname(__file__)
     csv_path = os.path.join(script_dir, '..', '..', csv_file)
     df = pd.read_csv(csv_path)
-    
+
     # Convert attack_percentage to integer
     df['attack_percentage'] = df['attack_percentage'].astype(int)
-    
+
     # Calculate error rates (1 - accuracy)
     df['honest_error_rate'] = 1 - df['final_honest_accuracy']
     df['compromised_error_rate'] = 1 - df['final_compromised_accuracy']
-    
+
     return df
 
 def create_combined_figure(df, save_prefix=''):
-    """Create a four-panel figure with insets matching the paper style."""
+    """Create a multi-panel figure with insets matching the paper style."""
 
-    # Create figure with four subplots side by side
-    fig, axes = plt.subplots(1, 4, figsize=(16, 3))
+    # Define datasets and attack types
+    datasets = ['femnist', 'celeba', 'sent140']
+    attack_types = ['directed_deviation', 'gaussian', 'backdoor', 'krum']
 
-    # Define datasets and attack types for each subplot
-    subplot_configs = [
-        ('femnist', 'directed_deviation', '(a) FEMNIST - Directed Deviation'),
-        ('femnist', 'gaussian', '(b) FEMNIST - Gaussian'),
-        ('celeba', 'directed_deviation', '(c) CelebA - Directed Deviation'),
-        ('celeba', 'gaussian', '(d) CelebA - Gaussian')
-    ]
-    
-    attack_types = ['directed_deviation', 'gaussian']
+    # Create figure with 3x4 grid (3 datasets x 4 attack types)
+    fig, axes = plt.subplots(3, 4, figsize=(16, 9))
+
+    # Build subplot configs dynamically
+    subplot_configs = []
+    panel_idx = 0
+    panel_labels = 'abcdefghijkl'
+    dataset_display = {'femnist': 'FEMNIST', 'celeba': 'CelebA', 'sent140': 'Sent140'}
+    attack_display = {
+        'directed_deviation': 'Directed Deviation',
+        'gaussian': 'Gaussian',
+        'backdoor': 'Backdoor',
+        'krum': 'Krum Attack'
+    }
+
+    for dataset in datasets:
+        for attack_type in attack_types:
+            label = f'({panel_labels[panel_idx]}) {dataset_display[dataset]} - {attack_display[attack_type]}'
+            subplot_configs.append((dataset, attack_type, label))
+            panel_idx += 1
+
     node_type = 'honest'  # Focus on honest nodes
     
     # Define algorithms and their visual properties matching the style
@@ -97,7 +110,10 @@ def create_combined_figure(df, save_prefix=''):
     legend_handles = []
     legend_labels = []
     
-    for idx, (ax, (dataset, attack_type, label)) in enumerate(zip(axes, subplot_configs)):
+    # Flatten axes for easier iteration
+    axes_flat = axes.flatten()
+
+    for idx, (ax, (dataset, attack_type, label)) in enumerate(zip(axes_flat, subplot_configs)):
         # Filter data for specific dataset and attack type
         df_filtered = df[(df['dataset'] == dataset) & (df['attack_type'] == attack_type)].copy()
         error_col = f'{node_type}_error_rate'
@@ -256,7 +272,7 @@ def create_combined_figure(df, save_prefix=''):
     
     # Adjust layout to prevent overlap
     plt.tight_layout()
-    plt.subplots_adjust(top=0.85, bottom=0.2)  # Make room for legend and bottom labels
+    plt.subplots_adjust(top=0.92, bottom=0.08, hspace=0.45, wspace=0.3)  # Make room for legend and labels
     
     # Save figure
     filename = get_output_path(f'{save_prefix}paper_style.pdf')
@@ -271,7 +287,7 @@ def create_combined_figure(df, save_prefix=''):
     plt.close()
 
 def main():
-    print("Loading data from extracted_accuracies.csv...")
+    print("Loading data from extracted_accuracies_v2.csv...")
     df = load_and_prepare_data()
 
     print(f"Loaded {len(df)} experiments")
@@ -280,18 +296,22 @@ def main():
     datasets = df['dataset'].unique()
     print(f"Available datasets: {', '.join(datasets)}")
 
+    # Check available attack types
+    attack_types = df['attack_type'].unique()
+    print(f"Available attack types: {', '.join(attack_types)}")
+
     for dataset in datasets:
         dataset_data = df[df['dataset'] == dataset]
         print(f"{dataset.upper()}: {len(dataset_data)} experiments")
 
-    print(f"\nGenerating combined paper-style figure with all datasets...")
+    print(f"\nGenerating combined paper-style figure with all datasets and attack types...")
     create_combined_figure(df, 'combined_')
 
     print("✅ Combined paper-style figure generated!")
     print("Features:")
-    print("  - Single 1x4 subplot layout")
-    print("  - Two FEMNIST panels: (a) Directed Deviation, (b) Gaussian")
-    print("  - Two CelebA panels: (c) Directed Deviation, (d) Gaussian")
+    print("  - 3x4 subplot layout (3 datasets x 4 attack types)")
+    print("  - Datasets: FEMNIST, CelebA, Sent140")
+    print("  - Attack types: Directed Deviation, Gaussian, Backdoor, Krum Attack")
     print("  - Single legend at the top for all panels")
     print("  - Inset zoom from 10-80% on x-axis")
     print("  - Matching publication style from reference")

@@ -31,7 +31,7 @@ def get_output_path(filename):
     script_dir = os.path.dirname(__file__)
     return os.path.join(script_dir, '..', '..', filename)
 
-def load_and_prepare_data(csv_file='extracted_accuracies.csv'):
+def load_and_prepare_data(csv_file='extracted_accuracies_v2.csv'):
     """Load CSV and prepare data for visualization."""
     # Get the correct path to data files relative to script location
     script_dir = os.path.dirname(__file__)
@@ -42,8 +42,14 @@ def load_and_prepare_data(csv_file='extracted_accuracies.csv'):
     df['compromised_error_rate'] = 1 - df['final_compromised_accuracy']
     return df
 
-def create_topology_figure(df, save_prefix=''):
-    """Create a multi-panel figure separated by graph topology, averaging across datasets."""
+def create_topology_figure(df, attack_type='directed_deviation', save_prefix=''):
+    """Create a multi-panel figure separated by graph topology, averaging across datasets.
+
+    Args:
+        df: DataFrame with experiment results
+        attack_type: Attack type to visualize (directed_deviation, gaussian, backdoor, krum)
+        save_prefix: Prefix for output files
+    """
 
     # Get all topology combinations
     topology_combinations = [
@@ -54,12 +60,19 @@ def create_topology_figure(df, save_prefix=''):
         ('fully', 'NA', 'Fully Connected')
     ]
 
+    # Attack type display names
+    attack_display = {
+        'directed_deviation': 'Directed Deviation',
+        'gaussian': 'Gaussian',
+        'backdoor': 'Backdoor',
+        'krum': 'Krum Attack'
+    }
+
     # Create figure with 5 subplots (1 row, 5 columns)
     fig, axes = plt.subplots(1, 5, figsize=(15, 3))
     axes = axes.flatten()  # Flatten for easier indexing
 
     node_type = 'honest'  # Focus on honest nodes
-    attack_type = 'directed_deviation'  # Use directed deviation as the attack type
 
     # Define algorithms and their visual properties
     algorithms = ['d-fedavg', 'krum', 'balance', 'ubar', 'sketchguard']
@@ -122,27 +135,47 @@ def create_topology_figure(df, save_prefix=''):
             ax.set_ylim(0, 1.0)
             continue
         
-        # First, find attack percentages that exist for BOTH datasets in this topology
+        # Find attack percentages that exist for ALL datasets in this topology
         celeba_data = df_filtered[df_filtered['dataset'] == 'celeba']
         femnist_data = df_filtered[df_filtered['dataset'] == 'femnist']
+        sent140_data = df_filtered[df_filtered['dataset'] == 'sent140']
 
-        if len(celeba_data) > 0 and len(femnist_data) > 0:
-            # Find attack percentage + algorithm combinations that exist in BOTH datasets
+        # Find common combinations across all available datasets
+        dataset_combos = []
+        dataset_names = []
+
+        if len(celeba_data) > 0:
             celeba_combos = set(zip(celeba_data['attack_percentage'], celeba_data['algorithm']))
-            femnist_combos = set(zip(femnist_data['attack_percentage'], femnist_data['algorithm']))
-            common_combos = celeba_combos.intersection(femnist_combos)
+            dataset_combos.append(celeba_combos)
+            dataset_names.append('CelebA')
 
-            print(f"\n{display_name}:")
-            print(f"  CelebA combos: {len(celeba_combos)}")
-            print(f"  FEMNIST combos: {len(femnist_combos)}")
+        if len(femnist_data) > 0:
+            femnist_combos = set(zip(femnist_data['attack_percentage'], femnist_data['algorithm']))
+            dataset_combos.append(femnist_combos)
+            dataset_names.append('FEMNIST')
+
+        if len(sent140_data) > 0:
+            sent140_combos = set(zip(sent140_data['attack_percentage'], sent140_data['algorithm']))
+            dataset_combos.append(sent140_combos)
+            dataset_names.append('Sent140')
+
+        if len(dataset_combos) >= 2:
+            # Find intersection across all available datasets
+            common_combos = dataset_combos[0]
+            for combo_set in dataset_combos[1:]:
+                common_combos = common_combos.intersection(combo_set)
+
+            print(f"\n{display_name} ({attack_display.get(attack_type, attack_type)}):")
+            for i, name in enumerate(dataset_names):
+                print(f"  {name} combos: {len(dataset_combos[i])}")
             print(f"  Common combos: {len(common_combos)}")
 
             # Extract just the attack percentages from common combinations
             common_attack_percentages = {combo[0] for combo in common_combos}
             print(f"  Common attack %: {sorted(common_attack_percentages)}")
         else:
-            # If no CelebA data for this topology, skip it
-            ax.text(0.5, 0.5, f'No CelebA data for\n{display_name}',
+            # Not enough datasets with data for this topology
+            ax.text(0.5, 0.5, f'Insufficient data for\n{display_name}',
                    transform=ax.transAxes, ha='center', va='center',
                    fontsize=8, style='italic')
             ax.set_xlim(0, 80)
@@ -309,12 +342,16 @@ def create_topology_figure(df, save_prefix=''):
     plt.tight_layout()
     plt.subplots_adjust(top=0.9, bottom=0.25, hspace=0.4, wspace=0.3)
     
-    # Save figure
-    filename = get_output_path(f'{save_prefix}topology_comparison.pdf')
+    # Add figure title with attack type
+    fig.suptitle(f'Topology Comparison - {attack_display.get(attack_type, attack_type)} Attack',
+                 fontsize=14, fontweight='bold', y=1.08)
+
+    # Save figure with attack type in filename
+    filename = get_output_path(f'{save_prefix}topology_comparison_{attack_type}.pdf')
     plt.savefig(filename, bbox_inches='tight', pad_inches=0.02)
     print(f"Saved: {filename}")
-    
-    png_filename = get_output_path(f'{save_prefix}topology_comparison.png')
+
+    png_filename = get_output_path(f'{save_prefix}topology_comparison_{attack_type}.png')
     plt.savefig(png_filename, bbox_inches='tight', pad_inches=0.02, dpi=300)
     print(f"Saved: {png_filename}")
     
@@ -322,7 +359,7 @@ def create_topology_figure(df, save_prefix=''):
     plt.close()
 
 def main():
-    print("Loading data from extracted_accuracies.csv...")
+    print("Loading data from extracted_accuracies_v2.csv...")
     df = load_and_prepare_data()
 
     print(f"Loaded {len(df)} experiments")
@@ -330,6 +367,10 @@ def main():
     # Check available datasets
     datasets = df['dataset'].unique()
     print(f"Available datasets: {', '.join(datasets)}")
+
+    # Check available attack types
+    attack_types = df['attack_type'].unique()
+    print(f"Available attack types: {', '.join(attack_types)}")
 
     # Show statistics per dataset
     for dataset in datasets:
@@ -342,16 +383,23 @@ def main():
         for _, row in topology_counts.iterrows():
             print(f"  {row['graph_type']} (param={row['graph_param']}): {row['count']} experiments")
 
-    # Generate single averaged figure across all datasets
-    print(f"\nGenerating averaged topology comparison figure across all datasets...")
-    create_topology_figure(df, save_prefix='averaged_')
+    # Generate topology comparison figures for each attack type
+    attack_type_list = ['directed_deviation', 'gaussian', 'backdoor', 'krum']
 
-    print("\n✅ Averaged topology comparison figure generated!")
+    for attack_type in attack_type_list:
+        print(f"\n{'='*60}")
+        print(f"Generating topology comparison for {attack_type} attack...")
+        print('='*60)
+        create_topology_figure(df, attack_type=attack_type, save_prefix='averaged_')
+
+    print("\n" + "="*60)
+    print("✅ All topology comparison figures generated!")
+    print("="*60)
     print("Features:")
-    print("  - Single 1x5 subplot layout")
+    print("  - Single 1x5 subplot layout per attack type")
     print("  - Separate panel for each graph topology")
-    print("  - Averages performance across FEMNIST and CelebA datasets")
-    print("  - Directed deviation attack type")
+    print("  - Averages performance across FEMNIST, CelebA, and Sent140 datasets")
+    print("  - Figures generated for: Directed Deviation, Gaussian, Backdoor, Krum Attack")
     print("  - Honest node error rates")
     print("  - Inset zoom for overlapping algorithms")
     print("  - Single legend for all panels")
