@@ -25,8 +25,8 @@ def get_aggregation_methods():
     return ["d-fedavg", "krum", "ubar", "sketchguard", "balance"]
 
 def get_attack_percentages():
-    """Get all attack percentages."""
-    return [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+    """Get all attack percentages (including 0 for baseline)."""
+    return [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
 
 def get_attack_types():
     """Get all attack types."""
@@ -52,7 +52,7 @@ def get_backdoor_configs():
 
 def get_datasets():
     """Get all datasets."""
-    return ["femnist", "celeba", "sent140"]
+    return ["femnist", "sent140"]
 
 
 def get_sketchguard_configs():
@@ -63,8 +63,21 @@ def get_sketchguard_configs():
         "sent140": 180,
     }
 
+def get_dataset_configs():
+    """Get dataset-specific training configurations (lr, max-samples)."""
+    return {
+        "femnist": {"lr": 0.01, "max_samples": 10000},
+        "celeba": {"lr": 0.001, "max_samples": 4500},
+        "sent140": {"lr": 0.01, "max_samples": 4500},
+    }
+
 def build_log_filename(dataset, graph_config, agg_method, attack_pct, attack_type="directed_deviation"):
     """Build the log filename based on parameters."""
+    # Get dataset-specific configs
+    dataset_configs = get_dataset_configs()
+    ds_config = dataset_configs.get(dataset, {"lr": 0.01, "max_samples": 10000})
+    max_samples = ds_config["max_samples"]
+
     # Format attack percentage for filename
     attack_str = f"{int(attack_pct*100)}attack" if attack_pct > 0 else "0attack"
 
@@ -85,11 +98,15 @@ def build_log_filename(dataset, graph_config, agg_method, attack_pct, attack_typ
             attack_suffix = "_backdoor"
 
     # Build filename
-    filename = f"{dataset}_20_10_3_{graph_str}_64_10000_{agg_method}_{attack_str}{attack_suffix}_1lambda.log"
+    filename = f"{dataset}_20_10_3_{graph_str}_64_{max_samples}_{agg_method}_{attack_str}{attack_suffix}_1lambda.log"
     return filename
 
 def build_command(dataset, graph_config, agg_method, attack_pct, attack_type="directed_deviation"):
     """Build the command to run."""
+    # Get dataset-specific configs
+    dataset_configs = get_dataset_configs()
+    ds_config = dataset_configs.get(dataset, {"lr": 0.01, "max_samples": 10000})
+
     cmd = [
         "python", "decentralized_fl_sim.py",
         "--dataset", dataset,
@@ -99,8 +116,8 @@ def build_command(dataset, graph_config, agg_method, attack_pct, attack_type="di
         "--seed", "987654321",
         "--graph", graph_config["name"],
         "--batch-size", "64",
-        "--lr", "0.001",
-        "--max-samples", "4500",
+        "--lr", str(ds_config["lr"]),
+        "--max-samples", str(ds_config["max_samples"]),
         "--agg", agg_method,
         "--attack-percentage", str(attack_pct),
         "--attack-type", attack_type,
