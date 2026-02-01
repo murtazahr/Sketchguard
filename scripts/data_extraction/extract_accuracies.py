@@ -161,19 +161,21 @@ def extract_backdoor_asr(filepath):
 
     return result
 
+ALL_ATTACK_TYPES = ['directed_deviation', 'gaussian', 'krum', 'backdoor']
+
 def process_log_files(directory='results'):
     """Process all log files and extract accuracies."""
     log_files = glob.glob(os.path.join(directory, '*.log'))
-    
+
     results = []
     failed_files = []
-    
+
     print(f"Found {len(log_files)} log files to process\n")
-    
+
     for i, log_file in enumerate(sorted(log_files), 1):
         if i % 50 == 0:
             print(f"Progress: {i}/{len(log_files)} files processed...")
-        
+
         # Extract parameters from filename
         try:
             params = extract_parameters_from_filename(log_file)
@@ -181,7 +183,7 @@ def process_log_files(directory='results'):
             print(f"  ⚠️  Error parsing filename {os.path.basename(log_file)}: {e}")
             failed_files.append(log_file)
             continue
-        
+
         # Extract accuracies from file content
         try:
             compromised_acc, honest_acc = extract_final_accuracies(log_file)
@@ -189,7 +191,7 @@ def process_log_files(directory='results'):
             print(f"  ⚠️  Error extracting accuracies from {os.path.basename(log_file)}: {e}")
             failed_files.append(log_file)
             continue
-        
+
         if compromised_acc is not None and honest_acc is not None:
             result = params.copy()
             result['final_compromised_accuracy'] = compromised_acc
@@ -202,19 +204,28 @@ def process_log_files(directory='results'):
             result['honest_asr'] = asr_metrics['honest_asr']
             result['compromised_asr'] = asr_metrics['compromised_asr']
 
-            results.append(result)
+            # For no-attack baselines (0% attack), replicate the result
+            # across all attack types so each attack-type plot includes
+            # the baseline reference point at 0%.
+            if int(params['attack_percentage']) == 0:
+                for attack_type in ALL_ATTACK_TYPES:
+                    baseline_result = result.copy()
+                    baseline_result['attack_type'] = attack_type
+                    results.append(baseline_result)
+            else:
+                results.append(result)
         else:
             failed_files.append(log_file)
             if len(failed_files) <= 10:  # Only show first 10 failures
                 print(f"  ⚠️  Could not extract accuracies from: {os.path.basename(log_file)}")
-    
+
     return results, failed_files
 
 def save_to_csv(results, output_file=None):
     """Save results to CSV file."""
     if output_file is None:
         script_dir = os.path.dirname(__file__)
-        output_file = os.path.join(script_dir, '..', '..', 'extracted_accuracies_v2.csv')
+        output_file = os.path.join(script_dir, '..', '..', 'extracted_accuracies.csv')
     if not results:
         print("No results to save.")
         return
@@ -243,7 +254,7 @@ def main():
 
     # Get the path to results directory relative to script location
     script_dir = os.path.dirname(__file__)
-    results_dir = os.path.join(script_dir, '..', '..', 'results', 'version-2')
+    results_dir = os.path.join(script_dir, '..', '..', 'results', 'latest')
 
     results, failed_files = process_log_files(results_dir)
     
@@ -287,7 +298,7 @@ def main():
                     print(f"      └─ {attack_type}: {len(attack_results)} runs (attack %: {attack_percentages})")
         
         print("\n" + "=" * 60)
-        print("You can now use 'extracted_accuracies_v2.csv' for visualization!")
+        print("You can now use 'extracted_accuracies.csv' for visualization!")
         print("=" * 60)
 
 if __name__ == "__main__":

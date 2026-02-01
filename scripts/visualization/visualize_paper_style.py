@@ -32,7 +32,7 @@ def get_output_path(filename):
     script_dir = os.path.dirname(__file__)
     return os.path.join(script_dir, '..', '..', filename)
 
-def load_and_prepare_data(csv_file='extracted_accuracies_v2.csv'):
+def load_and_prepare_data(csv_file='extracted_accuracies.csv'):
     """Load CSV and prepare data for visualization."""
     # Get the correct path to data files relative to script location
     script_dir = os.path.dirname(__file__)
@@ -116,7 +116,10 @@ def create_combined_figure(df, save_prefix=''):
     for idx, (ax, (dataset, attack_type, label)) in enumerate(zip(axes_flat, subplot_configs)):
         # Filter data for specific dataset and attack type
         df_filtered = df[(df['dataset'] == dataset) & (df['attack_type'] == attack_type)].copy()
-        error_col = f'{node_type}_error_rate'
+        if attack_type == 'backdoor':
+            error_col = f'{node_type}_asr'
+        else:
+            error_col = f'{node_type}_error_rate'
 
         # For gaussian attack at 0%, use directed_deviation data from the same dataset
         if attack_type == 'gaussian':
@@ -161,86 +164,94 @@ def create_combined_figure(df, save_prefix=''):
                     legend_handles.append(line)
                     legend_labels.append(display_name)
         
-        # Create inset axes (smaller size) - top right for CelebA
-        if dataset == 'celeba':
+        # Create inset axes (skip for backdoor panels on femnist/sent140)
+        show_inset = not (attack_type == 'backdoor' and dataset in ('femnist', 'sent140'))
+
+        if show_inset:
+            # Determine inset position
+            if attack_type == 'backdoor' and dataset == 'celeba':
+                inset_loc = 'lower right'
+                inset_bbox = (0, 0.1, 1, 1)
+            elif dataset in ('celeba', 'sent140'):
+                inset_loc = 'upper right'
+                inset_bbox = (0, 0, 1, 1)
+            else:
+                inset_loc = 'lower right'
+                inset_bbox = (0, 0.3, 1, 1)
+
             axins = inset_axes(ax, width="35%", height="35%",
-                              loc='upper right',
-                              bbox_to_anchor=(0, 0, 1, 1),
+                              loc=inset_loc,
+                              bbox_to_anchor=inset_bbox,
                               bbox_transform=ax.transAxes)
-        else:
-            axins = inset_axes(ax, width="35%", height="35%",
-                              loc='lower right',
-                              bbox_to_anchor=(0, 0.3, 1, 1),
-                              bbox_transform=ax.transAxes)
-        
-        # Plot in inset - only the three overlapping algorithms
-        inset_algorithms = ['balance', 'ubar', 'sketchguard']
-        
-        for algo in inset_algorithms:
-            algo_data = df_filtered[df_filtered['algorithm'] == algo]
-            
-            if len(algo_data) > 0:
-                grouped = algo_data.groupby('attack_percentage')[error_col].mean().reset_index()
-                grouped = grouped.sort_values('attack_percentage')
-                
-                # Focus on 10-80% range for inset
-                zoom_data = grouped[(grouped['attack_percentage'] >= 10) & (grouped['attack_percentage'] <= 80)]
-                
-                if len(zoom_data) > 0:
-                    z_orders = {'sketchguard': 5, 'balance': 4, 'ubar': 3, 'krum': 2, 'd-fedavg': 1}
-                    axins.plot(zoom_data['attack_percentage'], 
-                              zoom_data[error_col],
-                              linestyle=line_styles[algo],
-                              color=colors[algo],
-                              linewidth=1.5,
-                              marker=markers[algo],
-                              markersize=3,
-                              markeredgewidth=0.3,
-                              markeredgecolor=colors[algo],
-                              markevery=2,
-                              zorder=z_orders[algo])
-        
-        # Inset settings
-        axins.set_xlim(10, 80)
-        
-        # Calculate y-limits for inset
-        y_values = []
-        for algo in inset_algorithms:
-            algo_data = df_filtered[df_filtered['algorithm'] == algo]
-            if len(algo_data) > 0:
-                grouped = algo_data.groupby('attack_percentage')[error_col].mean().reset_index()
-                zoom_data = grouped[(grouped['attack_percentage'] >= 10) & (grouped['attack_percentage'] <= 80)]
-                if len(zoom_data) > 0:
-                    y_values.extend(zoom_data[error_col].values)
-        
-        if y_values:
-            y_min = min(y_values) - 0.005
-            y_max = max(y_values) + 0.005
-        else:
-            y_min, y_max = 0.16, 0.19
-        
-        axins.set_ylim(y_min, y_max)
-        axins.set_xticks([10, 30, 50, 70])
-        axins.set_xticklabels(['10', '30', '50', '70'], fontsize=7)
-        
-        # Format y-ticks for inset
-        y_ticks = np.linspace(y_min, y_max, 3)
-        axins.set_yticks(y_ticks)
-        axins.yaxis.set_major_formatter(plt.FuncFormatter(lambda y, _: f'{y:.3f}'))
-        axins.tick_params(labelsize=7)
-        axins.grid(True, alpha=0.3, linewidth=0.3)
-        
-        # Remove inset spines for cleaner look
-        axins.spines['top'].set_visible(False)
-        axins.spines['right'].set_visible(False)
-        
-        # Add "Zoom" label to inset
-        axins.text(0.5, 0.95, 'Zoom', transform=axins.transAxes, 
-                   fontsize=7, ha='center', va='top', style='italic')
+
+            # Plot in inset - only the three overlapping algorithms
+            inset_algorithms = ['balance', 'ubar', 'sketchguard']
+
+            for algo in inset_algorithms:
+                algo_data = df_filtered[df_filtered['algorithm'] == algo]
+
+                if len(algo_data) > 0:
+                    grouped = algo_data.groupby('attack_percentage')[error_col].mean().reset_index()
+                    grouped = grouped.sort_values('attack_percentage')
+
+                    # Focus on 10-80% range for inset
+                    zoom_data = grouped[(grouped['attack_percentage'] >= 10) & (grouped['attack_percentage'] <= 80)]
+
+                    if len(zoom_data) > 0:
+                        z_orders = {'sketchguard': 5, 'balance': 4, 'ubar': 3, 'krum': 2, 'd-fedavg': 1}
+                        axins.plot(zoom_data['attack_percentage'],
+                                  zoom_data[error_col],
+                                  linestyle=line_styles[algo],
+                                  color=colors[algo],
+                                  linewidth=1.5,
+                                  marker=markers[algo],
+                                  markersize=3,
+                                  markeredgewidth=0.3,
+                                  markeredgecolor=colors[algo],
+                                  markevery=2,
+                                  zorder=z_orders[algo])
+
+            # Inset settings
+            axins.set_xlim(10, 80)
+
+            # Calculate y-limits for inset
+            y_values = []
+            for algo in inset_algorithms:
+                algo_data = df_filtered[df_filtered['algorithm'] == algo]
+                if len(algo_data) > 0:
+                    grouped = algo_data.groupby('attack_percentage')[error_col].mean().reset_index()
+                    zoom_data = grouped[(grouped['attack_percentage'] >= 10) & (grouped['attack_percentage'] <= 80)]
+                    if len(zoom_data) > 0:
+                        y_values.extend(zoom_data[error_col].values)
+
+            if y_values:
+                y_min = min(y_values) - 0.005
+                y_max = max(y_values) + 0.005
+            else:
+                y_min, y_max = 0.16, 0.19
+
+            axins.set_ylim(y_min, y_max)
+            axins.set_xticks([10, 30, 50, 70])
+            axins.set_xticklabels(['10', '30', '50', '70'], fontsize=7)
+
+            # Format y-ticks for inset
+            y_ticks = np.linspace(y_min, y_max, 3)
+            axins.set_yticks(y_ticks)
+            axins.yaxis.set_major_formatter(plt.FuncFormatter(lambda y, _: f'{y:.3f}'))
+            axins.tick_params(labelsize=7)
+            axins.grid(True, alpha=0.3, linewidth=0.3)
+
+            # Remove inset spines for cleaner look
+            axins.spines['top'].set_visible(False)
+            axins.spines['right'].set_visible(False)
+
+            # Add "Zoom" label to inset
+            axins.text(0.5, 0.95, 'Zoom', transform=axins.transAxes,
+                       fontsize=7, ha='center', va='top', style='italic')
         
         # Main subplot settings
         ax.set_xlabel('Frac. of malicious clients (%)')
-        ax.set_ylabel('Max TER')  # Test Error Rate - on both subplots
+        ax.set_ylabel('ASR' if attack_type == 'backdoor' else 'TER')
         
         ax.set_xlim(0, 80)
         ax.set_ylim(0, 1.0)
@@ -260,7 +271,7 @@ def create_combined_figure(df, save_prefix=''):
     # Add single legend at the top of the figure
     fig.legend(legend_handles, legend_labels,
                loc='upper center',
-               bbox_to_anchor=(0.5, 1.05),
+               bbox_to_anchor=(0.5, 1.02),
                ncol=5,  # All algorithms in one row (now 5 with FedAvg)
                frameon=False,
                fancybox=False,
@@ -272,7 +283,7 @@ def create_combined_figure(df, save_prefix=''):
     
     # Adjust layout to prevent overlap
     plt.tight_layout()
-    plt.subplots_adjust(top=0.92, bottom=0.08, hspace=0.45, wspace=0.3)  # Make room for legend and labels
+    plt.subplots_adjust(top=0.95, bottom=0.08, hspace=0.45, wspace=0.3)  # Make room for legend and labels
     
     # Save figure
     filename = get_output_path(f'{save_prefix}paper_style.pdf')
@@ -287,7 +298,7 @@ def create_combined_figure(df, save_prefix=''):
     plt.close()
 
 def main():
-    print("Loading data from extracted_accuracies_v2.csv...")
+    print("Loading data from extracted_accuracies.csv...")
     df = load_and_prepare_data()
 
     print(f"Loaded {len(df)} experiments")

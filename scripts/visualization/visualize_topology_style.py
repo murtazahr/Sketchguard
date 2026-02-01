@@ -31,7 +31,7 @@ def get_output_path(filename):
     script_dir = os.path.dirname(__file__)
     return os.path.join(script_dir, '..', '..', filename)
 
-def load_and_prepare_data(csv_file='extracted_accuracies_v2.csv'):
+def load_and_prepare_data(csv_file='extracted_accuracies.csv'):
     """Load CSV and prepare data for visualization."""
     # Get the correct path to data files relative to script location
     script_dir = os.path.dirname(__file__)
@@ -359,7 +359,7 @@ def create_topology_figure(df, attack_type='directed_deviation', save_prefix='')
     plt.close()
 
 def main():
-    print("Loading data from extracted_accuracies_v2.csv...")
+    print("Loading data from extracted_accuracies.csv...")
     df = load_and_prepare_data()
 
     print(f"Loaded {len(df)} experiments")
