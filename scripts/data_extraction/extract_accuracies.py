@@ -9,6 +9,8 @@ def extract_parameters_from_filename(filename):
     """Extract experiment parameters from the log filename."""
     # Example: femnist_20_10_3_erdos_02_64_10000_balance_40attack_1lambda.log
     # or: femnist_20_10_3_erdos_02_64_10000_balance_40attack_gaussian_1lambda.log
+    # or: celeba_20_10_3_erdos_02_64_10000_balance_30attack_backdoor_1lambda.log
+    # or: celeba_20_10_3_erdos_02_64_10000_balance_30attack_krum_1lambda.log
     # or: celeba_20_10_3_ring_64_10000_ubar_0attack_1lambda.log
     
     basename = os.path.basename(filename).replace('.log', '')
@@ -42,36 +44,50 @@ def extract_parameters_from_filename(filename):
     else:
         params['attack_percentage'] = '0'
     
-    # Check if it's gaussian attack
-    if idx + 4 < len(parts) and 'gaussian' in parts[idx + 4]:
-        params['attack_type'] = 'gaussian'
-        params['lambda'] = parts[idx + 5].replace('lambda', '') if idx + 5 < len(parts) else '1'
+    # Check for attack type (gaussian, backdoor, krum, or default directed_deviation)
+    # Format: ..._30attack_gaussian_1lambda.log or ..._30attack_backdoor_1lambda.log
+    #         ..._30attack_krum_1lambda.log or ..._30attack_1lambda.log (directed_deviation)
+    if idx + 4 < len(parts):
+        potential_attack_type = parts[idx + 4]
+        if potential_attack_type == 'gaussian':
+            params['attack_type'] = 'gaussian'
+            params['lambda'] = parts[idx + 5].replace('lambda', '') if idx + 5 < len(parts) else '1'
+        elif potential_attack_type == 'backdoor':
+            params['attack_type'] = 'backdoor'
+            params['lambda'] = parts[idx + 5].replace('lambda', '') if idx + 5 < len(parts) else '1'
+        elif potential_attack_type == 'krum':
+            params['attack_type'] = 'krum'
+            params['lambda'] = parts[idx + 5].replace('lambda', '') if idx + 5 < len(parts) else '1'
+        else:
+            # Default: directed_deviation (no attack type in filename)
+            params['attack_type'] = 'directed_deviation'
+            params['lambda'] = parts[idx + 4].replace('lambda', '') if idx + 4 < len(parts) else '1'
     else:
         params['attack_type'] = 'directed_deviation'
-        params['lambda'] = parts[idx + 4].replace('lambda', '') if idx + 4 < len(parts) else '1'
-    
+        params['lambda'] = '1'
+
     return params
 
 def extract_final_accuracies(filepath):
     """Extract final honest and malicious accuracies from log file."""
     with open(filepath, 'r') as f:
         content = f.read()
-    
+
     # First, check attack percentage from filename to determine what to look for
     filename = os.path.basename(filepath)
     attack_match = re.search(r'(\d+)attack', filename)
     attack_percentage = int(attack_match.group(1)) if attack_match else 0
-    
+
     # Pattern 1: "Final accuracy - Compromised: 0.8383, Honest: 0.8386"
     # This appears when there ARE compromised nodes
     pattern = r'Final accuracy - Compromised: ([\d.]+), Honest: ([\d.]+)'
     match = re.search(pattern, content)
-    
+
     if match:
         compromised_acc = float(match.group(1))
         honest_acc = float(match.group(2))
         return compromised_acc, honest_acc
-    
+
     # Pattern 2: For intermediate rounds, look for last occurrence
     # "compromised: 0.8383, honest: 0.8386"
     pattern2 = r'compromised: ([\d.]+), honest: ([\d.]+)'
@@ -79,7 +95,7 @@ def extract_final_accuracies(filepath):
     if matches:
         last_match = matches[-1]
         return float(last_match[0]), float(last_match[1])
-    
+
     # Pattern 3: When there's NO attack (0%), there might only be overall accuracy
     if attack_percentage == 0:
         # Look for "Overall test accuracy: mean=0.8342"
@@ -89,7 +105,7 @@ def extract_final_accuracies(filepath):
             overall_acc = float(match3.group(1))
             # For 0% attack, both honest and compromised are the same (no compromised nodes)
             return overall_acc, overall_acc
-    
+
     # Pattern 4: Some algorithms might just have test accuracy at the end
     # Try to find the last test accuracy mention
     pattern4 = r'test acc[uracy]*[\s:=]+([\d.]+)'
@@ -102,22 +118,64 @@ def extract_final_accuracies(filepath):
         else:
             # This is not ideal but better than nothing
             return None, last_acc
-    
+
     return None, None
+
+def extract_backdoor_asr(filepath):
+    """Extract backdoor Attack Success Rate (ASR) metrics from log file.
+
+    Returns a dict with:
+    - overall_asr: Overall attack success rate
+    - honest_asr: ASR on honest nodes
+    - compromised_asr: ASR on compromised nodes
+
+    Returns None values if not a backdoor attack or metrics not found.
+    """
+    with open(filepath, 'r') as f:
+        content = f.read()
+
+    result = {
+        'overall_asr': None,
+        'honest_asr': None,
+        'compromised_asr': None
+    }
+
+    # Check if this is a backdoor attack file
+    if 'BACKDOOR ATTACK SUCCESS RATE' not in content:
+        return result
+
+    # Extract Overall ASR: "Overall ASR: 0.6934 ± 0.2016"
+    overall_match = re.search(r'Overall ASR: ([\d.]+)', content)
+    if overall_match:
+        result['overall_asr'] = float(overall_match.group(1))
+
+    # Extract Honest nodes ASR: "Honest nodes ASR: 0.5621 ± 0.0223"
+    honest_match = re.search(r'Honest nodes ASR: ([\d.]+)', content)
+    if honest_match:
+        result['honest_asr'] = float(honest_match.group(1))
+
+    # Extract Compromised nodes ASR: "Compromised nodes ASR: 1.0000 ± 0.0000"
+    compromised_match = re.search(r'Compromised nodes ASR: ([\d.]+)', content)
+    if compromised_match:
+        result['compromised_asr'] = float(compromised_match.group(1))
+
+    return result
+
+ALL_ATTACK_TYPES = ['directed_deviation', 'gaussian', 'krum', 'backdoor']
 
 def process_log_files(directory='results'):
     """Process all log files and extract accuracies."""
     log_files = glob.glob(os.path.join(directory, '*.log'))
-    
+
     results = []
     failed_files = []
-    
+
     print(f"Found {len(log_files)} log files to process\n")
-    
+
     for i, log_file in enumerate(sorted(log_files), 1):
         if i % 50 == 0:
             print(f"Progress: {i}/{len(log_files)} files processed...")
-        
+
         # Extract parameters from filename
         try:
             params = extract_parameters_from_filename(log_file)
@@ -125,7 +183,7 @@ def process_log_files(directory='results'):
             print(f"  ⚠️  Error parsing filename {os.path.basename(log_file)}: {e}")
             failed_files.append(log_file)
             continue
-        
+
         # Extract accuracies from file content
         try:
             compromised_acc, honest_acc = extract_final_accuracies(log_file)
@@ -133,18 +191,34 @@ def process_log_files(directory='results'):
             print(f"  ⚠️  Error extracting accuracies from {os.path.basename(log_file)}: {e}")
             failed_files.append(log_file)
             continue
-        
+
         if compromised_acc is not None and honest_acc is not None:
             result = params.copy()
             result['final_compromised_accuracy'] = compromised_acc
             result['final_honest_accuracy'] = honest_acc
             result['filename'] = os.path.basename(log_file)
-            results.append(result)
+
+            # Extract backdoor ASR metrics if applicable
+            asr_metrics = extract_backdoor_asr(log_file)
+            result['overall_asr'] = asr_metrics['overall_asr']
+            result['honest_asr'] = asr_metrics['honest_asr']
+            result['compromised_asr'] = asr_metrics['compromised_asr']
+
+            # For no-attack baselines (0% attack), replicate the result
+            # across all attack types so each attack-type plot includes
+            # the baseline reference point at 0%.
+            if int(params['attack_percentage']) == 0:
+                for attack_type in ALL_ATTACK_TYPES:
+                    baseline_result = result.copy()
+                    baseline_result['attack_type'] = attack_type
+                    results.append(baseline_result)
+            else:
+                results.append(result)
         else:
             failed_files.append(log_file)
             if len(failed_files) <= 10:  # Only show first 10 failures
                 print(f"  ⚠️  Could not extract accuracies from: {os.path.basename(log_file)}")
-    
+
     return results, failed_files
 
 def save_to_csv(results, output_file=None):
@@ -158,10 +232,12 @@ def save_to_csv(results, output_file=None):
     
     # Define column order
     columns = [
-        'dataset', 'num_nodes', 'num_epochs', 'local_epochs', 
+        'dataset', 'num_nodes', 'num_epochs', 'local_epochs',
         'graph_type', 'graph_param', 'batch_size', 'samples_per_client',
         'algorithm', 'attack_percentage', 'attack_type', 'lambda',
-        'final_compromised_accuracy', 'final_honest_accuracy', 'filename'
+        'final_compromised_accuracy', 'final_honest_accuracy',
+        'overall_asr', 'honest_asr', 'compromised_asr',
+        'filename'
     ]
     
     with open(output_file, 'w', newline='') as csvfile:
@@ -175,11 +251,11 @@ def main():
     print("=" * 60)
     print("Extracting Final Accuracies from Experiment Log Files")
     print("=" * 60)
-    
+
     # Get the path to results directory relative to script location
     script_dir = os.path.dirname(__file__)
-    results_dir = os.path.join(script_dir, '..', '..', 'results')
-    
+    results_dir = os.path.join(script_dir, '..', '..', 'results', 'latest')
+
     results, failed_files = process_log_files(results_dir)
     
     print("\n" + "=" * 60)

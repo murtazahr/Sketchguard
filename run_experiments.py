@@ -25,37 +25,88 @@ def get_aggregation_methods():
     return ["d-fedavg", "krum", "ubar", "sketchguard", "balance"]
 
 def get_attack_percentages():
-    """Get all attack percentages."""
-    return [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+    """Get all attack percentages (including 0 for baseline)."""
+    return [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
 
 def get_attack_types():
     """Get all attack types."""
-    return ["directed_deviation", "gaussian"]
+    return ["directed_deviation", "gaussian", "krum", "backdoor"]
+
+
+def get_backdoor_configs():
+    """Get backdoor attack configurations for each dataset."""
+    return {
+        "femnist": {
+            "target_label": 0,  # Target digit/letter class
+            "trigger_size": 4,  # 4x4 trigger for 28x28 images
+        },
+        "celeba": {
+            "target_label": 0,  # Target binary class (not smiling)
+            "trigger_size": 8,  # 8x8 trigger for 84x84 images
+        },
+        "sent140": {
+            "target_label": 1,  # Target positive sentiment
+            "trigger_size": 3,  # 3 trigger words appended to text
+        }
+    }
 
 def get_datasets():
     """Get all datasets."""
-    return ["femnist", "celeba"]
+    return ["femnist", "sent140"]
+
+
+def get_sketchguard_configs():
+    """Get Sketchguard sketch size configurations for each dataset."""
+    return {
+        "femnist": 1000,
+        "celeba": 350,
+        "sent140": 180,
+    }
+
+def get_dataset_configs():
+    """Get dataset-specific training configurations (lr, max-samples)."""
+    return {
+        "femnist": {"lr": 0.01, "max_samples": 10000},
+        "celeba": {"lr": 0.001, "max_samples": 4500},
+        "sent140": {"lr": 0.01, "max_samples": 4500},
+    }
 
 def build_log_filename(dataset, graph_config, agg_method, attack_pct, attack_type="directed_deviation"):
     """Build the log filename based on parameters."""
+    # Get dataset-specific configs
+    dataset_configs = get_dataset_configs()
+    ds_config = dataset_configs.get(dataset, {"lr": 0.01, "max_samples": 10000})
+    max_samples = ds_config["max_samples"]
+
     # Format attack percentage for filename
     attack_str = f"{int(attack_pct*100)}attack" if attack_pct > 0 else "0attack"
-    
+
     # Format graph name for filename
     if graph_config["name"] == "erdos":
         graph_str = f"erdos_{str(graph_config['p']).replace('.', '')}"
     else:
         graph_str = graph_config["name"]
-    
-    # Add attack type suffix for gaussian attacks
-    attack_suffix = "_gaussian" if attack_type == "gaussian" and attack_pct > 0 else ""
-    
+
+    # Add attack type suffix for non-default attacks
+    attack_suffix = ""
+    if attack_pct > 0:
+        if attack_type == "gaussian":
+            attack_suffix = "_gaussian"
+        elif attack_type == "krum":
+            attack_suffix = "_krum"
+        elif attack_type == "backdoor":
+            attack_suffix = "_backdoor"
+
     # Build filename
-    filename = f"{dataset}_20_10_3_{graph_str}_64_10000_{agg_method}_{attack_str}{attack_suffix}_1lambda.log"
+    filename = f"{dataset}_20_10_3_{graph_str}_64_{max_samples}_{agg_method}_{attack_str}{attack_suffix}_1lambda.log"
     return filename
 
 def build_command(dataset, graph_config, agg_method, attack_pct, attack_type="directed_deviation"):
     """Build the command to run."""
+    # Get dataset-specific configs
+    dataset_configs = get_dataset_configs()
+    ds_config = dataset_configs.get(dataset, {"lr": 0.01, "max_samples": 10000})
+
     cmd = [
         "python", "decentralized_fl_sim.py",
         "--dataset", dataset,
@@ -65,27 +116,43 @@ def build_command(dataset, graph_config, agg_method, attack_pct, attack_type="di
         "--seed", "987654321",
         "--graph", graph_config["name"],
         "--batch-size", "64",
-        "--lr", "0.001",
-        "--max-samples", "4500",
+        "--lr", str(ds_config["lr"]),
+        "--max-samples", str(ds_config["max_samples"]),
         "--agg", agg_method,
         "--attack-percentage", str(attack_pct),
         "--attack-type", attack_type,
         "--verbose"
     ]
-    
+
     # Add p parameter for erdos graphs
     if graph_config["name"] == "erdos" and graph_config["p"] is not None:
         cmd.extend(["--p", str(graph_config["p"])])
-    
-    # Add pct-compromised for krum
+
+    # Add pct-compromised for krum aggregation
     if agg_method == "krum":
         cmd.extend(["--pct-compromised", str(attack_pct)])
-    
+
     # Add ubar-rho for ubar (1 - attack_percentage)
     if agg_method == "ubar":
         ubar_rho = 1.0 - attack_pct
         cmd.extend(["--ubar-rho", str(ubar_rho)])
-    
+
+    # Add backdoor-specific parameters
+    if attack_type == "backdoor" and attack_pct > 0:
+        backdoor_configs = get_backdoor_configs()
+        if dataset in backdoor_configs:
+            config = backdoor_configs[dataset]
+            cmd.extend([
+                "--backdoor-target-label", str(config["target_label"]),
+                "--backdoor-trigger-size", str(config["trigger_size"])
+            ])
+
+    # Add sketchguard-specific parameters
+    if agg_method == "sketchguard":
+        sketchguard_configs = get_sketchguard_configs()
+        if dataset in sketchguard_configs:
+            cmd.extend(["--sketchguard-sketch-size", str(sketchguard_configs[dataset])])
+
     return cmd
 
 def run_experiment(dataset, graph_config, agg_method, attack_pct, attack_type="directed_deviation", dry_run=False, skip_existing=True):
@@ -132,7 +199,7 @@ def main():
     parser = argparse.ArgumentParser(description='Run FL simulation experiments')
     parser.add_argument('--dry-run', action='store_true', 
                         help='Print commands without executing them')
-    parser.add_argument('--datasets', nargs='+', choices=['femnist', 'celeba'],
+    parser.add_argument('--datasets', nargs='+', choices=['femnist', 'celeba', 'sent140'],
                         help='Specific datasets to run (default: all)')
     parser.add_argument('--agg-methods', nargs='+', 
                         choices=['sketchguard', 'balance', 'krum', 'd-fedavg', 'ubar'],
@@ -140,7 +207,7 @@ def main():
     parser.add_argument('--attack-percentages', nargs='+', type=float,
                         help='Specific attack percentages to run (default: all)')
     parser.add_argument('--attack-types', nargs='+',
-                        choices=['directed_deviation', 'gaussian'],
+                        choices=['directed_deviation', 'gaussian', 'krum', 'backdoor'],
                         help='Specific attack types to run (default: all)')
     parser.add_argument('--no-skip', action='store_true',
                         help='Do not skip existing experiments (overwrite logs)')

@@ -41,16 +41,137 @@ from typing import Dict, List, Tuple, Optional
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, Subset, RandomSampler
+from torch.utils.data import DataLoader, Subset, RandomSampler, Dataset
 torch.multiprocessing.set_sharing_strategy('file_system')
 
 from leaf_datasets import (
     load_leaf_dataset,
     create_leaf_client_partitions,
     LEAFFEMNISTModel,
-    LEAFCelebAModel
+    LEAFCelebAModel,
+    LEAFSent140Model
 )
 from model_variants import get_model_variant
+
+
+# ---------------------------- Backdoor Attack Dataset ---------------------------- #
+
+# Trigger word indices for text backdoor attacks (rare words unlikely to appear naturally)
+# These are indices that will be inserted at the end of sequences
+TEXT_TRIGGER_INDICES = [9998, 9999, 9997]  # 3 rare word indices as trigger pattern
+
+
+class BackdoorDataset(Dataset):
+    """
+    Wrapper dataset that injects backdoor triggers into data.
+
+    Backdoor Attack: Malicious clients replicate their training data, adding a
+    backdoor trigger to each copy and assigning them a target label chosen for
+    the attack. They train their local models using this augmented data.
+
+    For FEMNIST (28x28 grayscale): Adds a 4x4 white square trigger in bottom-right
+    For CelebA (84x84 RGB): Adds a 8x8 white square trigger in bottom-right
+    For Sent140 (text): Appends trigger word indices at end of sequence
+    """
+
+    def __init__(self, base_dataset: Dataset, target_label: int, trigger_size: int = 4,
+                 dataset_type: str = "femnist", poison_ratio: float = 1.0):
+        """
+        Args:
+            base_dataset: Original dataset to poison
+            target_label: Target label for backdoor samples
+            trigger_size: Size of the square trigger pattern (for images) or number of trigger words (for text)
+            dataset_type: "femnist", "celeba", or "sent140" - determines trigger type
+            poison_ratio: Fraction of samples to poison (1.0 = all samples)
+        """
+        self.base_dataset = base_dataset
+        self.target_label = target_label
+        self.trigger_size = trigger_size
+        self.dataset_type = dataset_type.lower()
+        self.poison_ratio = poison_ratio
+
+        # Create indices for clean and poisoned samples
+        n_samples = len(base_dataset)
+        n_poisoned = int(n_samples * poison_ratio)
+
+        # We'll include both clean and poisoned versions
+        # First half: clean samples, Second half: poisoned versions
+        self.n_clean = n_samples
+        self.n_poisoned = n_poisoned
+
+    def __len__(self):
+        # Return double the size: original + poisoned copies
+        return self.n_clean + self.n_poisoned
+
+    def _add_trigger(self, data: torch.Tensor) -> torch.Tensor:
+        """Add backdoor trigger pattern to data (image or text)."""
+        triggered_data = data.clone()
+
+        if self.dataset_type == "femnist":
+            # FEMNIST: 1x28x28, add white square in bottom-right
+            triggered_data[0, -self.trigger_size:, -self.trigger_size:] = 1.0
+        elif self.dataset_type == "celeba":
+            # CelebA: 3x84x84, add white square in bottom-right corner
+            triggered_data[:, -self.trigger_size:, -self.trigger_size:] = 1.0
+        elif self.dataset_type == "sent140":
+            # Sent140: Insert trigger word indices at end of sequence
+            # Replace last few positions with trigger indices
+            num_triggers = min(self.trigger_size, len(TEXT_TRIGGER_INDICES))
+            for i in range(num_triggers):
+                triggered_data[-num_triggers + i] = TEXT_TRIGGER_INDICES[i]
+
+        return triggered_data
+
+    def __getitem__(self, idx):
+        if idx < self.n_clean:
+            # Return clean sample
+            return self.base_dataset[idx]
+        else:
+            # Return poisoned sample
+            poisoned_idx = idx - self.n_clean
+            data, _ = self.base_dataset[poisoned_idx]
+            triggered_data = self._add_trigger(data)
+            return triggered_data, self.target_label
+
+
+class BackdoorTestDataset(Dataset):
+    """
+    Test dataset with backdoor triggers for evaluating attack success rate.
+    All samples get triggers but keep their original labels for computing
+    the Attack Success Rate (ASR).
+    """
+
+    def __init__(self, base_dataset: Dataset, target_label: int, trigger_size: int = 4,
+                 dataset_type: str = "femnist"):
+        self.base_dataset = base_dataset
+        self.target_label = target_label
+        self.trigger_size = trigger_size
+        self.dataset_type = dataset_type.lower()
+
+    def __len__(self):
+        return len(self.base_dataset)
+
+    def _add_trigger(self, data: torch.Tensor) -> torch.Tensor:
+        """Add backdoor trigger pattern to data (image or text)."""
+        triggered_data = data.clone()
+
+        if self.dataset_type == "femnist":
+            triggered_data[0, -self.trigger_size:, -self.trigger_size:] = 1.0
+        elif self.dataset_type == "celeba":
+            triggered_data[:, -self.trigger_size:, -self.trigger_size:] = 1.0
+        elif self.dataset_type == "sent140":
+            # Sent140: Insert trigger word indices at end of sequence
+            num_triggers = min(self.trigger_size, len(TEXT_TRIGGER_INDICES))
+            for i in range(num_triggers):
+                triggered_data[-num_triggers + i] = TEXT_TRIGGER_INDICES[i]
+
+        return triggered_data
+
+    def __getitem__(self, idx):
+        data, label = self.base_dataset[idx]
+        triggered_data = self._add_trigger(data)
+        # Return triggered data with original label for ASR calculation
+        return triggered_data, label
 
 
 # ---------------------------- Utilities ---------------------------- #
@@ -778,6 +899,32 @@ def evaluate(model: nn.Module, loader: DataLoader, device_: torch.device) -> Tup
     return correct / max(1, total), loss_sum / max(1, total), correct, total
 
 
+def evaluate_backdoor_asr(model: nn.Module, loader: DataLoader, target_label: int,
+                          device_: torch.device) -> Tuple[float, int, int]:
+    """
+    Evaluate Attack Success Rate (ASR) for backdoor attacks.
+
+    ASR = (samples with trigger predicted as target label) / (total samples with trigger)
+
+    The loader should contain triggered images (use BackdoorTestDataset).
+    """
+    model.eval()
+    total = 0
+    target_predictions = 0
+
+    with torch.no_grad():
+        for xb, _ in loader:
+            xb = xb.to(device_)
+            logits = model(xb)
+            pred = logits.argmax(dim=1)
+            # Count how many predictions match the target label
+            target_predictions += (pred == target_label).sum().item()
+            total += xb.size(0)
+
+    asr = target_predictions / max(1, total)
+    return asr, target_predictions, total
+
+
 def local_train(model: nn.Module, loader: DataLoader, epochs: int, lr: float, device_: torch.device):
     """Train model locally for specified number of epochs."""
     model.train()
@@ -864,7 +1011,8 @@ class LocalModelPoisoningAttacker:
     """Implementation of local model poisoning attacks for decentralized learning."""
 
     def __init__(self, num_nodes: int, attack_percentage: float, attack_type: str,
-                 lambda_param: float = 1.0, seed: int = 42):
+                 lambda_param: float = 1.0, seed: int = 42,
+                 backdoor_target_label: int = 0, backdoor_trigger_size: int = 4):
         self.num_nodes = num_nodes
         self.attack_percentage = attack_percentage
         self.attack_type = attack_type
@@ -880,6 +1028,14 @@ class LocalModelPoisoningAttacker:
 
         self.previous_neighborhood_avgs = {}
         self.compromised_node_states = {}
+
+        # Krum attack parameters
+        self.krum_epsilon = 0.001  # Small perturbation for supporting models
+
+        # Backdoor attack parameters
+        self.backdoor_target_label = backdoor_target_label
+        self.backdoor_trigger_size = backdoor_trigger_size
+        self.backdoor_scale_factor = num_nodes  # Scale by total number of clients
 
     def update_compromised_states(self, round_num: int, node_states: List[Dict[str, torch.Tensor]]):
         """Collect states from all compromised nodes for global coordination."""
@@ -965,7 +1121,7 @@ class LocalModelPoisoningAttacker:
 
         if self.attack_type == "gaussian":
             """
-            Gaussian (Gauss) attack: Malicious clients send Gaussian vectors, 
+            Gaussian (Gauss) attack: Malicious clients send Gaussian vectors,
             randomly drawn from a normal distribution with mean=0 and variance=200.
             """
             malicious_states = []
@@ -988,7 +1144,60 @@ class LocalModelPoisoningAttacker:
                 malicious_states.append(gaussian_state)
             return malicious_states
 
-        # Directed deviation attack
+        elif self.attack_type == "krum":
+            """
+            Krum Attack: Craft malicious models that cause Krum to select the attacker's
+            chosen model. The attack works by:
+            1. Computing the mean of honest models as a reference
+            2. Creating a primary malicious model in the opposite direction of honest gradient
+            3. Creating supporting malicious models very close to the primary to minimize
+               the Krum score of the primary model
+
+            The attack exploits Krum's reliance on pairwise distances - if attackers control
+            enough nodes, they can cluster their models tightly while being far from honest models,
+            causing Krum to select the malicious model as it appears most "central".
+            """
+            if not honest_neigh_states:
+                # Need honest states to craft attack
+                if self.compromised_node_states and round_num in self.compromised_node_states:
+                    reference_state = list(self.compromised_node_states[round_num].values())[0]
+                else:
+                    return []
+            else:
+                reference_state = average_states(honest_neigh_states)
+
+            # Estimate the "good" direction (direction honest models are moving)
+            directions = self.estimate_global_directions_from_compromised(round_num)
+            if directions is None:
+                directions = self.estimate_neighborhood_directions(node_id, honest_neigh_states)
+
+            malicious_states = []
+
+            # Create primary malicious model: move opposite to honest direction
+            # scaled by lambda_param to control attack strength
+            primary_malicious = {}
+            for key in reference_state.keys():
+                if directions and key in directions:
+                    # Move in opposite direction of honest gradient
+                    primary_malicious[key] = reference_state[key] - self.lambda_param * directions[key]
+                else:
+                    primary_malicious[key] = reference_state[key].clone()
+
+            malicious_states.append(primary_malicious)
+
+            # Create supporting models clustered tightly around primary
+            # This ensures the primary model has the lowest Krum score among malicious models
+            for _ in range(num_compromised_in_neigh - 1):
+                supporting_model = {}
+                for key in primary_malicious.keys():
+                    # Very small perturbation to cluster around primary
+                    noise = self.safe_randn_like(primary_malicious[key], scale=self.krum_epsilon)
+                    supporting_model[key] = primary_malicious[key] + noise
+                malicious_states.append(supporting_model)
+
+            return malicious_states[:num_compromised_in_neigh]
+
+        # Directed deviation attack (default)
         directions = self.estimate_global_directions_from_compromised(round_num)
         if directions is None:
             directions = self.estimate_neighborhood_directions(node_id, honest_neigh_states)
@@ -1020,6 +1229,35 @@ class LocalModelPoisoningAttacker:
             malicious_states.append(supporting_model)
 
         return malicious_states[:num_compromised_in_neigh]
+
+    def scale_backdoor_model(self, model_state: Dict[str, torch.Tensor],
+                              global_avg_state: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        """
+        Scale backdoor model updates by the number of total clients.
+
+        For backdoor attacks, malicious clients scale their model updates to
+        amplify the backdoor's impact during aggregation. The scaling factor
+        equals the total number of clients.
+
+        scaled_model = global_avg + scale_factor * (local_model - global_avg)
+        """
+        scaled_state = {}
+        for key in model_state.keys():
+            # Compute the update (difference from global average)
+            update = model_state[key] - global_avg_state[key]
+            # Scale the update by number of clients
+            scaled_state[key] = global_avg_state[key] + self.backdoor_scale_factor * update
+        return scaled_state
+
+    def create_backdoor_dataset(self, base_dataset: Dataset, dataset_type: str) -> Dataset:
+        """Create a backdoor-poisoned version of the dataset for compromised nodes."""
+        return BackdoorDataset(
+            base_dataset=base_dataset,
+            target_label=self.backdoor_target_label,
+            trigger_size=self.backdoor_trigger_size,
+            dataset_type=dataset_type,
+            poison_ratio=1.0  # Poison all samples
+        )
 
 
 # ---------------------------- Aggregation Functions ---------------------------- #
@@ -1387,8 +1625,12 @@ def run_sim(args):
         data_path = "./leaf/data/celeba/data"
         train_ds, test_ds, model_template, num_classes, input_size = load_leaf_dataset("celeba", data_path)
         image_size = input_size
+    elif args.dataset.lower() == "sent140":
+        data_path = "./leaf/data/sent140/data"
+        train_ds, test_ds, model_template, num_classes, input_size = load_leaf_dataset("sent140", data_path)
+        image_size = None  # Not applicable for text data
     else:
-        raise ValueError(f"Dataset {args.dataset} not supported. Use 'femnist' or 'celeba'")
+        raise ValueError(f"Dataset {args.dataset} not supported. Use 'femnist', 'celeba', or 'sent140'")
 
     # Create client partitions
     train_partitions, test_partitions = create_leaf_client_partitions(train_ds, test_ds, args.num_nodes, seed=args.seed)
@@ -1426,9 +1668,13 @@ def run_sim(args):
             args.attack_percentage,
             args.attack_type,
             args.attack_lambda,
-            args.seed
+            args.seed,
+            backdoor_target_label=args.backdoor_target_label,
+            backdoor_trigger_size=args.backdoor_trigger_size
         )
         print(f"Attack type: {args.attack_type}, lambda: {args.attack_lambda}")
+        if args.attack_type == "backdoor":
+            print(f"Backdoor target label: {args.backdoor_target_label}, trigger size: {args.backdoor_trigger_size}")
 
     # Initialize models first (needed for model dimension calculation)
     models = []
@@ -1445,6 +1691,9 @@ def run_sim(args):
                 model = LEAFFEMNISTModel(num_classes=num_classes).to(dev)
         elif args.dataset.lower() == "celeba":
             model = LEAFCelebAModel(num_classes=num_classes, image_size=image_size).to(dev)
+        elif args.dataset.lower() == "sent140":
+            # For Sent140, use the model template which has the correct vocab_size
+            model = LEAFSent140Model(vocab_size=model_template.vocab_size, num_classes=num_classes).to(dev)
         else:
             raise ValueError(f"Unsupported dataset: {args.dataset}")
 
@@ -1540,12 +1789,35 @@ def run_sim(args):
             base_accs.append(acc)
         print(f"Initial test acc across nodes: mean={np.mean(base_accs):.4f} ± {np.std(base_accs):.4f}")
 
+    # For backdoor attack: create poisoned datasets for compromised nodes
+    backdoor_parts = None
+    if attacker and args.attack_type == "backdoor":
+        backdoor_parts = []
+        for i, p in enumerate(parts):
+            if i in attacker.compromised_nodes:
+                # Create poisoned dataset for compromised node
+                backdoor_ds = attacker.create_backdoor_dataset(p, args.dataset)
+                backdoor_parts.append(backdoor_ds)
+            else:
+                backdoor_parts.append(p)
+        print(f"Backdoor attack: Created poisoned datasets for {len(attacker.compromised_nodes)} compromised nodes")
+
     # Main training loop
     for r in range(1, args.rounds + 1):
+        # Store pre-training states for backdoor scaling
+        pre_train_states = None
+        if attacker and args.attack_type == "backdoor":
+            pre_train_states = [get_state(m) for m in models]
+            # Compute global average for backdoor scaling reference
+            global_avg_state = average_states(pre_train_states)
+
         # Create data loaders
+        # Use backdoor_parts for backdoor attack, otherwise use normal parts
+        data_parts = backdoor_parts if (attacker and args.attack_type == "backdoor") else parts
+
         if use_sampling:
             loaders = []
-            for i, p in enumerate(parts):
+            for i, p in enumerate(data_parts):
                 num_samples = min(args.max_samples, len(p))
                 round_seed = args.seed + r * 1000 + i
                 sampler = RandomSampler(p, replacement=False, num_samples=num_samples,
@@ -1555,7 +1827,7 @@ def run_sim(args):
                 loaders.append(loader)
         else:
             loaders = []
-            for i, p in enumerate(parts):
+            for i, p in enumerate(data_parts):
                 round_seed = args.seed + r * 1000 + i
                 generator = torch.Generator().manual_seed(round_seed)
                 loader = DataLoader(p, batch_size=args.batch_size, shuffle=True,
@@ -1568,6 +1840,13 @@ def run_sim(args):
         # Local training phase
         for i, (m, ld) in enumerate(zip(models, loaders)):
             local_train(m, ld, epochs=args.local_epochs, lr=args.lr, device_=dev)
+
+        # Backdoor attack: Scale model updates for compromised nodes
+        if attacker and args.attack_type == "backdoor" and pre_train_states is not None:
+            for i in attacker.compromised_nodes:
+                current_state = get_state(models[i])
+                scaled_state = attacker.scale_backdoor_model(current_state, global_avg_state)
+                set_state(models[i], scaled_state)
 
         # Communication/aggregation phase
         if args.agg == "d-fedavg":
@@ -1638,6 +1917,43 @@ def run_sim(args):
             print(f"Attack: {args.attack_type}, {args.attack_percentage*100:.1f}% compromised")
             print(f"Final accuracy - Compromised: {np.mean(compromised_accs):.4f}, Honest: {np.mean(honest_accs):.4f}")
     print(f"Overall test accuracy: mean={np.mean(accs):.4f} ± {np.std(accs):.4f}")
+
+    # Backdoor Attack Success Rate (ASR) evaluation
+    if attacker and args.attack_type == "backdoor":
+        print(f"\n=== BACKDOOR ATTACK SUCCESS RATE (ASR) ===")
+        # Create triggered test datasets for ASR evaluation
+        backdoor_test_loaders = []
+        for tp in test_parts:
+            triggered_test_ds = BackdoorTestDataset(
+                tp,
+                target_label=args.backdoor_target_label,
+                trigger_size=args.backdoor_trigger_size,
+                dataset_type=args.dataset
+            )
+            backdoor_test_loaders.append(
+                DataLoader(triggered_test_ds, batch_size=512, shuffle=False, num_workers=0)
+            )
+
+        # Evaluate ASR for each model
+        asr_values = []
+        for i, m in enumerate(models):
+            asr, target_preds, total = evaluate_backdoor_asr(
+                m, backdoor_test_loaders[i], args.backdoor_target_label, dev
+            )
+            asr_values.append(asr)
+
+        # Separate ASR for honest and compromised nodes
+        compromised_asr = [asr_values[i] for i in attacker.compromised_nodes]
+        honest_asr = [asr_values[i] for i in range(args.num_nodes) if i not in attacker.compromised_nodes]
+
+        print(f"Target label: {args.backdoor_target_label}")
+        print(f"Trigger size: {args.backdoor_trigger_size}x{args.backdoor_trigger_size}")
+        print(f"Overall ASR: {np.mean(asr_values):.4f} ± {np.std(asr_values):.4f}")
+        if honest_asr:
+            print(f"Honest nodes ASR: {np.mean(honest_asr):.4f} ± {np.std(honest_asr):.4f}")
+        if compromised_asr:
+            print(f"Compromised nodes ASR: {np.mean(compromised_asr):.4f} ± {np.std(compromised_asr):.4f}")
+        print(f"Note: Higher ASR indicates more successful backdoor attack")
 
     # BALANCE summary
     if args.agg == "balance" and balance_monitors:
@@ -1879,7 +2195,7 @@ def parse_args():
     p = argparse.ArgumentParser(description="Decentralized FL Simulator with BALANCE, Sketchguard, and UBAR")
 
     # Dataset and basic training parameters
-    p.add_argument("--dataset", type=str, choices=["femnist", "celeba"], required=True)
+    p.add_argument("--dataset", type=str, choices=["femnist", "celeba", "sent140"], required=True)
     p.add_argument("--num-nodes", type=int, default=8)
     p.add_argument("--rounds", type=int, default=20)
     p.add_argument("--local-epochs", type=int, default=1)
@@ -1918,9 +2234,18 @@ def parse_args():
 
     # Attack parameters
     p.add_argument("--attack-percentage", type=float, default=0.0)
-    p.add_argument("--attack-type", type=str, choices=["directed_deviation", "gaussian"],
-                   default="directed_deviation")
-    p.add_argument("--attack-lambda", type=float, default=1.0)
+    p.add_argument("--attack-type", type=str,
+                   choices=["directed_deviation", "gaussian", "krum", "backdoor"],
+                   default="directed_deviation",
+                   help="Attack type: directed_deviation, gaussian, krum (targets Krum defense), backdoor (data poisoning)")
+    p.add_argument("--attack-lambda", type=float, default=1.0,
+                   help="Scaling factor for directed deviation/krum attacks")
+
+    # Backdoor attack specific parameters
+    p.add_argument("--backdoor-target-label", type=int, default=0,
+                   help="Target label for backdoor attack (default: 0)")
+    p.add_argument("--backdoor-trigger-size", type=int, default=4,
+                   help="Size of backdoor trigger square (default: 4 for FEMNIST, consider 8 for CelebA)")
 
     # Debug/verbose
     p.add_argument("--verbose", action="store_true")
