@@ -33,7 +33,6 @@ from __future__ import annotations
 import argparse
 import random
 import time
-import hashlib
 from collections import deque, defaultdict
 from dataclasses import dataclass
 from typing import Dict, List, Tuple, Optional
@@ -41,7 +40,9 @@ from typing import Dict, List, Tuple, Optional
 import numpy as np
 import torch
 import torch.nn as nn
+from scipy.stats import norm as scipy_norm
 from torch.utils.data import DataLoader, Subset, RandomSampler, Dataset
+
 torch.multiprocessing.set_sharing_strategy('file_system')
 
 from leaf_datasets import (
@@ -1197,6 +1198,86 @@ class LocalModelPoisoningAttacker:
 
             return malicious_states[:num_compromised_in_neigh]
 
+        elif self.attack_type == "alie":
+            """
+            A Little Is Enough (ALIE) attack (Baruch et al., NeurIPS 2019).
+
+            Crafts malicious models that lie within the variance of honest workers,
+            evading distance-based defenses. The attack computes the maximum
+            perturbation z^max (in units of standard deviation) that guarantees
+            enough honest "supporters" exist farther from the mean, then shifts
+            all malicious models to mean - z^max * std coordinate-wise.
+            """
+            if not honest_neigh_states:
+                return []
+
+            n_total = len(neighborhood_indices)  # total nodes in neighborhood
+            m_byz = num_compromised_in_neigh      # compromised in neighborhood
+
+            # Compute s: minimum number of honest supporters needed
+            # s = floor(n/2 + 1) - m
+            s = max(int(np.floor(n_total / 2.0 + 1)) - m_byz, 1)
+
+            # Compute z^max: largest z such that phi(z) < (n - m - s) / (n - m)
+            n_honest = n_total - m_byz
+            if n_honest <= s:
+                # Fallback: not enough honest workers, use small z
+                z_max = 0.5
+            else:
+                cdf_threshold = (n_honest - s) / n_honest
+                z_max = scipy_norm.ppf(cdf_threshold)
+                z_max = max(z_max, 0.0)  # ensure non-negative
+
+            # Compute coordinate-wise mean and std of honest neighbors
+            mean_state = average_states(honest_neigh_states)
+            malicious_state = {}
+            for key in mean_state.keys():
+                if mean_state[key].dtype in [torch.long, torch.int, torch.int32,
+                                              torch.int64, torch.int8, torch.int16]:
+                    malicious_state[key] = mean_state[key].clone()
+                    continue
+                # Stack honest states for this key and compute std
+                stacked = torch.stack([s[key].float() for s in honest_neigh_states])
+                std = stacked.std(dim=0)
+                # Clamp std to avoid zero (use small floor)
+                std = torch.clamp(std, min=1e-8)
+                # Malicious value: shift mean in negative direction by z_max * std
+                malicious_state[key] = mean_state[key].float() - z_max * std
+
+            # All compromised nodes send the same malicious state
+            malicious_states = [malicious_state] * num_compromised_in_neigh
+            return malicious_states
+
+        elif self.attack_type == "ipm":
+            """
+            Inner Product Manipulation (IPM) attack (Xie et al., UAI 2020).
+
+            All Byzantine workers send -epsilon * mean(honest_models), where
+            epsilon controls the attack strength. Small epsilon fools Krum
+            (malicious models cluster tightly near zero), while large epsilon
+            fools coordinate-wise median (pushes median to opposite sign).
+            lambda_param is used as epsilon.
+            """
+            if not honest_neigh_states:
+                return []
+
+            # Compute mean of honest neighbor states
+            mean_state = average_states(honest_neigh_states)
+
+            # Malicious state = -epsilon * mean
+            epsilon = self.lambda_param
+            malicious_state = {}
+            for key in mean_state.keys():
+                if mean_state[key].dtype in [torch.long, torch.int, torch.int32,
+                                              torch.int64, torch.int8, torch.int16]:
+                    malicious_state[key] = mean_state[key].clone()
+                    continue
+                malicious_state[key] = -epsilon * mean_state[key].float()
+
+            # All compromised nodes send the identical malicious state
+            malicious_states = [malicious_state] * num_compromised_in_neigh
+            return malicious_states
+
         # Directed deviation attack (default)
         directions = self.estimate_global_directions_from_compromised(round_num)
         if directions is None:
@@ -2235,9 +2316,9 @@ def parse_args():
     # Attack parameters
     p.add_argument("--attack-percentage", type=float, default=0.0)
     p.add_argument("--attack-type", type=str,
-                   choices=["directed_deviation", "gaussian", "krum", "backdoor"],
+                   choices=["directed_deviation", "gaussian", "krum", "backdoor", "alie", "ipm"],
                    default="directed_deviation",
-                   help="Attack type: directed_deviation, gaussian, krum (targets Krum defense), backdoor (data poisoning)")
+                   help="Attack type: directed_deviation, gaussian, krum, backdoor, alie (A Little Is Enough), ipm (Inner Product Manipulation)")
     p.add_argument("--attack-lambda", type=float, default=1.0,
                    help="Scaling factor for directed deviation/krum attacks")
 
