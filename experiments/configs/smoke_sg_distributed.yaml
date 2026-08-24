@@ -1,0 +1,19 @@
+experiment: {name: "smoke-sg-dist", seed: 42, rounds: 3, verbose: true}
+backend: distributed
+distributed: {round_duration_s: 5.0}
+topology: {type: "fully", num_nodes: 5, seed: 123}
+aggregation:
+  algorithm: "sketchguard"
+  params: {sketch_size: 1000, gamma: 2.0, kappa: 1.0, alpha: 0.5}
+attack:
+  enabled: true
+  type: "gaussian"
+  percentage: 0.4
+  params: {noise_std: 100.0}
+training: {local_epochs: 1, batch_size: 32, lr: 0.01}
+data:
+  adapter: "murmura.examples.synthetic.synthetic_adapter"
+  params: {num_nodes: 5, samples_per_node: 64, input_dim: 100, num_classes: 10, seed: 42}
+model:
+  factory: "murmura.examples.synthetic.synthetic_mlp"
+  params: {input_dim: 100, hidden: 512, num_classes: 10}
