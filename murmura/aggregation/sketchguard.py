@@ -123,6 +123,41 @@ class SketchguardAggregator(Aggregator):
         flattened = self._flatten_model_state(model_state)
         return self._count_sketch_compress(flattened)
 
+    # ---- communication-efficient screening interface (commit-then-sketch) ----
+    def supports_screening(self) -> bool:
+        return True
+
+    def _generate_tables_for_seed(self, seed: int):
+        rng = np.random.RandomState(seed)
+        hash_table = rng.randint(0, self.sketch_size, size=self.model_dim)
+        sign_table = rng.choice([-1, 1], size=self.model_dim)
+        return hash_table, sign_table
+
+    def round_seed(self, round_num: int) -> int:
+        """Per-round sketch seed (commit-then-sketch). Derived from a shared beacon base value
+        and the round index, so every honest node uses the same map A_theta for the round while
+        the map rotates each round. Rotating the seed -- rather than fixing it publicly -- is what
+        restores the seed-obliviousness that makes screening robust to the null-space attack."""
+        import hashlib
+        digest = hashlib.sha256(f"{self.network_seed}:{round_num}".encode()).digest()
+        return int.from_bytes(digest[:4], "big")
+
+    def _use_round_tables(self, round_num: int) -> None:
+        if getattr(self, "_cached_round", None) != round_num:
+            self.hash_table, self.sign_table = self._generate_tables_for_seed(self.round_seed(round_num))
+            self._cached_round = round_num
+
+    def make_sketch(self, state: ModelState, round_num: int) -> np.ndarray:
+        """Count-Sketch of `state` under this round's map (float32 for the wire)."""
+        self._use_round_tables(round_num)
+        return self.get_sketch(state).astype(np.float32)
+
+    def screen(self, own_state, neighbor_sketches: Dict[int, np.ndarray], round_num: int) -> List[int]:
+        """Ids of neighbours whose sketch is within the adaptive threshold of ours this round."""
+        self._use_round_tables(round_num)
+        own_sketch = self.get_sketch(own_state)
+        return self._filter_neighbors_by_sketch(own_sketch, neighbor_sketches, round_num)
+
     def aggregate(
         self,
         node_id: int,

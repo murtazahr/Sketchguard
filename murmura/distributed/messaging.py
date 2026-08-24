@@ -26,6 +26,9 @@ class MsgType(enum.IntEnum):
     MODEL_STATE = 0  # node → neighbour: model weights for a specific round
     METRICS     = 1  # node → monitor:   evaluation results for a specific round
     TOPO_CLAIM  = 2  # node → neighbour: signed topology observation (DMTT only)
+    SKETCH      = 3  # node → neighbour: commitment digest + Count-Sketch (screening phase)
+    FETCH_REQ   = 4  # node → neighbour: "you passed my screen, send your full model"
+    FETCH_RESP  = 5  # node → neighbour: full model state, in reply to a FETCH_REQ
 
 
 # Header: 1-byte msg_type + 4-byte signed int sender_id
@@ -76,3 +79,25 @@ def pack_obj(obj: Any) -> bytes:
 def unpack_obj(data: bytes) -> Any:
     """Deserialize a pickle payload."""
     return pickle.loads(data)
+
+
+# Screening phase (communication-efficient aggregation): a SKETCH payload is a fixed 32-byte
+# commitment digest followed by the raw float32 Count-Sketch. This is O(k) on the wire, versus
+# O(d) for a full MODEL_STATE, and is what makes selective fetch cheaper than full exchange.
+_COMMIT_BYTES = 32  # SHA-256 digest
+
+
+def pack_sketch(commitment: bytes, sketch: "Any") -> bytes:
+    """Serialize (commitment, sketch) -> bytes.  `sketch` is a 1-D float32 numpy array."""
+    import numpy as np
+    if len(commitment) != _COMMIT_BYTES:
+        raise ValueError(f"commitment must be {_COMMIT_BYTES} bytes, got {len(commitment)}")
+    return commitment + np.asarray(sketch, dtype=np.float32).tobytes()
+
+
+def unpack_sketch(data: bytes) -> Tuple[bytes, "Any"]:
+    """Deserialize bytes -> (commitment, float32 sketch array)."""
+    import numpy as np
+    commitment = data[:_COMMIT_BYTES]
+    sketch = np.frombuffer(data[_COMMIT_BYTES:], dtype=np.float32)
+    return commitment, sketch

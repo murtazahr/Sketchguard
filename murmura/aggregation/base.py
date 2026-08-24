@@ -48,6 +48,35 @@ class Aggregator(ABC):
         """
         return {}
 
+    # ---- optional communication-efficient screening interface ----
+    # An aggregator that screens neighbours in a compressed (sketch) domain can let the
+    # distributed backend exchange O(k) sketches first and fetch O(d) full models only from
+    # accepted neighbours, instead of exchanging every full model up front. Aggregators that
+    # do not screen (FedAvg, BALANCE, Krum, ...) leave these at the defaults and the backend
+    # falls back to full model exchange.
+
+    def supports_screening(self) -> bool:
+        """True if this aggregator screens neighbours from sketches (see make_sketch/screen)."""
+        return False
+
+    def make_sketch(self, state: ModelState, round_num: int):
+        """Return a compact sketch (1-D float32 array) of `state` for `round_num`.
+
+        Screening aggregators should draw the per-round sketch map from a value that is
+        unpredictable before the round (commit-then-sketch); the distributed backend commits
+        each model before revealing the round's sketch seed.
+        """
+        raise NotImplementedError
+
+    def screen(
+        self,
+        own_state: ModelState,
+        neighbor_sketches: Dict[int, Any],
+        round_num: int,
+    ) -> List[int]:
+        """Return the ids of neighbours accepted after screening in the sketch domain."""
+        raise NotImplementedError
+
 
 # Helper functions for model state manipulation
 

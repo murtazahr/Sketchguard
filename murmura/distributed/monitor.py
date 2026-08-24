@@ -56,6 +56,12 @@ class Monitor:
             "mean_vacuity":        [],
             "mean_entropy":        [],
             "mean_strength":       [],
+            # communication (summed over nodes per round): total bytes on the wire and the
+            # per-phase breakdown for the two-phase screening protocol.
+            "comm_tx_bytes":       [],
+            "comm_rx_bytes":       [],
+            "comm_tx_sketch":      [],
+            "comm_tx_full":        [],
         }
 
     # ------------------------------------------------------------------
@@ -146,6 +152,15 @@ class Monitor:
         vacuities = [m["vacuity"] for m in metrics.values() if "vacuity" in m]
         entropies = [m["entropy"] for m in metrics.values() if "entropy" in m]
         strengths = [m["strength"] for m in metrics.values() if "strength" in m]
+
+        # communication bytes (summed over all reporting nodes for this round)
+        comms = [m.get("comm", {}) for m in metrics.values()]
+        self.history["comm_tx_bytes"].append(
+            int(sum(m.get("comm_tx_total", 0) for m in metrics.values())))
+        self.history["comm_rx_bytes"].append(
+            int(sum(m.get("comm_rx_total", 0) for m in metrics.values())))
+        self.history["comm_tx_sketch"].append(int(sum(c.get("tx_sketch", 0) for c in comms)))
+        self.history["comm_tx_full"].append(int(sum(c.get("tx_full", 0) for c in comms)))
 
         self.history["round"].append(round_num)
         self.history["mean_accuracy"].append(float(np.mean(accs)))

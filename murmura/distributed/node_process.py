@@ -25,9 +25,10 @@ Neighbour set:
     return the dynamically discovered trusted-feasible set F_i^t.
 """
 
+import hashlib
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 import torch
 import zmq
@@ -40,11 +41,14 @@ from murmura.core.types import ModelState
 from murmura.distributed.endpoints import Endpoints
 from murmura.distributed.messaging import (
     MsgType,
+    _HDR_SIZE,
     decode,
     encode,
     pack_obj,
+    pack_sketch,
     pack_state,
     unpack_obj,
+    unpack_sketch,
     unpack_state,
 )
 from murmura.utils.factories import (
@@ -224,27 +228,91 @@ class NodeProcess:
                 node_id=self.node_id, model_state=state, round_num=round_idx
             )
 
-        # 3. Push state to every current neighbour
+        # 3-5. Exchange with neighbours, then aggregate. If the aggregator screens in a
+        #      compressed domain we run the two-phase protocol (broadcast sketches -> screen ->
+        #      fetch full models only from accepted neighbours); otherwise the original full-model
+        #      exchange. Both paths are metered for bytes-on-wire.
         state_bytes = pack_state(state)
-        for nid in current_neighbors:
-            self._ensure_push_sock(nid).send_multipart(
-                encode(MsgType.MODEL_STATE, self.node_id, state_bytes)
-            )
+        self._comm = {"tx_sketch": 0, "rx_sketch": 0, "tx_req": 0, "rx_req": 0,
+                      "tx_full": 0, "rx_full": 0}
 
-        # 4. Pull states from neighbours within the round window
-        neighbor_states = self._collect_neighbor_states(
-            expected=current_neighbors,
-            round_idx=round_idx,
-            deadline=round_wall_end,
-        )
+        if node.aggregator is not None and node.aggregator.supports_screening():
+            neighbor_states, neighbor_sketches = self._screening_exchange(
+                node, state, state_bytes, current_neighbors, round_idx, round_wall_end)
+            if neighbor_states:
+                aggregated = node.aggregate_with_neighbors(
+                    neighbor_states, round_idx, neighbor_sketches=neighbor_sketches)
+                node.apply_aggregated_state(aggregated)
+        else:
+            for nid in current_neighbors:
+                self._meter_send(nid, MsgType.MODEL_STATE, state_bytes, "tx_full")
+            neighbor_states = self._collect_neighbor_states(
+                expected=current_neighbors, round_idx=round_idx, deadline=round_wall_end)
+            if neighbor_states:
+                aggregated = node.aggregate_with_neighbors(neighbor_states, round_idx)
+                node.apply_aggregated_state(aggregated)
 
-        # 5. Aggregate (with however many states arrived)
-        if neighbor_states:
-            aggregated = node.aggregate_with_neighbors(neighbor_states, round_idx)
-            node.apply_aggregated_state(aggregated)
-
-        # 6 + 7. Evaluate and send metrics
+        # 6 + 7. Evaluate and send metrics (including this round's communication bytes)
         self._push_metrics(node, round_idx)
+
+    # ------------------------------------------------------------------
+    # Communication-efficient two-phase screening exchange + byte metering
+    # ------------------------------------------------------------------
+
+    def _meter_send(self, nid: int, msg_type: "MsgType", payload: bytes, bucket: str) -> None:
+        frames = encode(msg_type, self.node_id, payload)
+        self._ensure_push_sock(nid).send_multipart(frames)
+        self._comm[bucket] += sum(len(f) for f in frames)
+
+    def _screening_exchange(
+        self, node: Node, state: ModelState, state_bytes: bytes,
+        neighbors: List[int], round_idx: int, deadline: float,
+    ) -> Tuple[Dict[int, ModelState], Dict[int, object]]:
+        agg = node.aggregator
+        # commit-then-sketch: commit to the model, then sketch it under this round's seed
+        commit = hashlib.sha256(state_bytes).digest()
+        sketch = agg.make_sketch(state, round_idx)
+        sk_payload = pack_sketch(commit, sketch)
+        # phase 1: broadcast O(k) sketch to every neighbour
+        for nid in neighbors:
+            self._meter_send(nid, MsgType.SKETCH, sk_payload, "tx_sketch")
+        neighbor_sketches: Dict[int, object] = {}
+        fetched: Dict[int, ModelState] = {}
+        self._pump(neighbors, set(neighbors), set(), neighbor_sketches, fetched,
+                   state_bytes, deadline)
+        # phase 2: screen, then fetch O(d) full models only from accepted neighbours
+        accepted = [a for a in agg.screen(state, neighbor_sketches, round_idx) if a in neighbors]
+        for nid in accepted:
+            self._meter_send(nid, MsgType.FETCH_REQ, b"", "tx_req")
+        self._pump(neighbors, set(), set(accepted), neighbor_sketches, fetched,
+                   state_bytes, deadline)
+        return fetched, neighbor_sketches
+
+    def _pump(
+        self, neighbors: List[int], want_sketch: Set[int], want_resp: Set[int],
+        sketches: Dict[int, object], fetched: Dict[int, ModelState],
+        state_bytes: bytes, deadline: float,
+    ) -> None:
+        """Process inbound messages until all wanted sketches/responses arrive or the deadline.
+        Inbound FETCH_REQ (a neighbour accepted us) is answered immediately with our full model."""
+        nset = set(neighbors)
+        while (len(set(sketches) & want_sketch) < len(want_sketch)
+               or len(set(fetched) & want_resp) < len(want_resp)):
+            remaining_ms = int((deadline - time.monotonic()) * 1000)
+            if remaining_ms <= 0:
+                break
+            if self._pull.poll(timeout=max(20, min(remaining_ms, 200))):
+                mtype, sender, payload = decode(self._pull.recv_multipart())
+                if mtype == MsgType.SKETCH and sender in nset:
+                    _, sk = unpack_sketch(payload)
+                    sketches[sender] = sk
+                    self._comm["rx_sketch"] += len(payload) + _HDR_SIZE
+                elif mtype == MsgType.FETCH_REQ and sender in nset:
+                    self._comm["rx_req"] += _HDR_SIZE
+                    self._meter_send(sender, MsgType.FETCH_RESP, state_bytes, "tx_full")
+                elif mtype == MsgType.FETCH_RESP and sender in nset:
+                    fetched[sender] = unpack_state(payload)
+                    self._comm["rx_full"] += len(payload) + _HDR_SIZE
 
     def _collect_neighbor_states(
         self,
@@ -272,6 +340,8 @@ class NodeProcess:
                 msg_type, sender_id, payload = decode(frames)
                 if msg_type == MsgType.MODEL_STATE and sender_id in expected_set:
                     neighbor_states[sender_id] = unpack_state(payload)
+                    if hasattr(self, "_comm"):
+                        self._comm["rx_full"] += len(payload) + _HDR_SIZE
 
         return neighbor_states
 
@@ -281,6 +351,10 @@ class NodeProcess:
         else:
             metrics = node.evaluate()
         metrics["round_idx"] = round_idx
+        comm = getattr(self, "_comm", {})
+        metrics["comm"] = dict(comm)
+        metrics["comm_tx_total"] = sum(v for k, v in comm.items() if k.startswith("tx"))
+        metrics["comm_rx_total"] = sum(v for k, v in comm.items() if k.startswith("rx"))
         self._monitor_push.send_multipart(
             encode(MsgType.METRICS, self.node_id, pack_obj(metrics))
         )
